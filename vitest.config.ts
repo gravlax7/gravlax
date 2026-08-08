@@ -6,8 +6,8 @@ export default defineConfig({
     environment: 'node',
     include: [
       'src/main/core/**/__tests__/**/*.test.ts',
-      'src/shared/**/__tests__/**/*.test.ts',
-      '__tests__/**/*.test.ts'
+      'src/main/services/__tests__/**/*.test.ts',
+      'src/shared/**/__tests__/**/*.test.ts'
     ],
     exclude: ['node_modules', 'out', 'dist']
   },

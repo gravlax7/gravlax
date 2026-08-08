@@ -1,4 +1,4 @@
-# Thinking, writing and answering style
+## Thinking, writing and answering style
 
 Never use a metaphor, simile, or other figure of speech which you are used to seeing in print.
 Never use a long word where a short one will do.
