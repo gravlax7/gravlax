@@ -1,0 +1,35 @@
+import { describe, expect, it } from 'vitest'
+import { buildFilesRenamePlan, isMultiDisc } from '../naming'
+
+const naming = {
+  albumDescriptionTemplateId: 'x',
+  releaseFolderTemplate: '{artists} - {title} ({year}) [{source} {format}]',
+  trackFileTemplate: '{trackNumber}. {title}',
+  multiDiscFolderTemplate: 'Disc {discNumber}'
+}
+
+describe('buildFilesRenamePlan', () => {
+  it('pads tracks and creates disc and release folders', () => {
+    const plan = buildFilesRenamePlan({
+      release: { artists: [{ name: 'A' }], title: 'Album', groupYear: '2001', tracks: [{ trackNumber: '1', discNumber: '2', title: 'A/B' }, { trackNumber: '2', discNumber: '1', title: 'Song' }] },
+      files: { original: { captured: false, coverCaptured: false, folderName: 'old', files: [] }, apply: { phase: 'idle', onDiskModified: false, stripEmbeddedCoverArt: true, renameReleaseFolder: true, currentFolderName: 'old', files: [{ id: 'a', currentPath: 'x.flac' }, { id: 'b', currentPath: 'y.flac' }] } },
+      naming,
+      sourceMedia: 'WEB',
+      encoding: 'Lossless'
+    })
+    expect(plan.folderName).toBe('A - Album (2001) [WEB FLAC]')
+    expect(plan.files[0]?.targetPath).toBe('Disc 02/01. A_B.flac')
+    expect(plan.errors).toEqual([])
+  })
+})
+
+describe('isMultiDisc', () => {
+  it('is true only when a track carries a disc above one', () => {
+    expect(isMultiDisc(['1', '1'])).toBe(false)
+    expect(isMultiDisc(['1', '2'])).toBe(true)
+    // Reads the leading integer, so these all resolve to disc one.
+    expect(isMultiDisc(['1/1'])).toBe(false)
+    expect(isMultiDisc(['01', ''])).toBe(false)
+    expect(isMultiDisc([undefined, ''])).toBe(false)
+  })
+})

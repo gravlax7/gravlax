@@ -1,0 +1,227 @@
+:root {
+  --accent: #eb6963;
+  --accent-hover: #f07a74;
+  --accent-dim: #eb696333;
+  --accent-border: #eb696366;
+  --accent-fg: #1a1012;
+
+  --info: #4da3ff;
+  --progress: #9b7bff;
+  --warning: #ff9f1c;
+  --error: #ff4d4f;
+  --success: #32d583;
+
+  --diff-removed: #ff9aa2;
+  --diff-added: #9bd3a8;
+  --meta-label: #ff7a90;
+
+  --bg-base: #0d0d0f;
+  --bg-surface: #141416;
+  --bg-raised: #1b1b1e;
+  --bg-hover: #232326;
+  --bg-overlay: rgba(0, 0, 0, 0.55);
+
+  --fg-primary: #e8e8ea;
+  --fg-secondary: #a0a0a6;
+  --fg-muted: #6e6e75;
+  --fg-faint: #48484e;
+
+  --border: #26262a;
+  --border-strong: #3a3a40;
+  --border-focus: var(--accent);
+  --focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
+
+  --font-ui: ui-sans-serif, -apple-system, 'Segoe UI', Inter, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius: var(--radius-sm);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
+
+  --ease: cubic-bezier(0.2, 0.9, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration: 160ms;
+  --duration-slow: 220ms;
+
+  --titlebar-height: 38px;
+  --content-max: 960px;
+  --sidebar-width: 200px;
+
+  --toggle-track: #3a3a40;
+  --toggle-track-hover: #45454c;
+  --toggle-thumb: #ffffff;
+}
+
+[data-theme='light'] {
+  --accent: #cf4a44;
+  --accent-hover: #b83f3a;
+  --accent-dim: #cf4a4422;
+  --accent-border: #cf4a4466;
+  --accent-fg: #ffffff;
+
+  --info: #1a7ad9;
+  --progress: #6b4fd4;
+  --warning: #c77700;
+  --error: #d93025;
+  --success: #1a8f5c;
+
+  --diff-removed: #c44a52;
+  --diff-added: #2d7a4a;
+  --meta-label: #c4455e;
+
+  --bg-base: #f4f2ef;
+  --bg-surface: #ffffff;
+  --bg-raised: #ffffff;
+  --bg-hover: #ebe8e4;
+  --bg-overlay: rgba(20, 16, 14, 0.4);
+
+  --fg-primary: #1a1816;
+  --fg-secondary: #5c5854;
+  --fg-muted: #8a8580;
+  --fg-faint: #b0aba5;
+
+  --border: #e0dcd6;
+  --border-strong: #c8c2ba;
+  --border-focus: var(--accent);
+  --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+
+  --shadow-sm: 0 1px 2px rgba(40, 30, 20, 0.08);
+  --shadow-md: 0 8px 24px rgba(40, 30, 20, 0.12);
+  --shadow-lg: 0 16px 48px rgba(40, 30, 20, 0.16);
+
+  --toggle-track: #c8c2ba;
+  --toggle-track-hover: #b0aba5;
+  --toggle-thumb: #ffffff;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  overflow: hidden;
+  user-select: none;
+  transition: background-color var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: var(--fg-primary);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+button {
+  cursor: pointer;
+  padding: 6px 12px;
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+  transition:
+    background-color var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease),
+    opacity var(--duration-fast) var(--ease);
+}
+
+button:hover:not(:disabled) {
+  background: var(--border-strong);
+  border-color: var(--border-strong);
+}
+
+button:active:not(:disabled) {
+  background: var(--border-strong);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+input,
+textarea {
+  padding: 6px 10px;
+  background: var(--bg-base);
+}
+
+/* Matches button:disabled above. Without this a disabled input keeps its
+   authored background and colour, so it looks editable but silently drops
+   keystrokes. */
+input:disabled,
+textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+input:focus,
+textarea:focus {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.app-drag {
+  -webkit-app-region: drag;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

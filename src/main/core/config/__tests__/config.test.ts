@@ -1,0 +1,369 @@
+import { describe, expect, it } from 'vitest'
+import { defaultConfig, resetSection, validate } from '@main/core/config'
+import { mergeLoadedConfig } from '@main/core/config/store'
+import { sections } from '@shared/config/sections'
+
+describe('config', () => {
+  it('default includes every section with expected values', () => {
+    const cfg = defaultConfig()
+    expect(cfg.naming.releaseFolderTemplate).not.toBe('')
+    expect(cfg.naming.trackFileTemplate).not.toBe('')
+    expect(cfg.naming.albumDescriptionTemplateId).toBe('peachfuzz')
+    expect(sections()[0]?.id).toBe('appearance')
+    expect(sections()[1]?.id).toBe('directories')
+    expect(sections()[2]?.id).toBe('imageHosts')
+    expect(sections()[3]?.id).toBe('spectral')
+    expect(cfg.appearance.theme).toBe('system')
+    expect(cfg.workflow.confirmBeforeWrites).toBe(true)
+    expect(cfg.workflow.useUpcAsCatNo).toBe(true)
+    expect(cfg.metadataProviders.requestTimeoutSeconds).toBe(10)
+    expect(cfg.metadataProviders.musicBrainz.enabled).toBe(true)
+    expect(cfg.metadataProviders.deezer.enabled).toBe(false)
+    expect(cfg.spectral.defaultSpectralIds).toBe('Random')
+    expect(cfg.spectral.defaultSpectralIdsForLossyMasters).toBe('All')
+    expect(cfg.spectral.compress).toBe(true)
+  })
+
+  it('resetSection restores defaults for one section', () => {
+    let cfg = defaultConfig()
+    cfg = { ...cfg, directories: { ...cfg.directories, source: '/tmp' } }
+    cfg = resetSection(cfg, 'directories')
+    expect(cfg.directories.source).toBe('')
+  })
+
+  it('drops retired naming settings when loading config', () => {
+    const cfg = mergeLoadedConfig({
+      naming: {
+        releaseFolderTemplate: '{title}',
+        replaceSpacesWith: '_'
+      }
+    })
+    expect(cfg.naming.releaseFolderTemplate).toBe('{title}')
+    expect(cfg.naming).not.toHaveProperty('replaceSpacesWith')
+  })
+
+  it('drops the retired temporary directory setting when loading config', () => {
+    const cfg = mergeLoadedConfig({
+      cleanup: {
+        deleteTemporaryFiles: false,
+        temporaryDirectory: '/tmp/gravlax'
+      }
+    })
+    expect(cfg.cleanup.deleteTemporaryFiles).toBe(false)
+    expect(cfg.cleanup).not.toHaveProperty('temporaryDirectory')
+  })
+
+  it('drops retired workflow settings when loading config', () => {
+    const cfg = mergeLoadedConfig({
+      workflow: {
+        confirmBeforeWrites: false,
+        confirmBeforeNetworkActions: false,
+        autoSaveMetadata: true,
+        showAdvancedSettings: true,
+        startInLastDirectory: true
+      }
+    })
+    expect(cfg.workflow.confirmBeforeWrites).toBe(false)
+    expect(cfg.workflow).not.toHaveProperty('confirmBeforeNetworkActions')
+    expect(cfg.workflow).not.toHaveProperty('autoSaveMetadata')
+    expect(cfg.workflow).not.toHaveProperty('showAdvancedSettings')
+    expect(cfg.workflow).not.toHaveProperty('startInLastDirectory')
+  })
+
+  it('validate catches required fields', () => {
+    let cfg = defaultConfig()
+    cfg = {
+      ...cfg,
+      trackers: {
+        ...cfg.trackers,
+        redacted: { ...cfg.trackers.redacted, enabled: true, siteUrl: '', announceUrl: '' }
+      },
+      naming: { ...cfg.naming, releaseFolderTemplate: '' }
+    }
+    const issues = validate(cfg)
+    expect(issues.some((i) => i.field === 'redacted.siteUrl')).toBe(true)
+    expect(issues.some((i) => i.field === 'redacted.announceUrl')).toBe(true)
+    expect(issues.some((i) => i.field === 'redacted.apiKey')).toBe(true)
+    expect(issues.some((i) => i.field === 'releaseFolderTemplate')).toBe(true)
+  })
+
+  it('validate requires a category under automatic torrent management', () => {
+    const cfg = defaultConfig()
+    cfg.torrentClient.enabled = true
+    cfg.torrentClient.url = 'http://127.0.0.1:8080'
+    cfg.torrentClient.useAutoTMM = true
+
+    // Without a category, ATM silently falls back to qBittorrent's default.
+    expect(validate(cfg).some((i) => i.field === 'category')).toBe(true)
+
+    cfg.torrentClient.category = 'music'
+    expect(validate(cfg).some((i) => i.field === 'category')).toBe(false)
+    // savePath is unused under ATM, so it is never required there.
+    expect(validate(cfg).some((i) => i.field === 'savePath')).toBe(false)
+  })
+
+  it('validate requires a save path only when there is no seedbox to fall back to', () => {
+    const cfg = defaultConfig()
+    cfg.torrentClient.enabled = true
+    cfg.torrentClient.url = 'http://127.0.0.1:8080'
+    cfg.torrentClient.useAutoTMM = false
+
+    expect(validate(cfg).some((i) => i.field === 'savePath')).toBe(true)
+
+    // A seedbox remote path is a valid fallback, so an empty savePath is fine.
+    cfg.transfer.enabled = true
+    expect(validate(cfg).some((i) => i.field === 'savePath')).toBe(false)
+
+    cfg.transfer.enabled = false
+    cfg.torrentClient.savePath = '/seed/music'
+    expect(validate(cfg).some((i) => i.field === 'savePath')).toBe(false)
+  })
+
+  it('validate ignores the host fingerprint while host key checks are disabled', () => {
+    let cfg = defaultConfig()
+    cfg = {
+      ...cfg,
+      transfer: {
+        ...cfg.transfer,
+        enabled: true,
+        host: 'seed.example',
+        username: 'u',
+        password: 'p',
+        remotePath: '/downloads'
+      }
+    }
+    expect(validate(cfg).some((i) => i.field === 'hostFingerprint')).toBe(false)
+
+    cfg.transfer.hostFingerprint = 'not-a-fingerprint'
+    expect(validate(cfg).some((i) => i.field === 'hostFingerprint')).toBe(false)
+  })
+
+  it('validate accepts enabled tracker with defaults and credentials', () => {
+    let cfg = defaultConfig()
+    cfg = {
+      ...cfg,
+      trackers: {
+        ...cfg.trackers,
+        redacted: {
+          ...cfg.trackers.redacted,
+          enabled: true,
+          apiKey: 'key',
+          siteUrl: 'https://redacted.ch',
+          announceUrl: 'https://flacsfor.me'
+        }
+      }
+    }
+    const issues = validate(cfg)
+    expect(issues.some((i) => i.section === 'trackers')).toBe(false)
+  })
+
+  it('loads legacy metadata provider keys and ignores removed providers', () => {
+    const cfg = mergeLoadedConfig({
+      metadataProviders: {
+        musicBrainzEnabled: true,
+        deezer: { enabled: true },
+        discogsEnabled: true,
+        discogsToken: 'secret',
+        discogs: { enabled: true, token: 'secret' }
+      }
+    })
+    expect(cfg.metadataProviders.musicBrainz.enabled).toBe(true)
+    expect(cfg.metadataProviders.deezer.enabled).toBe(true)
+    expect(cfg.metadataProviders).not.toHaveProperty('discogs')
+  })
+
+  it('loads legacy flat trackers into nested shape', () => {
+    const cfg = mergeLoadedConfig({
+      trackers: {
+        enabled: true,
+        defaultTracker: 'ops',
+        apiKey: 'ops-key',
+        sessionCookie: 'ops-session'
+      }
+    })
+    expect(cfg.trackers.orpheus.enabled).toBe(true)
+    expect(cfg.trackers.orpheus.apiKey).toBe('ops-key')
+    expect(cfg.trackers.orpheus.sessionCookie).toBe('ops-session')
+    expect(cfg.trackers.redacted.enabled).toBe(false)
+  })
+
+  it('drops passkeys from saved tracker settings', () => {
+    const cfg = mergeLoadedConfig({
+      trackers: {
+        redacted: { apiKey: 'red-key', passkey: 'old-red-passkey' },
+        orpheus: { apiKey: 'ops-key', passkey: 'old-ops-passkey' }
+      }
+    })
+
+    expect(cfg.trackers.redacted.apiKey).toBe('red-key')
+    expect(cfg.trackers.orpheus.apiKey).toBe('ops-key')
+    expect(cfg.trackers.redacted).not.toHaveProperty('passkey')
+    expect(cfg.trackers.orpheus).not.toHaveProperty('passkey')
+  })
+
+  it('loads legacy torrentClients into torrentClient shape', () => {
+    const cfg = mergeLoadedConfig({
+      torrentClients: {
+        enabled: true,
+        apiURL: 'http://127.0.0.1:8080',
+        username: 'admin',
+        password: 'secret',
+        startPaused: true
+      }
+    })
+    expect(cfg.torrentClient.enabled).toBe(true)
+    expect(cfg.torrentClient.url).toBe('http://127.0.0.1:8080')
+    expect(cfg.torrentClient.username).toBe('admin')
+    expect(cfg.torrentClient.password).toBe('secret')
+    expect(cfg.torrentClient.startPaused).toBe(true)
+    expect(cfg).not.toHaveProperty('torrentClients')
+  })
+
+  it('clears spectral image hosts that do not support spectral upload', () => {
+    const cfg = mergeLoadedConfig({
+      spectral: { imageHost: 'thesungod' }
+    })
+    expect(cfg.spectral.imageHost).toBe('')
+  })
+
+  it('rejects thesungod as spectral image host even when enabled', () => {
+    let cfg = defaultConfig()
+    cfg = {
+      ...cfg,
+      imageHosts: {
+        thesungod: { enabled: true, apiKey: 'key' },
+        imgbb: { enabled: true, apiKey: 'key' },
+        redacted: { enabled: false }
+      },
+      spectral: { ...cfg.spectral, imageHost: 'thesungod' }
+    }
+    const issues = validate(cfg)
+    expect(issues.some((i) => i.section === 'spectral' && i.field === 'imageHost')).toBe(true)
+  })
+
+  it('rejects redacted image host when redacted tracker is not configured', () => {
+    let cfg = defaultConfig()
+    cfg = {
+      ...cfg,
+      imageHosts: { ...cfg.imageHosts, redacted: { enabled: true } }
+    }
+    const issues = validate(cfg)
+    expect(issues.some((i) => i.section === 'imageHosts' && i.field === 'redacted.enabled')).toBe(
+      true
+    )
+  })
+
+  it('accepts redacted image host when redacted tracker is configured', () => {
+    let cfg = defaultConfig()
+    cfg = {
+      ...cfg,
+      trackers: {
+        ...cfg.trackers,
+        redacted: {
+          ...cfg.trackers.redacted,
+          enabled: true,
+          siteUrl: 'https://redacted.example',
+          announceUrl: 'https://flacsfor.me',
+          apiKey: 'key'
+        }
+      },
+      imageHosts: { ...cfg.imageHosts, redacted: { enabled: true } }
+    }
+    const issues = validate(cfg)
+    expect(issues.some((i) => i.section === 'imageHosts' && i.field === 'redacted.enabled')).toBe(
+      false
+    )
+  })
+
+  it('rejects redacted image host when the tracker only has a session cookie', () => {
+    const cfg = defaultConfig()
+    cfg.trackers.redacted = {
+      ...cfg.trackers.redacted,
+      enabled: true,
+      siteUrl: 'https://redacted.example',
+      announceUrl: 'https://flacsfor.me',
+      sessionCookie: 'cookie'
+    }
+    cfg.imageHosts.redacted.enabled = true
+
+    const issues = validate(cfg)
+    expect(
+      issues.some((issue) => issue.section === 'imageHosts' && issue.field === 'redacted.enabled')
+    ).toBe(true)
+  })
+
+  it('rejects redacted cover image host for orpheus', () => {
+    let cfg = defaultConfig()
+    cfg = {
+      ...cfg,
+      trackers: {
+        ...cfg.trackers,
+        redacted: {
+          ...cfg.trackers.redacted,
+          enabled: true,
+          siteUrl: 'https://redacted.example',
+          announceUrl: 'https://flacsfor.me',
+          apiKey: 'key'
+        },
+        orpheus: {
+          ...cfg.trackers.orpheus,
+          enabled: true,
+          siteUrl: 'https://orpheus.example',
+          announceUrl: 'https://home.opsfet.ch',
+          apiKey: 'key',
+          coverImageHost: 'redacted'
+        }
+      },
+      imageHosts: {
+        thesungod: { enabled: true, apiKey: 'key' },
+        imgbb: { enabled: false, apiKey: '' },
+        redacted: { enabled: true }
+      }
+    }
+    const issues = validate(cfg)
+    expect(
+      issues.some((i) => i.section === 'trackers' && i.field === 'orpheus.coverImageHost')
+    ).toBe(true)
+  })
+
+  it('accepts redacted cover image host for redacted tracker', () => {
+    let cfg = defaultConfig()
+    cfg = {
+      ...cfg,
+      trackers: {
+        ...cfg.trackers,
+        redacted: {
+          ...cfg.trackers.redacted,
+          enabled: true,
+          siteUrl: 'https://redacted.example',
+          announceUrl: 'https://flacsfor.me',
+          apiKey: 'key',
+          coverImageHost: 'redacted'
+        }
+      },
+      imageHosts: {
+        thesungod: { enabled: false, apiKey: '' },
+        imgbb: { enabled: false, apiKey: '' },
+        redacted: { enabled: true }
+      }
+    }
+    const issues = validate(cfg)
+    expect(
+      issues.some((i) => i.section === 'trackers' && i.field === 'redacted.coverImageHost')
+    ).toBe(false)
+  })
+
+  it('clears invalid cover image hosts when loading config', () => {
+    const cfg = mergeLoadedConfig({
+      trackers: {
+        orpheus: { coverImageHost: 'redacted' }
+      },
+      imageHosts: {
+        thesungod: { enabled: true, apiKey: 'key' },
+        imgbb: { enabled: false, apiKey: '' },
+        redacted: { enabled: true }
+      }
+    })
+    expect(cfg.trackers.orpheus.coverImageHost).toBe('')
+  })
+})

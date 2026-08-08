@@ -1,0 +1,55 @@
+import type { FilesCheckSnapshot, LogcheckerSummary, MQASummary } from '@shared/types'
+import type { State } from './state'
+
+export function emptyMQASummary(): MQASummary {
+  return { checkedCount: 0, mqaPaths: [], errors: [] }
+}
+
+export function emptyFilesCheck(): FilesCheckSnapshot {
+  return {
+    status: 'idle',
+    mqa: emptyMQASummary(),
+    logs: { logFiles: [], checks: [] }
+  }
+}
+
+export function setFilesCheck(s: State, snapshot: FilesCheckSnapshot): State {
+  return { ...s, filesCheck: restoreFilesCheck(snapshot) }
+}
+
+export function clearFilesCheck(s: State): State {
+  return { ...s, filesCheck: emptyFilesCheck() }
+}
+
+export function setFilesCheckRunning(s: State): State {
+  return { ...s, filesCheck: { ...emptyFilesCheck(), status: 'running' } }
+}
+
+/** Fills the gaps in a snapshot read back off disk, which may predate any field. */
+export function restoreFilesCheck(snapshot: FilesCheckSnapshot | undefined): FilesCheckSnapshot {
+  if (!snapshot) return emptyFilesCheck()
+  const mqa = snapshot.mqa
+  const logs = snapshot.logs
+  return {
+    status: snapshot.status ?? 'idle',
+    mqa: {
+      checkedCount: mqa?.checkedCount ?? 0,
+      mqaPaths: mqa?.mqaPaths ?? [],
+      errors: mqa?.errors ?? []
+    },
+    logs: {
+      logFiles: logs?.logFiles ?? [],
+      checks: (logs?.checks ?? []).map((check) => ({
+        relativePath: check.relativePath,
+        trackerId: check.trackerId,
+        trackerName: check.trackerName,
+        score: check.score,
+        checksum: check.checksum,
+        issues: check.issues ?? [],
+        error: check.error
+      })),
+      skippedReason: logs?.skippedReason
+    },
+    error: snapshot.error
+  }
+}

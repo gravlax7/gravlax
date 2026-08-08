@@ -1,0 +1,35 @@
+appId: com.gravlax.app
+productName: Gravlax
+directories:
+  buildResources: resources
+  output: dist
+files:
+  - out/**/*
+  - package.json
+asarUnpack:
+  - node_modules/sharp/**
+  - node_modules/@img/**
+mac:
+  icon: icon.icns
+  category: public.app-category.music
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  hardenedRuntime: true
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+linux:
+  icon: icon.png
+  target:
+    - AppImage
+    - deb
+  category: Audio
+win:
+  icon: icon.ico
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+out/
+__tests__/fixtures/http/
+testfiles/
+*.log
+.DS_Store
+coverage/
+*.local
+*.tsbuildinfo
+red-*.md
+temp/

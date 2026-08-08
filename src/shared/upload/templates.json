@@ -1,0 +1,34 @@
+{
+  "templates": [
+    {
+      "id": "peachfuzz",
+      "name": "Peachfuzz",
+      "content": "[b]{{ artist_bbcode }} - {{ album }}[/b]{% if year %}\n{{ year }}{% endif %}\n\n{% for track in tracks %}[b]{{ number }}.[/b] {{ title }}{% if duration %} [i]({{ duration }})[/i]{% endif %}\n{% endfor %}\n\nMore info: [url={{ source_url }}]{{ source }}[/url]",
+      "builtin": true
+    },
+    {
+      "id": "bbcode",
+      "name": "BBCode Standard",
+      "content": "[b]{{ artist }}[/b] - [b]{{ album }}[/b]{% if year %} ({{ year }}){% endif %}\n\n{% if label %}[b]Label:[/b] {{ label }}{% if catalog %} — {{ catalog }}{% endif %}\n{% endif %}{% if formats %}[b]Format:[/b] {{ formats }}\n{% endif %}{% if country %}[b]Country:[/b] {{ country }}\n{% endif %}{% if genres %}[b]Genre:[/b] {{ genres }}\n{% endif %}\n[b]Tracklist:[/b]\n{{ tracklist }}\nMore info: [url={{ source_url }}]{{ source }}[/url]",
+      "builtin": true
+    },
+    {
+      "id": "plain",
+      "name": "Plain Text",
+      "content": "{{ artist }} - {{ album }}{% if year %} ({{ year }}){% endif %}\n\n{% if label %}Label: {{ label }}{% if catalog %} — {{ catalog }}{% endif %}\n{% endif %}{% if formats %}Format: {{ formats }}\n{% endif %}{% if country %}Country: {{ country }}\n{% endif %}{% if genres %}Genre: {{ genres }}\n{% endif %}\nTracklist:\n{{ tracklist }}\nMore info: {{ source_url }}",
+      "builtin": true
+    },
+    {
+      "id": "minimal",
+      "name": "Minimal BBCode",
+      "content": "[b]{{ artist }} - {{ album }}[/b]{% if year %} ({{ year }}){% endif %}{% if label %} | {{ label }}{% endif %}\n\n{{ tracklist }}\nMore info: [url={{ source_url }}]{{ source }}[/url]",
+      "builtin": true
+    },
+    {
+      "id": "ops",
+      "name": "Red/OPS Style",
+      "content": "[b]{{ artist }}[/b] - [b]{{ album }}[/b]{% if year %} ({{ year }}){% endif %}\n\n{% if label %}[b]Label / Cat#:[/b] {{ label }}{% if catalog %} / {{ catalog }}{% endif %}\n{% endif %}{% if genres %}[b]Genre:[/b] {{ genres }}\n{% endif %}{% if formats %}[b]Media:[/b] {{ formats }}\n{% endif %}{% if country %}[b]Country:[/b] {{ country }}\n{% endif %}\n[b]Track Listing:[/b]\n{{ tracklist }}\n\n[size=1]More info: [url={{ source_url }}]{{ source }}[/url][/size]",
+      "builtin": true
+    }
+  ]
+}
