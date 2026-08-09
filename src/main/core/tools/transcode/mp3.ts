@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
 import type { Bitrate } from '@shared/types'
+import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { readFLACStreamInfo } from '@main/core/tools/diagnostics/mqa'
 import { SKIP_EXTENSIONS } from './audioInfo'
@@ -35,6 +36,7 @@ export async function transcodeFolder(
     concurrency?: number
     signal?: AbortSignal
     onProgress?: (progress: ProcessProgress) => void
+    tools?: ToolResolver
   } = {}
 ): Promise<TranscodeFolderResult> {
   const newPath = buildMp3OutputPath(path, bitrate)
@@ -64,7 +66,13 @@ export async function transcodeFolder(
       if (item.channels > 2) {
         throw new Error(`${item.src} has ${item.channels} channels. Cannot convert to MP3.`)
       }
-      await flacToMp3(bitrate, item.src, item.dst, options.signal)
+      await flacToMp3(
+        bitrate,
+        item.src,
+        item.dst,
+        options.signal,
+        options.tools ?? automaticToolResolver
+      )
       const pictures = await readFlacPictures(item.src)
       writeMp3Tags(item.dst, item.tags, pictures)
     },
@@ -110,17 +118,20 @@ async function flacToMp3(
   bitrate: Bitrate,
   flacPath: string,
   mp3Path: string,
-  signal?: AbortSignal
+  signal: AbortSignal | undefined,
+  tools: ToolResolver
 ): Promise<void> {
   await mkdir(dirname(mp3Path), { recursive: true })
 
+  const { flacExecutable, lameExecutable } = await resolveMp3Executables(tools)
+
   await new Promise<void>((resolve, reject) => {
-    const flac = spawn('flac', ['-Vdsc', '-o', '-', flacPath], {
+    const flac = spawn(flacExecutable, ['-Vdsc', '-o', '-', flacPath], {
       stdio: ['ignore', 'pipe', 'pipe'],
       signal
     })
     const lame = spawn(
-      'lame',
+      lameExecutable,
       [...LAME_COMMAND_MAP[bitrate], '--quiet', '--add-id3v2', '--ignore-tag-errors', '-', mp3Path],
       { stdio: ['pipe', 'ignore', 'pipe'], signal }
     )
@@ -167,6 +178,16 @@ async function flacToMp3(
       maybeDone()
     })
   })
+}
+
+export async function resolveMp3Executables(
+  tools: ToolResolver
+): Promise<{ flacExecutable: string; lameExecutable: string }> {
+  const [flacExecutable, lameExecutable] = await Promise.all([
+    tools.require('flac'),
+    tools.require('lame')
+  ])
+  return { flacExecutable, lameExecutable }
 }
 
 async function pathExists(path: string): Promise<boolean> {

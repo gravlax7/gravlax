@@ -1,6 +1,10 @@
 import type { Config } from '@shared/types/config'
 import type { HealthResult, HealthRow } from '@shared/types'
-import { findOnPath } from '@main/core/tools/binaries'
+import {
+  automaticToolResolver,
+  type ToolId,
+  type ToolResolver
+} from '@main/core/tools/binaries'
 import { providerDefinitions, createProviders } from '@main/core/tools/metadata/providers'
 import { healthcheckImageHosts } from '@main/core/tools/imagehosts/health'
 import { healthcheckTrackers, trackerHealthRowsReady } from '@main/core/tools/trackers/health'
@@ -8,7 +12,7 @@ import { createQBittorrentClient } from '@main/core/tools/torrentClient'
 import { testSftpConnection } from '@main/core/tools/transfer'
 
 const BINARY_CHECKS: Array<{
-  id: string
+  id: ToolId
   name: string
   installURL: string
   instructions: string
@@ -54,7 +58,10 @@ const BINARY_CHECKS: Array<{
   }
 ]
 
-export async function runHealthcheck(cfg: Config): Promise<HealthResult> {
+export async function runHealthcheck(
+  cfg: Config,
+  tools: ToolResolver = automaticToolResolver
+): Promise<HealthResult> {
   const rows: HealthRow[] = []
 
   const trackerRows = await healthcheckTrackers(cfg)
@@ -105,12 +112,19 @@ export async function runHealthcheck(cfg: Config): Promise<HealthResult> {
   )
 
   for (const binary of BINARY_CHECKS) {
-    const found = await findOnPath(binary.id)
+    const resolution = await tools.resolve(binary.id, { refresh: true })
+    const found = resolution.status === 'available'
     rows.push({
       id: `bin:${binary.id}`,
       name: binary.name,
       status: found ? 'available' : 'missing',
-      detail: found ? 'Available' : binary.optional ? 'Missing (optional)' : 'Missing',
+      detail: found
+        ? `Available · ${resolution.path}`
+        : resolution.configuredPath
+          ? resolution.reason
+          : binary.optional
+            ? 'Missing (optional)'
+            : 'Missing',
       installURL: binary.installURL,
       installInstructions: binary.instructions
     })

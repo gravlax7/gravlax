@@ -1,6 +1,7 @@
 import type { MQASummary } from '@shared/types'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { checkMQA } from './mqa'
+import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 
 export type { MQASummary }
 
@@ -10,12 +11,15 @@ export async function checkMQAWorkspace(
     signal?: AbortSignal
     check?: (path: string, signal?: AbortSignal) => Promise<boolean>
     onProgress?: (current: number, total: number, label: string) => void
+    tools?: ToolResolver
   } = {}
 ): Promise<MQASummary> {
   if (!path) {
     throw new Error('workspace path is required')
   }
-  const check = options.check ?? checkMQA
+  const tools = options.tools ?? automaticToolResolver
+  const check = options.check ?? ((filePath: string, signal?: AbortSignal) =>
+    checkMQA(filePath, signal, tools))
   const files = await discoverFLACFiles(path)
   const summary: MQASummary = { checkedCount: files.length, mqaPaths: [], errors: [] }
   options.onProgress?.(0, files.length, files.length === 0 ? 'No FLAC files' : 'Checking for MQA…')

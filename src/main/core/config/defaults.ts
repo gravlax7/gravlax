@@ -4,6 +4,7 @@ export function defaultConfig(): Config {
   return {
     appearance: { theme: 'system' },
     directories: { source: '', torrents: '', seeding: '' },
+    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '', flaccheck: '' },
     trackers: {
       redacted: {
         enabled: false,
@@ -84,6 +85,9 @@ export function resetSection(cfg: Config, section: SectionID): Config {
       break
     case 'directories':
       next.directories = def.directories
+      break
+    case 'tools':
+      next.tools = def.tools
       break
     case 'trackers':
       next.trackers = def.trackers

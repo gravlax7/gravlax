@@ -8,11 +8,17 @@ export function HealthcheckScreen(props: {
   loading: boolean
   onRefresh: () => void
 }) {
-  const [expanded, setExpanded] = createSignal<string | null>(null)
+  const [expanded, setExpanded] = createSignal<Set<string>>(new Set())
   const [checkedAt, setCheckedAt] = createSignal<Date | null>(null)
 
   createEffect(() => {
     if (props.result && !props.loading) setCheckedAt(new Date())
+  })
+
+  createEffect(() => {
+    const result = props.result
+    if (!result || props.loading) return
+    setExpanded(new Set(result.rows.filter(isFailedCheck).map((row) => row.id)))
   })
 
   onMount(() => {
@@ -107,8 +113,13 @@ export function HealthcheckScreen(props: {
                           <button
                             type="button"
                             onClick={() => {
-                              if (row.status === 'missing') {
-                                setExpanded((id) => (id === row.id ? null : row.id))
+                              if (isFailedCheck(row)) {
+                                setExpanded((ids) => {
+                                  const next = new Set(ids)
+                                  if (next.has(row.id)) next.delete(row.id)
+                                  else next.add(row.id)
+                                  return next
+                                })
                               }
                             }}
                             style={{
@@ -120,7 +131,7 @@ export function HealthcheckScreen(props: {
                               border: 'none',
                               padding: 0,
                               'text-align': 'left',
-                              cursor: row.status === 'missing' ? 'pointer' : 'default'
+                              cursor: isFailedCheck(row) ? 'pointer' : 'default'
                             }}
                           >
                             <span
@@ -146,15 +157,22 @@ export function HealthcheckScreen(props: {
                             </div>
                             <Badge tone={statusTone(row)}>{row.status}</Badge>
                           </button>
-                          <Show when={expanded() === row.id}>
+                          <Show when={expanded().has(row.id)}>
                             <Callout tone="info" class="health-install">
                               <Icon name="info" size={16} />
                               <div>
-                                <div>{row.installInstructions}</div>
+                                <div>{row.installInstructions ?? row.detail ?? row.status}</div>
                                 <Show when={row.installURL}>
-                                  <div class="mono" style={{ 'margin-top': '6px', 'font-size': 'var(--text-sm)' }}>
-                                    {row.installURL}
-                                  </div>
+                                  {(url) => (
+                                    <button
+                                      type="button"
+                                      class="mono health-install-link"
+                                      onClick={() => void window.gravlax.shell.openExternal(url())}
+                                    >
+                                      {url()}
+                                      <Icon name="external-link" size={14} />
+                                    </button>
+                                  )}
                                 </Show>
                               </div>
                             </Callout>
@@ -171,6 +189,10 @@ export function HealthcheckScreen(props: {
       </div>
     </div>
   )
+}
+
+function isFailedCheck(row: HealthRow): boolean {
+  return row.status === 'failing' || row.status === 'missing'
 }
 
 function statusColor(row: HealthRow): string {

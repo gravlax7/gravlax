@@ -1,6 +1,7 @@
 export type SectionID =
   | 'appearance'
   | 'directories'
+  | 'tools'
   | 'trackers'
   | 'metadataProviders'
   | 'imageHosts'
@@ -18,6 +19,7 @@ export type FieldType = 'bool' | 'string' | 'number' | 'enum' | 'path' | 'file' 
 export interface Config {
   appearance: AppearanceConfig
   directories: DirectoriesConfig
+  tools: ToolsConfig
   trackers: TrackersConfig
   metadataProviders: MetadataProvidersConfig
   imageHosts: ImageHostsConfig
@@ -38,6 +40,15 @@ export interface DirectoriesConfig {
   torrents: string
   /** Where releases are placed for a local torrent client when there is no seedbox. */
   seeding: string
+}
+
+export interface ToolsConfig {
+  sox: string
+  flac: string
+  metaflac: string
+  mp3val: string
+  lame: string
+  flaccheck: string
 }
 
 export interface TrackersConfig {

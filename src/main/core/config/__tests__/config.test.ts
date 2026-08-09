@@ -11,8 +11,17 @@ describe('config', () => {
     expect(cfg.naming.albumDescriptionTemplateId).toBe('peachfuzz')
     expect(sections()[0]?.id).toBe('appearance')
     expect(sections()[1]?.id).toBe('directories')
-    expect(sections()[2]?.id).toBe('imageHosts')
-    expect(sections()[3]?.id).toBe('spectral')
+    expect(sections()[2]?.id).toBe('tools')
+    expect(sections()[3]?.id).toBe('imageHosts')
+    expect(sections()[4]?.id).toBe('spectral')
+    expect(cfg.tools).toEqual({
+      sox: '',
+      flac: '',
+      metaflac: '',
+      mp3val: '',
+      lame: '',
+      flaccheck: ''
+    })
     expect(cfg.appearance.theme).toBe('system')
     expect(cfg.workflow.confirmBeforeWrites).toBe(true)
     expect(cfg.workflow.useUpcAsCatNo).toBe(true)
@@ -29,6 +38,31 @@ describe('config', () => {
     cfg = { ...cfg, directories: { ...cfg.directories, source: '/tmp' } }
     cfg = resetSection(cfg, 'directories')
     expect(cfg.directories.source).toBe('')
+  })
+
+  it('loads, normalizes, and resets tool overrides without breaking old configs', () => {
+    const old = mergeLoadedConfig({ directories: { source: '/music' } })
+    expect(old.tools).toEqual(defaultConfig().tools)
+
+    const loaded = mergeLoadedConfig({ tools: { sox: '  /opt/tools/sox  ', unknown: '/bad' } })
+    expect(loaded.tools.sox).toBe('/opt/tools/sox')
+    expect(loaded.tools).not.toHaveProperty('unknown')
+
+    loaded.tools.sox = '/custom/sox'
+    expect(resetSection(loaded, 'tools').tools).toEqual(defaultConfig().tools)
+  })
+
+  it('requires configured tool overrides to be absolute clean paths', () => {
+    const cfg = defaultConfig()
+    cfg.tools.sox = 'relative/sox'
+    expect(validate(cfg)).toContainEqual({
+      section: 'tools',
+      field: 'sox',
+      message: 'executable path must be an absolute, clean path'
+    })
+
+    cfg.tools.sox = '~/bin/sox'
+    expect(validate(cfg).some((issue) => issue.section === 'tools')).toBe(false)
   })
 
   it('drops retired naming settings when loading config', () => {

@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { Config } from '@shared/types/config'
 
 import { UploadSession } from '@main/services/uploadSession'
+import { automaticToolResolver } from '@main/core/tools/binaries'
 
 function newSession(): UploadSession {
   return new UploadSession({
     userDataPath: '/userdata',
     getConfig: () => ({}) as Config,
+    tools: automaticToolResolver,
     send: () => {}
   })
 }

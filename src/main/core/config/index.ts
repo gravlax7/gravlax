@@ -21,5 +21,6 @@ export {
   mergeLoadedConfig,
   normalizeMetadataProviders,
   normalizeTrackers,
+  normalizeTools,
   gravlaxConfigPath
 } from './store'

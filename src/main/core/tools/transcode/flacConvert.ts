@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
 import type { BitDepth } from '@shared/types'
+import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 import { gatherTrackAudioInfo } from './audioInfo'
 import { copyExtraFiles } from './extras'
 import { buildDownconvertOutputPath } from './naming'
@@ -35,6 +36,7 @@ export async function convertFolder(
     concurrency?: number
     signal?: AbortSignal
     onProgress?: (progress: ProcessProgress) => void
+    tools?: ToolResolver
   } = {}
 ): Promise<ConvertFolderResult> {
   const bitDepth = options.bitDepth ?? 16
@@ -67,7 +69,14 @@ export async function convertFolder(
     async (item) => {
       options.signal?.throwIfAborted()
       await mkdir(dirname(item.dst), { recursive: true })
-      await runSox(item.src, item.dst, bitDepth, item.targetRate, options.signal)
+      await runSox(
+        item.src,
+        item.dst,
+        bitDepth,
+        item.targetRate,
+        options.signal,
+        options.tools ?? automaticToolResolver
+      )
     },
     options.onProgress,
     (item) => item.relativePath
@@ -120,7 +129,8 @@ async function runSox(
   dst: string,
   bitDepth: BitDepth,
   targetRate: number,
-  signal?: AbortSignal
+  signal: AbortSignal | undefined,
+  tools: ToolResolver
 ): Promise<void> {
   const args = [
     src,
@@ -133,8 +143,9 @@ async function runSox(
     'dither'
   ]
 
+  const executable = await tools.require('sox')
   await new Promise<void>((resolve, reject) => {
-    const child = spawn('sox', args, { signal })
+    const child = spawn(executable, args, { signal })
     let stderr = ''
     child.stderr.on('data', (chunk: Buffer) => {
       stderr += chunk.toString('utf8')

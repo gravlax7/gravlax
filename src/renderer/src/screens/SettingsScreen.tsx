@@ -51,6 +51,7 @@ const SECTION_ICONS: Partial<Record<PaneID, IconName>> = {
   statistics: 'activity',
   appearance: 'sun',
   directories: 'folder',
+  tools: 'settings',
   trackers: 'globe',
   metadataProviders: 'music',
   imageHosts: 'image',
@@ -367,10 +368,18 @@ export function SettingsScreen(props: {
                             const path =
                               field.type === 'file'
                                 ? await window.gravlax.dialog.pickFile({
-                                    filters: [
-                                      { name: 'Private keys', extensions: ['pem', 'key', 'ppk', ''] },
-                                      { name: 'All files', extensions: ['*'] }
-                                    ]
+                                    filters:
+                                      current().id === 'tools'
+                                        ? window.gravlax.platform === 'win32'
+                                          ? [
+                                              { name: 'Executables', extensions: ['exe', 'com'] },
+                                              { name: 'All files', extensions: ['*'] }
+                                            ]
+                                          : [{ name: 'All files', extensions: ['*'] }]
+                                        : [
+                                            { name: 'Private keys', extensions: ['pem', 'key', 'ppk', ''] },
+                                            { name: 'All files', extensions: ['*'] }
+                                          ]
                                   })
                                 : await window.gravlax.dialog.pickDirectory()
                             if (path) {
@@ -820,6 +829,7 @@ async function applyField(
   value: string | boolean | number
 ): Promise<Config> {
   const next = structuredClone(cfg)
+  if (section === 'tools' && typeof value === 'string') value = value.trim()
   const target = next[section] as unknown as Record<string, unknown>
   if (field.name.includes('.')) {
     const [group, key] = field.name.split('.')

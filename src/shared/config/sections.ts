@@ -34,6 +34,20 @@ export function sections(): SectionMetadata[] {
       ]
     },
     {
+      id: 'tools',
+      title: 'Tools',
+      description:
+        'Optional executable paths. Leave a field empty to search the system and common install locations.',
+      fields: [
+        { name: 'sox', label: 'SoX', description: 'Used for spectrals and FLAC downconversion.', type: 'file' },
+        { name: 'flac', label: 'FLAC', description: 'Used to verify and decode FLAC files.', type: 'file' },
+        { name: 'metaflac', label: 'metaflac', description: 'Used to read and write FLAC metadata.', type: 'file' },
+        { name: 'mp3val', label: 'mp3val', description: 'Used to validate MP3 files.', type: 'file' },
+        { name: 'lame', label: 'LAME', description: 'Used to encode MP3 files.', type: 'file' },
+        { name: 'flaccheck', label: 'flaccheck', description: 'Optional lossy-source and high-resolution check.', type: 'file' }
+      ]
+    },
+    {
       id: 'imageHosts',
       title: 'Image Hosts',
       description: 'Enable any combination of the supported image hosts.',

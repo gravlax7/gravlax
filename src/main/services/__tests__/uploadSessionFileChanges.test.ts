@@ -27,6 +27,7 @@ vi.mock('@shared/upload/naming', () => ({
 import { newState, type State } from '@main/core/uploadflow'
 import { TaskScope } from '@main/services/taskSlot'
 import { UploadSessionFileChanges } from '@main/services/uploadSessionFileChanges'
+import { automaticToolResolver } from '@main/core/tools/binaries'
 
 const originalFile: OriginalFileSnapshot = {
   id: 'track-1',
@@ -75,6 +76,7 @@ function setup() {
       },
       persistNow: async () => {},
       getConfig: () => ({ workflow: { confirmBeforeWrites: false } }) as Config,
+      tools: automaticToolResolver,
       createWorkspaceGuard: (workspacePath) => () => state.draft.workspacePath === workspacePath,
       cancelGeneratedWork: vi.fn(),
       startTranscodeInspection,

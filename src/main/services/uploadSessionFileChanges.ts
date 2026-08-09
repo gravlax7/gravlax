@@ -27,6 +27,7 @@ import {
 } from '@main/core/tools/files/apply'
 import { extractAlbumRelease } from '@main/core/tags/extract'
 import type { TaskSlot } from './taskSlot'
+import type { ToolResolver } from '@main/core/tools/binaries'
 
 export type FileChangeResult =
   | { ok: true }
@@ -37,6 +38,7 @@ export interface UploadSessionFileChangesContext {
   apply: (next: State, options?: { persist?: boolean }) => void
   persistNow: () => Promise<void>
   getConfig: () => Config
+  tools: ToolResolver
   createWorkspaceGuard: (workspacePath: string) => () => boolean
   cancelGeneratedWork: () => void
   startTranscodeInspection: () => void
@@ -107,7 +109,12 @@ export class UploadSessionFileChanges {
       this.context.cancelGeneratedWork()
       let originals = state.files.original.files
       if (!state.files.original.captured) {
-        const captured = await captureOriginalFiles(workspacePath, state.files.apply.files)
+        const captured = await captureOriginalFiles(
+          workspacePath,
+          state.files.apply.files,
+          undefined,
+          this.context.tools
+        )
         if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
         originals = captured.originals
       }
@@ -127,7 +134,8 @@ export class UploadSessionFileChanges {
             plan,
             originals,
             stripEmbeddedCoverArt: this.context.getState().files.apply.stripEmbeddedCoverArt,
-            signal: handle.signal
+            signal: handle.signal,
+            tools: this.context.tools
           })
         },
         { guard: stillCurrent, onError: (error) => { operationError = error } }
@@ -193,7 +201,8 @@ export class UploadSessionFileChanges {
             originals: state.files.original.files,
             currentFiles: state.files.apply.files,
             originalFolderName: state.files.original.folderName,
-            signal: handle.signal
+            signal: handle.signal,
+            tools: this.context.tools
           })
         },
         { guard: stillCurrent, onError: (error) => { operationError = error } }

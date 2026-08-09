@@ -18,4 +18,72 @@ describe('IPC argument contract', () => {
   it('allows an omitted optional argument', () => {
     expect(parseIpcArguments('upload:searchTrackerGroups', [])).toEqual([])
   })
+
+  it('accepts tool paths in config and the tools reset section', () => {
+    const cfg = configInput()
+    cfg.tools.sox = '/opt/homebrew/bin/sox'
+    expect(parseIpcArguments('config:save', [cfg])).toEqual([cfg])
+    expect(parseIpcArguments('config:resetSection', ['tools'])).toEqual(['tools'])
+  })
 })
+
+function configInput() {
+  const tracker = {
+    enabled: false,
+    siteUrl: '',
+    announceUrl: '',
+    apiKey: '',
+    sessionCookie: '',
+    coverImageHost: ''
+  }
+  return {
+    appearance: { theme: 'system' as const },
+    directories: { source: '', torrents: '', seeding: '' },
+    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '', flaccheck: '' },
+    trackers: { redacted: { ...tracker }, orpheus: { ...tracker } },
+    metadataProviders: {
+      musicBrainz: { enabled: true },
+      deezer: { enabled: false },
+      requestTimeoutSeconds: 10
+    },
+    imageHosts: {
+      thesungod: { enabled: false, apiKey: '' },
+      imgbb: { enabled: false, apiKey: '' },
+      redacted: { enabled: false }
+    },
+    torrentClient: {
+      enabled: false,
+      url: '',
+      username: '',
+      password: '',
+      category: '',
+      useAutoTMM: false,
+      savePath: '',
+      startPaused: false
+    },
+    transfer: {
+      enabled: false,
+      host: '',
+      port: 22,
+      username: '',
+      password: '',
+      privateKeyPath: '',
+      hostFingerprint: '',
+      remotePath: ''
+    },
+    naming: {
+      albumDescriptionTemplateId: 'peachfuzz',
+      releaseFolderTemplate: '{title}',
+      trackFileTemplate: '{title}',
+      multiDiscFolderTemplate: '{discNumber}'
+    },
+    spectral: {
+      imageHost: '',
+      defaultSpectralIds: 'Random',
+      defaultSpectralIdsForLossyMasters: 'All',
+      compress: true
+    },
+    cleanup: { deleteTemporaryFiles: true, deleteSpectralsAfterUpload: false },
+    workflow: { confirmBeforeWrites: true, useUpcAsCatNo: true }
+  }
+}

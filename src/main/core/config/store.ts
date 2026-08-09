@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { sanitizeCoverImageHosts, supportsSpectralUpload } from '@shared/config/imageHosts'
 import type { Config } from '@shared/types/config'
 import { defaultConfig } from './defaults'
+import { normalizePath } from './paths'
 
 export function normalizeMetadataProviders(raw: unknown, base: Config['metadataProviders']): Config['metadataProviders'] {
   if (!raw || typeof raw !== 'object') {
@@ -161,6 +162,16 @@ export function normalizeNaming(raw: unknown, base: Config['naming']): Config['n
   return next
 }
 
+export function normalizeTools(raw: unknown, base: Config['tools']): Config['tools'] {
+  if (!raw || typeof raw !== 'object') return base
+  const obj = raw as Record<string, unknown>
+  const next = structuredClone(base)
+  for (const key of Object.keys(next) as (keyof Config['tools'])[]) {
+    if (typeof obj[key] === 'string') next[key] = normalizePath(obj[key] as string)
+  }
+  return next
+}
+
 export function mergeLoadedConfig(raw: unknown): Config {
   const cfg = defaultConfig()
   if (!raw || typeof raw !== 'object') {
@@ -170,6 +181,10 @@ export function mergeLoadedConfig(raw: unknown): Config {
   for (const key of Object.keys(cfg) as (keyof Config)[]) {
     if (key === 'metadataProviders') {
       cfg.metadataProviders = normalizeMetadataProviders(obj.metadataProviders, cfg.metadataProviders)
+      continue
+    }
+    if (key === 'tools') {
+      cfg.tools = normalizeTools(obj.tools, cfg.tools)
       continue
     }
     if (key === 'trackers') {

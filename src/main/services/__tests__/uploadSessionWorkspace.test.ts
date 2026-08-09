@@ -7,6 +7,7 @@ import { defaultConfig } from '@main/core/config/defaults'
 import { newState, type State } from '@main/core/uploadflow'
 import { uploadWorkspaceRootForPath, workspaceRoot } from '@main/core/appdata/workspace'
 import { UploadSession } from '@main/services/uploadSession'
+import { automaticToolResolver } from '@main/core/tools/binaries'
 
 let userDataPath = ''
 let sourceRoot = ''
@@ -15,6 +16,7 @@ function newSession(config = defaultConfig()): UploadSession {
   return new UploadSession({
     userDataPath,
     getConfig: () => config,
+    tools: automaticToolResolver,
     send: () => {}
   })
 }

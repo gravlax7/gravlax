@@ -3,6 +3,7 @@ import {
   defaultConfig,
   gravlaxConfigPath,
   loadConfig,
+  normalizeTools,
   resetSection,
   saveConfig,
   validate
@@ -35,11 +36,13 @@ export class ConfigService {
   }
 
   async save(cfg: Config): Promise<{ ok: true } | { ok: false; issues: ValidationIssue[] }> {
-    const issues = validate(cfg)
+    const normalized = structuredClone(cfg)
+    normalized.tools = normalizeTools(cfg.tools, cfg.tools)
+    const issues = validate(normalized)
     if (issues.length > 0) {
       return { ok: false, issues }
     }
-    this.cfg = structuredClone(cfg)
+    this.cfg = normalized
     await saveConfig(this.path, this.cfg)
     return { ok: true }
   }

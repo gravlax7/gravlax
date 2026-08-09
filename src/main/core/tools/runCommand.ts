@@ -1,15 +1,18 @@
 import { spawn } from 'node:child_process'
+import { automaticToolResolver, type ToolId, type ToolResolver } from './binaries'
 
 // stdout and stderr are kept apart: callers parse stdout (sox --i -D prints a
 // bare duration there), and folding in a warning would break that parse.
-export function runCommand(
-  name: string,
+export async function runCommand(
+  name: ToolId,
   args: string[],
   signal?: AbortSignal,
-  input?: string | Uint8Array
+  input?: string | Uint8Array,
+  tools: ToolResolver = automaticToolResolver
 ): Promise<Buffer> {
+  const executable = await tools.require(name)
   return new Promise((resolve, reject) => {
-    const child = spawn(name, args, { signal })
+    const child = spawn(executable, args, { signal })
     const out: Buffer[] = []
     const err: Buffer[] = []
     child.stdout.on('data', (c: Buffer) => out.push(c))

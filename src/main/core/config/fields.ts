@@ -36,6 +36,24 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
       }
       break
     }
+    case 'tools': {
+      const c = cfg.tools
+      switch (field) {
+        case 'sox':
+          return c.sox
+        case 'flac':
+          return c.flac
+        case 'metaflac':
+          return c.metaflac
+        case 'mp3val':
+          return c.mp3val
+        case 'lame':
+          return c.lame
+        case 'flaccheck':
+          return c.flaccheck
+      }
+      break
+    }
     case 'trackers': {
       const c = cfg.trackers
       switch (field) {
@@ -206,6 +224,14 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       if (field === 'torrents') next.directories.torrents = value
       if (field === 'seeding') next.directories.seeding = value
       break
+    case 'tools':
+      if (field === 'sox') next.tools.sox = value
+      if (field === 'flac') next.tools.flac = value
+      if (field === 'metaflac') next.tools.metaflac = value
+      if (field === 'mp3val') next.tools.mp3val = value
+      if (field === 'lame') next.tools.lame = value
+      if (field === 'flaccheck') next.tools.flaccheck = value
+      break
     case 'trackers':
       if (field === 'redacted.siteUrl') next.trackers.redacted.siteUrl = value
       if (field === 'redacted.announceUrl') next.trackers.redacted.announceUrl = value
@@ -271,6 +297,8 @@ function isPathField(section: SectionID, field: string): boolean {
     // picker) would be wrong whenever a seedbox is in use.
     case 'transfer':
       return field === 'privateKeyPath'
+    case 'tools':
+      return true
     default:
       return false
   }

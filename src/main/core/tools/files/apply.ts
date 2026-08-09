@@ -2,6 +2,7 @@ import { chmod, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, utimes, wri
 import { basename, dirname, extname, join, relative, sep } from 'node:path'
 import type { FilesRenamePlan, PlannedFileName } from '@shared/upload/naming'
 import type { OriginalFileSnapshot, Release } from '@shared/types'
+import { automaticToolResolver, type ToolResolver } from '../binaries'
 import { runCommand } from '../runCommand'
 import { finishStagedFolderRename, prepareStagedFolderRename, uploadWorkspaceRootForPath } from '../../appdata/workspace'
 
@@ -25,7 +26,8 @@ export interface ApplyFilesResult {
 export async function captureOriginalFiles(
   workspacePath: string,
   files: Array<{ id: string; currentPath: string }>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  tools: ToolResolver = automaticToolResolver
 ): Promise<{ originals: OriginalFileSnapshot[]; pictureCount: number }> {
   const backupRoot = join(uploadWorkspaceRootForPath(workspacePath), '.gravlax-original-metadata')
   await mkdir(backupRoot, { recursive: true, mode: 0o700 })
@@ -33,7 +35,7 @@ export async function captureOriginalFiles(
   let pictureCount = 0
   for (const [index, file] of files.entries()) {
     const absolutePath = join(workspacePath, fromPosix(file.currentPath))
-    const comments = await readManagedComments(absolutePath, signal)
+    const comments = await readManagedComments(absolutePath, signal, tools)
     const managedComments = comments.filter((comment) => !/^COVERART(?:MIME)?=/i.test(comment))
     const legacyCoverBackups: NonNullable<OriginalFileSnapshot['legacyCoverBackups']> = []
     for (const [legacyIndex, comment] of comments.filter((item) => /^COVERART(?:MIME)?=/i.test(item)).entries()) {
@@ -43,11 +45,11 @@ export async function captureOriginalFiles(
       await writeFile(join(backupRoot, relativePath), comment.slice(split + 1), { encoding: 'utf8', mode: 0o600 })
       legacyCoverBackups.push({ key, relativePath })
     }
-    const blocks = await pictureBlockNumbers(absolutePath, signal)
+    const blocks = await pictureBlockNumbers(absolutePath, signal, tools)
     const pictureBackups: NonNullable<OriginalFileSnapshot['pictureBackups']> = []
     for (const blockNumber of blocks) {
       const relativePath = `${String(index + 1).padStart(3, '0')}-picture-${blockNumber}.block`
-      const bytes = await runCommand('metaflac', ['--list', '--data-format=binary', `--block-number=${blockNumber}`, absolutePath], signal)
+      const bytes = await runCommand('metaflac', ['--list', '--data-format=binary', `--block-number=${blockNumber}`, absolutePath], signal, undefined, tools)
       await writeFile(join(backupRoot, relativePath), bytes, { mode: 0o600 })
       pictureBackups.push({ blockNumber, relativePath })
       pictureCount += 1
@@ -64,6 +66,7 @@ export async function applyTagsAndRenames(input: {
   originals: OriginalFileSnapshot[]
   stripEmbeddedCoverArt: boolean
   signal?: AbortSignal
+  tools?: ToolResolver
 }): Promise<ApplyFilesResult> {
   const { release, plan, originals, signal } = input
   if (plan.errors.length > 0) throw new Error(plan.errors[0])
@@ -83,7 +86,7 @@ export async function applyTagsAndRenames(input: {
       await addLegacyCoverValues(values, original, uploadWorkspaceRootForPath(input.workspacePath))
     }
     const restorePictures = input.stripEmbeddedCoverArt ? [] : (original.pictureBackups ?? [])
-    await rewriteFlac(join(input.workspacePath, fromPosix(file.currentPath)), values, restorePictures, uploadWorkspaceRootForPath(input.workspacePath), signal)
+    await rewriteFlac(join(input.workspacePath, fromPosix(file.currentPath)), values, restorePictures, uploadWorkspaceRootForPath(input.workspacePath), signal, input.tools ?? automaticToolResolver)
     if (input.stripEmbeddedCoverArt) {
       strippedPictureCount += original.pictureBackups?.length ?? 0
       strippedPictureCount += (original.legacyCoverBackups ?? []).filter((item) => item.key === 'COVERART').length
@@ -123,6 +126,7 @@ export async function restoreOriginalFiles(input: {
   currentFiles: Array<{ id: string; currentPath: string }>
   originalFolderName: string
   signal?: AbortSignal
+  tools?: ToolResolver
 }): Promise<string> {
   const plans: PlannedFileName[] = input.currentFiles.map((current) => {
     const original = input.originals.find((item) => item.id === current.id)
@@ -133,7 +137,7 @@ export async function restoreOriginalFiles(input: {
   for (const original of input.originals) {
     const values = commentsToValues(original.managedComments ?? [])
     await addLegacyCoverValues(values, original, uploadWorkspaceRootForPath(input.workspacePath))
-    await rewriteFlac(join(input.workspacePath, fromPosix(original.relativePath)), values, original.pictureBackups ?? [], uploadWorkspaceRootForPath(input.workspacePath), input.signal)
+    await rewriteFlac(join(input.workspacePath, fromPosix(original.relativePath)), values, original.pictureBackups ?? [], uploadWorkspaceRootForPath(input.workspacePath), input.signal, input.tools ?? automaticToolResolver)
   }
   if (basename(input.workspacePath) === input.originalFolderName) return input.workspacePath
   const root = uploadWorkspaceRootForPath(input.workspacePath)
@@ -156,7 +160,8 @@ async function rewriteFlac(
   values: Map<string, string[]>,
   pictureBackups: Array<{ blockNumber: number; relativePath: string }>,
   workspaceRoot: string,
-  signal?: AbortSignal
+  signal: AbortSignal | undefined,
+  tools: ToolResolver
 ): Promise<void> {
   const sourceInfo = await stat(sourcePath)
   const workDir = await mkdtemp(join(dirname(sourcePath), '.gravlax-tags-'))
@@ -172,15 +177,15 @@ async function rewriteFlac(
       }
     }
     args.push(sourcePath)
-    await runCommand('metaflac', args, signal)
-    await runCommand('metaflac', ['--dont-use-padding', '--remove', '--block-type=PICTURE', temporary], signal)
+    await runCommand('metaflac', args, signal, undefined, tools)
+    await runCommand('metaflac', ['--dont-use-padding', '--remove', '--block-type=PICTURE', temporary], signal, undefined, tools)
     const backupRoot = join(workspaceRoot, '.gravlax-original-metadata')
     for (const picture of [...pictureBackups].sort((a, b) => a.blockNumber - b.blockNumber)) {
       const bytes = await readFile(join(backupRoot, picture.relativePath))
-      await runCommand('metaflac', ['--append', temporary], signal, bytes)
+      await runCommand('metaflac', ['--append', temporary], signal, bytes, tools)
     }
-    await runCommand('flac', ['-t', '--silent', temporary], signal)
-    const actual = await readManagedComments(temporary, signal)
+    await runCommand('flac', ['-t', '--silent', temporary], signal, undefined, tools)
+    const actual = await readManagedComments(temporary, signal, tools)
     const expected = valuesToComments(values)
     if (!sameComments(actual, expected)) throw new Error(`Tag verification failed for ${basename(sourcePath)}.`)
     await chmod(temporary, sourceInfo.mode)
@@ -192,9 +197,13 @@ async function rewriteFlac(
   }
 }
 
-async function readManagedComments(path: string, signal?: AbortSignal): Promise<string[]> {
+async function readManagedComments(
+  path: string,
+  signal?: AbortSignal,
+  tools: ToolResolver = automaticToolResolver
+): Promise<string[]> {
   const args = ['--no-utf8-convert', ...MANAGED_KEYS.map((key) => `--show-tag=${key}`), path]
-  const output = (await runCommand('metaflac', args, signal)).toString('utf8')
+  const output = (await runCommand('metaflac', args, signal, undefined, tools)).toString('utf8')
   const comments: string[] = []
   for (const line of output.replace(/\r\n/g, '\n').split('\n')) {
     if (/^[^=\n]+=/.test(line)) comments.push(line)
@@ -203,8 +212,12 @@ async function readManagedComments(path: string, signal?: AbortSignal): Promise<
   return comments
 }
 
-async function pictureBlockNumbers(path: string, signal?: AbortSignal): Promise<number[]> {
-  const output = (await runCommand('metaflac', ['--list', path], signal)).toString('utf8')
+async function pictureBlockNumbers(
+  path: string,
+  signal?: AbortSignal,
+  tools: ToolResolver = automaticToolResolver
+): Promise<number[]> {
+  const output = (await runCommand('metaflac', ['--list', path], signal, undefined, tools)).toString('utf8')
   const numbers: number[] = []
   let block: number | undefined
   for (const line of output.split(/\r?\n/)) {

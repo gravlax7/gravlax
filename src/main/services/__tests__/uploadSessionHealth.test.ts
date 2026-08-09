@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { defaultConfig } from '@main/core/config/defaults'
 import { newState, stepIndex, type State } from '@main/core/uploadflow'
 import { UploadSession } from '@main/services/uploadSession'
+import { automaticToolResolver } from '@main/core/tools/binaries'
 
 const mocks = vi.hoisted(() => ({ healthcheckTrackers: vi.fn() }))
 
@@ -59,7 +60,12 @@ describe('UploadSession tracker health gate', () => {
       }
     ])
 
-    const session = new UploadSession({ userDataPath: '', getConfig: () => cfg, send: () => undefined })
+    const session = new UploadSession({
+      userDataPath: '',
+      getConfig: () => cfg,
+      tools: automaticToolResolver,
+      send: () => undefined
+    })
     const runtime = (session as unknown as { runtime: { apply: (next: State) => void } }).runtime
     runtime.apply(validState())
     vi.spyOn(session, 'ensureUploadReport').mockResolvedValue()

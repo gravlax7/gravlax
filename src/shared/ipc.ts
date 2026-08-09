@@ -98,6 +98,7 @@ const optionalOneArgument = <T>(schema: z.ZodType<T>): z.ZodType<[T?]> =>
 const sectionID = z.enum([
   'appearance',
   'directories',
+  'tools',
   'trackers',
   'metadataProviders',
   'imageHosts',
@@ -119,6 +120,14 @@ const trackerConfig = z.object({
 const configInput: z.ZodType<Config> = z.object({
   appearance: z.object({ theme: z.enum(['system', 'dark', 'light']) }),
   directories: z.object({ source: z.string(), torrents: z.string(), seeding: z.string() }),
+  tools: z.object({
+    sox: z.string(),
+    flac: z.string(),
+    metaflac: z.string(),
+    mp3val: z.string(),
+    lame: z.string(),
+    flaccheck: z.string()
+  }),
   trackers: z.object({ redacted: trackerConfig, orpheus: trackerConfig }),
   metadataProviders: z.object({
     musicBrainz: z.object({ enabled: z.boolean() }),

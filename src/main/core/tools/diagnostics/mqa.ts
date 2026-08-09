@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { open } from 'node:fs/promises'
+import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 
 const MQA_MAGIC = 0xbe0498c88
 const MQA_MAGIC_BITS = 36
@@ -20,12 +21,16 @@ export interface FlacStreamInfo {
   durationSeconds: number
 }
 
-export async function checkMQA(path: string, signal?: AbortSignal): Promise<boolean> {
+export async function checkMQA(
+  path: string,
+  signal?: AbortSignal,
+  tools: ToolResolver = automaticToolResolver
+): Promise<boolean> {
   const info = await readFLACStreamInfo(path)
   if (info.channels !== 2) {
     throw new Error(`input must be stereo: got ${info.channels} channel(s)`)
   }
-  const { left, right } = await decodeFirstSecond(path, info, signal)
+  const { left, right } = await decodeFirstSecond(path, info, signal, tools)
   return checkMQASyncword(left, right)
 }
 
@@ -92,16 +97,23 @@ async function readExact(handle: Awaited<ReturnType<typeof open>>, buf: Buffer):
 async function decodeFirstSecond(
   path: string,
   info: FlacStreamInfo,
-  signal?: AbortSignal
+  signal: AbortSignal | undefined,
+  tools: ToolResolver
 ): Promise<{ left: Int32Array; right: Int32Array }> {
-  const raw = await runFlacDecode(path, info.sampleRate, signal)
+  const raw = await runFlacDecode(path, info.sampleRate, signal, tools)
   return decodeRawStereoSamples(raw, info.bitsPerSample)
 }
 
-function runFlacDecode(path: string, sampleRate: number, signal?: AbortSignal): Promise<Buffer> {
+async function runFlacDecode(
+  path: string,
+  sampleRate: number,
+  signal: AbortSignal | undefined,
+  tools: ToolResolver
+): Promise<Buffer> {
+  const executable = await tools.require('flac')
   return new Promise((resolve, reject) => {
     const child = spawn(
-      'flac',
+      executable,
       [
         '-d',
         '--silent',

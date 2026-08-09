@@ -6,11 +6,13 @@ import type { UploadSession } from './services/uploadSession'
 import type { UploadStatsService } from './services/uploadStatsService'
 import { runHealthcheck } from './services/healthcheck'
 import { readSalmonImportSources } from './services/salmonImportService'
+import type { ToolResolver } from './core/tools/binaries'
 
 export interface IpcDeps {
   configService: ConfigService
   uploadStatsService: UploadStatsService
   uploadSession: UploadSession
+  toolResolver: ToolResolver
   pickDirectory: () => Promise<string | null>
   pickFile: (options?: { filters?: Array<{ name: string; extensions: string[] }> }) => Promise<string | null>
   revealPath: (path: string) => Promise<void>
@@ -85,5 +87,5 @@ export function registerIpc(deps: IpcDeps): void {
   handle('shell:openPath', (path) => deps.openPath(path))
   handle('shell:openExternal', (url) => deps.openExternal(url))
 
-  handle('health:refresh', () => runHealthcheck(config.get()))
+  handle('health:refresh', () => runHealthcheck(config.get(), deps.toolResolver))
 }

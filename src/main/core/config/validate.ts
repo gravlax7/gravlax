@@ -46,6 +46,15 @@ export function validate(cfg: Config): ValidationIssue[] {
     }
   }
 
+  for (const [field, value] of Object.entries(cfg.tools)) {
+    if (value === '') continue
+    const normalized = normalizePath(value)
+    const { path: expanded, ok } = expandPath(normalized)
+    if (!ok || expanded === '' || !path.isAbsolute(expanded) || path.normalize(expanded) !== expanded) {
+      add('tools', field, 'executable path must be an absolute, clean path')
+    }
+  }
+
   if (cfg.metadataProviders.requestTimeoutSeconds <= 0) {
     add('metadataProviders', 'requestTimeoutSeconds', 'request timeout must be positive')
   }

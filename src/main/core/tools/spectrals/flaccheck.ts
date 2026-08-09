@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative, sep } from 'node:path'
@@ -9,30 +8,35 @@ import type {
   FlaccheckVerdict
 } from '@shared/types'
 import { isFakeHires } from '@shared/upload/flaccheck'
-import { findOnPath } from '@main/core/tools/binaries'
+import { automaticToolResolver, type ToolId, type ToolResolver } from '@main/core/tools/binaries'
+import { runCommand } from '@main/core/tools/runCommand'
 
 const VERDICTS = new Set<string>(['GENUINE', 'SUSPICIOUS', 'TRANSCODED', 'INCONCLUSIVE'])
 const HIRES_VERDICTS = new Set<string>(['GENUINE_HIRES', 'UPSAMPLED', 'PADDED_DEPTH', 'UNKNOWN'])
 
-type CommandRunner = (name: string, args: string[], signal?: AbortSignal) => Promise<Buffer>
+type CommandRunner = (name: ToolId, args: string[], signal?: AbortSignal) => Promise<Buffer>
 
 export function emptyFlaccheckSummary(): FlaccheckSummary {
   return { status: 'idle', checkedCount: 0, files: [] }
 }
 
-export async function isFlaccheckAvailable(): Promise<boolean> {
-  return findOnPath('flaccheck')
+export async function isFlaccheckAvailable(
+  tools: ToolResolver = automaticToolResolver
+): Promise<boolean> {
+  return (await tools.resolve('flaccheck')).status === 'available'
 }
 
 export async function runFlaccheck(
   workspacePath: string,
   signal?: AbortSignal,
-  run: CommandRunner = runCommand
+  tools: ToolResolver = automaticToolResolver,
+  run: CommandRunner = (name, args, commandSignal) =>
+    runCommand(name, args, commandSignal, undefined, tools)
 ): Promise<FlaccheckSummary> {
   if (!workspacePath) {
     return { status: 'failed', checkedCount: 0, files: [], message: 'workspace path is required' }
   }
-  if (!(await isFlaccheckAvailable())) {
+  if (!(await isFlaccheckAvailable(tools))) {
     return { status: 'skipped', checkedCount: 0, files: [] }
   }
 
@@ -143,23 +147,4 @@ function toRelativePath(workspacePath: string, absolutePath: string): string {
     return absolutePath.split(sep).join('/')
   }
   return rel.split(sep).join('/')
-}
-
-function runCommand(name: string, args: string[], signal?: AbortSignal): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(name, args, { signal })
-    const out: Buffer[] = []
-    const err: Buffer[] = []
-    child.stdout.on('data', (c: Buffer) => out.push(c))
-    child.stderr.on('data', (c: Buffer) => err.push(c))
-    child.on('error', reject)
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve(Buffer.concat(out))
-        return
-      }
-      const trimmed = Buffer.concat(err).toString('utf8').trim()
-      reject(new Error(trimmed || `command failed: ${name}`))
-    })
-  })
 }

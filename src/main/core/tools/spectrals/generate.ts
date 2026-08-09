@@ -1,6 +1,7 @@
 import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { discoverFLACFiles, type FlacFile } from '@main/core/tools/flacFiles'
+import { automaticToolResolver, type ToolId, type ToolResolver } from '@main/core/tools/binaries'
 import { runCommand } from '@main/core/tools/runCommand'
 import { compressSpectralPngs } from './compress'
 
@@ -15,7 +16,7 @@ export interface SpectralProgress {
   currentTrack: string
 }
 
-type CommandRunner = (name: string, args: string[], signal?: AbortSignal) => Promise<Buffer>
+type CommandRunner = (name: ToolId, args: string[], signal?: AbortSignal) => Promise<Buffer>
 
 export interface GenerateSpectralsOptions {
   compress?: boolean
@@ -23,6 +24,7 @@ export interface GenerateSpectralsOptions {
   onProgress?: (progress: SpectralProgress) => void
   onCompress?: () => void
   run?: CommandRunner
+  tools?: ToolResolver
 }
 
 export async function generateSpectrals(
@@ -49,10 +51,13 @@ export async function generateSpectrals(
   })
 
   const generatedPaths: string[] = []
+  const tools = options.tools ?? automaticToolResolver
+  const run = options.run ?? ((name: ToolId, args: string[], signal?: AbortSignal) =>
+    runCommand(name, args, signal, undefined, tools))
   for (let index = 0; index < files.length; index++) {
     const file = files[index]!
     generatedPaths.push(
-      ...(await generateFile(options.run ?? runCommand, outputPath, file, index, options.signal))
+      ...(await generateFile(run, outputPath, file, index, options.signal))
     )
     const nextTrack = index + 1 < files.length ? files[index + 1]!.relativePath : ''
     options.onProgress?.({

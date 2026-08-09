@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '@main/core/config/defaults'
 import { newState, stepIndex, type State } from '@main/core/uploadflow'
 import { UploadSession } from '@main/services/uploadSession'
+import { automaticToolResolver } from '@main/core/tools/binaries'
 
 describe('UploadSession', () => {
   it('keeps a description edit made while building the upload report', async () => {
     const session = new UploadSession({
       userDataPath: '',
       getConfig: defaultConfig,
+      tools: automaticToolResolver,
       send: () => undefined
     })
     const state = newState()

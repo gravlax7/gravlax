@@ -6,6 +6,7 @@ import { UploadSession } from './services/uploadSession'
 import { ConfigService } from './services/configService'
 import { UploadStatsService } from './services/uploadStatsService'
 import { workspaceRoot } from './core/appdata/workspace'
+import { SystemToolResolver } from './core/tools/binaries'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -97,6 +98,7 @@ app.whenReady().then(async () => {
 
   const configService = new ConfigService(app.getPath('userData'))
   await configService.ensureLoaded()
+  const toolResolver = new SystemToolResolver(() => configService.get().tools)
   const send = (channel: string, payload: unknown): void => {
     if (!mainWindow || mainWindow.isDestroyed()) return
     mainWindow.webContents.send(channel, payload)
@@ -108,6 +110,7 @@ app.whenReady().then(async () => {
   const uploadSession = new UploadSession({
     userDataPath: app.getPath('userData'),
     getConfig: () => configService.get(),
+    tools: toolResolver,
     send,
     recordUploadStatistic: async (record) => {
       await uploadStatsService.record(record)
@@ -118,6 +121,7 @@ app.whenReady().then(async () => {
     configService,
     uploadStatsService,
     uploadSession,
+    toolResolver,
     pickDirectory: async () => {
       const result = mainWindow
         ? await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] })
@@ -158,18 +162,19 @@ app.whenReady().then(async () => {
   })
 
   // Persisting is debounced; without this a quit inside the window loses the
-  // last edit.
-  let flushed = false
+  // last edit. `app.quit()` does not reliably restart a quit that this handler
+  // cancelled, so end the process directly after the save completes.
+  let savingBeforeQuit = false
   app.on('before-quit', (event) => {
-    if (flushed) return
     event.preventDefault()
+    if (savingBeforeQuit) return
+    savingBeforeQuit = true
     void uploadSession.flushPersist().finally(() => {
-      flushed = true
-      app.quit()
+      app.exit(0)
     })
   })
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  app.quit()
 })

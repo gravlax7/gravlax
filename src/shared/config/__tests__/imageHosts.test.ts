@@ -13,6 +13,7 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
   return {
     appearance: { theme: 'system' },
     directories: { source: '', torrents: '', seeding: '' },
+    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '', flaccheck: '' },
     trackers: {
       redacted: {
         enabled: false,

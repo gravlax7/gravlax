@@ -127,11 +127,13 @@ import { UploadSessionFileChanges } from '@main/services/uploadSessionFileChange
 import { evaluateStepNavigation } from '@shared/upload/workflow'
 import { listUploadStartEntries } from '@main/services/uploadStartService'
 import type { UploadStatsRecord } from '@main/services/uploadStatsService'
+import type { ToolResolver } from '@main/core/tools/binaries'
 
 const FILES_CHECK_STEP = stepIndex('files-check') ?? 0
 
 export interface UploadSessionDeps extends UploadSessionRuntimeDeps {
   recordUploadStatistic?: (record: UploadStatsRecord) => Promise<void>
+  tools: ToolResolver
 }
 
 export class UploadSession {
@@ -157,6 +159,7 @@ export class UploadSession {
         apply: (next, options) => this.apply(next, options),
         persistNow: () => this.persistNow(),
         getConfig: () => this.deps.getConfig(),
+        tools: this.deps.tools,
         createWorkspaceGuard: (workspacePath) => {
           const generation = this.tasks.generation
           return () => this.stillOnWorkspace(generation, workspacePath)
@@ -1026,6 +1029,7 @@ export class UploadSession {
               const result = await transcodeFolder(workspacePath, option.bitrate, {
                 essentialOnly,
                 signal: task.signal,
+                tools: this.deps.tools,
                 onProgress
               })
               outputPath = result.outputPath
@@ -1038,6 +1042,7 @@ export class UploadSession {
                 sampleRate: option.targetSampleRate,
                 essentialOnly,
                 signal: task.signal,
+                tools: this.deps.tools,
                 onProgress
               })
               outputPath = result.outputPath
@@ -1208,6 +1213,7 @@ export class UploadSession {
         const summary = await generateSpectrals(workspacePath, {
           compress,
           signal: task.signal,
+          tools: this.deps.tools,
           onProgress: (progress) => {
             if (!task.fresh()) return
             this.apply(
@@ -1248,7 +1254,7 @@ export class UploadSession {
         // the whole step: the spectrals themselves were generated fine.
         let flaccheck
         try {
-          flaccheck = await runFlaccheck(workspacePath, task.signal)
+          flaccheck = await runFlaccheck(workspacePath, task.signal, this.deps.tools)
         } catch (err) {
           if (isAbortError(err)) return
           flaccheck = {
@@ -1291,6 +1297,7 @@ export class UploadSession {
       async (task) => {
         const mqaSummary = await checkMQAWorkspace(workspacePath, {
           signal: task.signal,
+          tools: this.deps.tools,
           onProgress: (current, total, label) => {
             if (!task.fresh()) return
             this.apply(
