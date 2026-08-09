@@ -12,12 +12,14 @@ asarUnpack:
 mac:
   icon: icon.icns
   category: public.app-category.music
+  # Release builds are unsigned until Apple signing and notarization are set up.
+  identity: null
   target:
     - target: dmg
       arch:
         - arm64
         - x64
-  hardenedRuntime: true
+  hardenedRuntime: false
   entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.plist
 linux:
