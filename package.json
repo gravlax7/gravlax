@@ -5,6 +5,9 @@
   "main": "./out/main/index.js",
   "author": "",
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -30,9 +33,9 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/node": "^22.13.10",
+    "@types/node": "^24.0.0",
     "@types/ssh2": "^1.15.5",
-    "electron": "^35.0.1",
+    "electron": "^40.0.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^3.0.0",
     "typescript": "^5.8.2",
