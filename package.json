@@ -1,9 +1,12 @@
 {
   "name": "gravlax",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Prepare music uploads",
   "main": "./out/main/index.js",
-  "author": "",
+  "author": {
+    "name": "gravlax7",
+    "email": "314761950+gravlax7@users.noreply.github.com"
+  },
   "license": "UNLICENSED",
   "engines": {
     "node": ">=24"
