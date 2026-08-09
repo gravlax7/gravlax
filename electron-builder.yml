@@ -3,6 +3,11 @@ productName: Gravlax
 directories:
   buildResources: resources
   output: dist
+publish:
+  provider: github
+  owner: gravlax7
+  repo: gravlax
+  releaseType: release
 files:
   - out/**/*
   - package.json

@@ -38,22 +38,21 @@ jobs:
     name: Package ${{ matrix.name }}
     needs: verify
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: macOS
             os: macos-latest
-            command: bun run dist:mac
-            artifact: gravlax-macos
+            command: bun run dist:mac --publish onTag
           - name: Windows
             os: windows-latest
-            command: bun run dist:win
-            artifact: gravlax-windows
+            command: bun run dist:win --publish onTag
           - name: Linux
             os: ubuntu-latest
-            command: bun run dist:linux
-            artifact: gravlax-linux
+            command: bun run dist:linux --publish onTag
 
     steps:
       - uses: actions/checkout@v5
@@ -64,35 +63,7 @@ jobs:
         with:
           bun-version: 1.3.14
       - run: bun install --frozen-lockfile
-      - run: ${{ matrix.command }}
-      - uses: actions/upload-artifact@v6
-        with:
-          name: ${{ matrix.artifact }}
-          path: |
-            dist/*.dmg
-            dist/*.exe
-            dist/*.AppImage
-            dist/*.deb
-          if-no-files-found: error
-          retention-days: 1
-
-  publish:
-    name: Create GitHub Release
-    needs: package
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/download-artifact@v7
-        with:
-          pattern: gravlax-*
-          path: release-assets
-          merge-multiple: true
-      - name: Create checksums
-        working-directory: release-assets
-        run: find . -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
-      - name: Publish GitHub Release
+      - name: Build and publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" release-assets/* --title "Gravlax $GITHUB_REF_NAME" --generate-notes
+        run: ${{ matrix.command }}
