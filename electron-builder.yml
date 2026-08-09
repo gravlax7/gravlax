@@ -3,6 +3,7 @@ productName: Gravlax
 directories:
   buildResources: resources
   output: dist
+afterPack: scripts/adhocSign.cjs
 publish:
   provider: github
   owner: gravlax7
@@ -19,7 +20,8 @@ asarUnpack:
 mac:
   icon: icon.icns
   category: public.app-category.music
-  # Release builds are unsigned until Apple signing and notarization are set up.
+  # Skip Developer ID signing until signing and notarization are set up.
+  # The afterPack hook applies a complete ad-hoc signature in the meantime.
   identity: null
   target:
     - target: dmg
