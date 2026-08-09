@@ -1,6 +1,6 @@
 {
   "name": "gravlax",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Prepare music uploads",
   "main": "./out/main/index.js",
   "author": "",

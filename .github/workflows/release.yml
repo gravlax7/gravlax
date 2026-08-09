@@ -34,9 +34,22 @@ jobs:
       - run: bun run test
       - run: bun run build
 
+  create-release:
+    name: Create draft release
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Create draft with release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --draft --generate-notes --title "Gravlax $GITHUB_REF_NAME"
+
   package:
     name: Package ${{ matrix.name }}
-    needs: verify
+    needs: create-release
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -67,3 +80,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: ${{ matrix.command }}
+
+  publish:
+    name: Publish release
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Publish draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false

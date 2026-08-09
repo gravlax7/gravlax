@@ -7,7 +7,9 @@ publish:
   provider: github
   owner: gravlax7
   repo: gravlax
-  releaseType: release
+  # Keep the release open while each OS job attaches its files. The workflow
+  # publishes it only after every job succeeds.
+  releaseType: draft
 files:
   - out/**/*
   - package.json
