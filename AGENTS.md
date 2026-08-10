@@ -30,5 +30,7 @@ npx vitest run src/main/core/uploadflow/__tests__/upload.test.ts -t 'maps artist
 
 Runtime depends on external binaries on `PATH`: `sox`, `flac`, `mp3val`, `lame`, and optionally `flaccheck`. They are probed in `src/main/services/healthcheck.ts` and surfaced in the Healthcheck screen.
 
-## Control
+## Rules
 If you ever take control of the app to test something, be sure to NEVER hit the submit button.
+
+Don't write tracker URLs in the codebase

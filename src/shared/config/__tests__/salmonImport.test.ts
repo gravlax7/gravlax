@@ -107,7 +107,7 @@ describe('buildSalmonImportPlan — directories and trackers', () => {
     })
   })
 
-  it('maps tracker credentials but not the site or announce URL', () => {
+  it('maps tracker credentials and enable switches without changing tracker addresses', () => {
     const result = plan({
       tracker: {
         default_tracker: 'RED',
@@ -120,16 +120,32 @@ describe('buildSalmonImportPlan — directories and trackers', () => {
     expect(values(result)).toEqual({
       'trackers.redacted.sessionCookie': 'red-cookie',
       'trackers.redacted.apiKey': 'red-key',
-      'trackers.orpheus.sessionCookie': 'ops-cookie'
+      'trackers.redacted.enabled': true,
+      'trackers.orpheus.sessionCookie': 'ops-cookie',
+      'trackers.orpheus.enabled': true
     })
-    expect(row(result, 'trackers.redacted.enabled')).toBeUndefined()
+    expect(row(result, 'trackers.redacted.enabled')).toMatchObject({ defaultSelected: false })
+    expect(row(result, 'trackers.orpheus.enabled')).toMatchObject({ defaultSelected: false })
+    expect(result.rows.some((candidate) => candidate.field.endsWith('siteUrl'))).toBe(false)
+    expect(result.rows.some((candidate) => candidate.field.endsWith('announceUrl'))).toBe(false)
     expect(result.skipped.map((skip) => skip.sourceKey)).toEqual(
-      expect.arrayContaining([
-        'tracker.red site and announce URL',
-        'tracker.dic',
-        'tracker.default_tracker'
-      ])
+      expect.arrayContaining(['tracker.dic', 'tracker.default_tracker'])
     )
+  })
+
+  it('selects an imported tracker enable switch when its address fields are already set', () => {
+    const current = defaultConfig()
+    current.trackers.redacted.siteUrl = 'configured-site'
+    current.trackers.redacted.announceUrl = 'configured-announce'
+    const result = buildSalmonImportPlan(
+      { toml: { tracker: { red: { session: 'red-cookie' } } } },
+      current
+    )
+
+    expect(row(result, 'trackers.redacted.enabled')).toMatchObject({
+      value: true,
+      defaultSelected: true
+    })
   })
 
   it('ignores the placeholders shipped in config.default.toml', () => {
@@ -187,6 +203,14 @@ describe('buildSalmonImportPlan — image hosts and spectrals', () => {
   it('leaves imgbb disabled when it is selected but has no key', () => {
     const result = plan({ image: { cover_uploader: 'imgbb' } })
     expect(row(result, 'imageHosts.imgbb.enabled')).toBeUndefined()
+  })
+
+  it('enables imgbb whenever its key is imported', () => {
+    const result = plan({ image: { image_uploader: 'ptpimg', imgbb_key: 'imgbb-key' } })
+    expect(values(result)).toMatchObject({
+      'imageHosts.imgbb.apiKey': 'imgbb-key',
+      'imageHosts.imgbb.enabled': true
+    })
   })
 
   it('translates the spectral id selection symbols', () => {
@@ -260,6 +284,26 @@ describe('buildSalmonImportPlan — torrent client', () => {
       'torrentClient.savePath': '/srv/data'
     })
     expect(result.rcloneNeeded).toBe(false)
+    expect(row(result, 'torrentClient.enabled')?.defaultSelected).toBe(true)
+  })
+
+  it('leaves qBittorrent off when the imported setup has no usable destination', () => {
+    const result = plan({
+      seedbox: [
+        {
+          enabled: true,
+          type: 'rclone',
+          url: 'nas',
+          directory: '',
+          torrent_client: 'qbittorrent+http://admin:s3cret@127.0.0.1:8080'
+        }
+      ]
+    })
+
+    const enabled = row(result, 'torrentClient.enabled')!
+    expect(enabled.defaultSelected).toBe(false)
+    expect(enabled.note).toContain('save path or an enabled seedbox')
+    expect(row(result, 'torrentClient.url')?.defaultSelected).toBe(true)
   })
 
   it('skips torrent clients Gravlax cannot drive', () => {
@@ -269,6 +313,7 @@ describe('buildSalmonImportPlan — torrent client', () => {
     expect(result.rows).toEqual([])
     expect(result.skipped[0]).toMatchObject({ sourceKey: 'seedbox.torrent_client = "deluge://user:pass@127.0.0.1:58664"' })
   })
+
 })
 
 describe('buildSalmonImportPlan — seedbox via rclone', () => {
@@ -328,6 +373,9 @@ describe('buildSalmonImportPlan — seedbox via rclone', () => {
     expect(result.skipped.map((skip) => skip.reason)).toEqual(
       expect.arrayContaining([expect.stringContaining('ssh-agent')])
     )
+    const enabled = row(result, 'transfer.enabled')!
+    expect(enabled.defaultSelected).toBe(false)
+    expect(enabled.note).toContain('SFTP settings are incomplete')
   })
 
   it('gives the rclone directory to the Seedbox section, not qBittorrent', () => {

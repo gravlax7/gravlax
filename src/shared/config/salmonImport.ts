@@ -209,6 +209,7 @@ export function buildSalmonImportPlan(
   mapUpload(builder, toml)
   mapMetadata(builder, toml)
   const seedbox = mapSeedboxes(builder, toml, input.rclone)
+  leaveIncompleteEnablesUnchecked(builder, current)
 
   return {
     rows: builder.rows,
@@ -217,6 +218,69 @@ export function buildSalmonImportPlan(
     ...(seedbox.rcloneError ? { rcloneError: seedbox.rcloneError } : {}),
     ...(seedbox.rcloneConfPath ? { rcloneConfPath: seedbox.rcloneConfPath } : {})
   }
+}
+
+/**
+ * An imported enable switch must not make the default import fail Save. Keep
+ * the useful connection fields selected, but leave an incomplete service off
+ * until the user fills in what smoked-salmon or rclone could not provide.
+ */
+function leaveIncompleteEnablesUnchecked(builder: PlanBuilder, current: Config): void {
+  for (const trackerId of ['redacted', 'orpheus'] as const) {
+    const enabled = builder.rows.find((row) => row.id === `trackers.${trackerId}.enabled`)
+    const preview = previewDefaultImport(builder, current)
+    const tracker = preview.trackers[trackerId]
+    if (
+      enabled?.value === true &&
+      enabled.defaultSelected &&
+      (tracker.siteUrl === '' ||
+        tracker.announceUrl === '' ||
+        (tracker.apiKey === '' && tracker.sessionCookie === ''))
+    ) {
+      enabled.defaultSelected = false
+      enabled.note =
+        'Not selected because the tracker settings are incomplete. Fill in the missing fields, then enable the tracker.'
+    }
+  }
+
+  const transferEnabled = builder.rows.find((row) => row.id === 'transfer.enabled')
+  let preview = previewDefaultImport(builder, current)
+  if (
+    transferEnabled?.value === true &&
+    transferEnabled.defaultSelected &&
+    (preview.transfer.host === '' ||
+      preview.transfer.username === '' ||
+      (preview.transfer.password === '' && preview.transfer.privateKeyPath === '') ||
+      preview.transfer.remotePath === '')
+  ) {
+    transferEnabled.defaultSelected = false
+    transferEnabled.note =
+      'Not selected because the imported SFTP settings are incomplete. Fill in the missing fields, then enable the seedbox.'
+  }
+
+  // Rebuild after the transfer check: qBittorrent may rely on that switch in
+  // place of its own save path.
+  preview = previewDefaultImport(builder, current)
+  const torrentEnabled = builder.rows.find((row) => row.id === 'torrentClient.enabled')
+  if (torrentEnabled?.value !== true || !torrentEnabled.defaultSelected) return
+
+  const missingDestination = preview.torrentClient.useAutoTMM
+    ? preview.torrentClient.category === ''
+    : preview.torrentClient.savePath === '' && !preview.transfer.enabled
+  if (preview.torrentClient.url !== '' && !missingDestination) return
+
+  torrentEnabled.defaultSelected = false
+  torrentEnabled.note = preview.torrentClient.useAutoTMM
+    ? 'Not selected because automatic torrent management needs a category. Fill it in, then enable qBittorrent.'
+    : 'Not selected because qBittorrent needs a save path or an enabled seedbox. Fill in the missing setting, then enable qBittorrent.'
+}
+
+function previewDefaultImport(builder: PlanBuilder, current: Config): Config {
+  const preview = structuredClone(current)
+  for (const row of builder.rows) {
+    if (row.defaultSelected) writeField(preview, row.section, row.field, row.value)
+  }
+  return preview
 }
 
 function mapDirectories(builder: PlanBuilder, toml: Record<string, unknown>): void {
@@ -273,12 +337,8 @@ function mapImages(builder: PlanBuilder, toml: Record<string, unknown>): void {
       field: 'imgbb.apiKey',
       value: imgbbKey
     })
-  }
-
-  const usesImgbb = [imageUploader, coverUploader, specsUploader].includes('imgbb')
-  if (usesImgbb && imgbbKey !== undefined) {
     builder.add({
-      sourceKey: 'image.*_uploader',
+      sourceKey: 'image.imgbb_key',
       section: 'imageHosts',
       field: 'imgbb.enabled',
       value: true
@@ -373,10 +433,12 @@ function mapTrackers(builder: PlanBuilder, toml: Record<string, unknown>): void 
     }
 
     if (session !== undefined || apiKey !== undefined) {
-      builder.skip(
-        `tracker.${salmonKey} site and announce URL`,
-        'smoked-salmon builds these at runtime from your passkey, so fill them in by hand before enabling the tracker.'
-      )
+      builder.add({
+        sourceKey: `tracker.${salmonKey}`,
+        section: 'trackers',
+        field: `${gravlaxKey}.enabled`,
+        value: true
+      })
     }
 
     if (str(site, 'dottorrents_dir') !== undefined) {
