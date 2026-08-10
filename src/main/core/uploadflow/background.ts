@@ -18,9 +18,9 @@ export function newBackgroundWork(sourcePath: string): BackgroundWork {
     sourcePath,
     sourceMedia: '',
     tasks: [
-      queuedTask('spectrals', 'spectrals', 'Generate spectrals'),
-      queuedTask('metadata', 'metadata', 'Fetch metadata tags'),
-      queuedTask('transcode', 'transcode', 'Transcoding...')
+      queuedTask('spectrals', 'spectrals', 'Generating spectrals'),
+      queuedTask('metadata', 'metadata', 'Fetching metadata tags'),
+      queuedTask('transcode', 'transcode', 'Transcoding')
     ]
   }
 }

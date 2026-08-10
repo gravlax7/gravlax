@@ -3,9 +3,11 @@ import type {
   UploadStartEntries,
   UploadStartNewEntry,
   UploadStartResumeEntry,
-  UploadedReleaseRecord
+  UploadedReleaseRecord,
+  UploadedSubmissionSummary
 } from '@shared/types'
 import { UPLOAD_STEPS } from '@shared/upload/stepGating'
+import { TrackerIcon, trackerLabel } from '../../components/TrackerIcon'
 import { Badge, Button, EmptyState, Icon, Spinner } from '../../ui'
 
 export function UploadStartMenu(props: {
@@ -14,6 +16,7 @@ export function UploadStartMenu(props: {
   onRefresh: () => void
   onOpenPath: (path: string) => void
   onResume: (entry: UploadStartResumeEntry) => void
+  onRestart: (entry: UploadStartResumeEntry) => void
   onUploaded: (entry: UploadedReleaseRecord) => void
 }) {
   const [dragging, setDragging] = createSignal(false)
@@ -107,6 +110,11 @@ export function UploadStartMenu(props: {
                     warning={!entry.sourceExists}
                     badge={UPLOAD_STEPS.find((step) => step.id === entry.currentStepID)?.title ?? 'Files Check'}
                     onClick={() => props.onResume(entry)}
+                    action={
+                      entry.sourceExists
+                        ? { label: 'Restart', onClick: () => props.onRestart(entry) }
+                        : undefined
+                    }
                   />
                 )}
               </For>
@@ -162,21 +170,31 @@ function StartRow(props: {
   badge?: string
   warning?: boolean
   onClick: () => void
+  action?: { label: string; onClick: () => void }
 }) {
   return (
-    <button type="button" class="upload-start-row" onClick={props.onClick}>
-      <span class={`upload-start-row-icon upload-start-row-icon-${props.icon}`}>
-        <Icon name={props.warning ? 'alert-triangle' : props.icon} size={15} />
-      </span>
-      <span class="upload-start-row-text">
-        <span class="upload-start-row-name">{props.name}</span>
-        <span class="upload-start-row-path mono">{props.path}</span>
-      </span>
-      <Show when={props.badge}>
-        <Badge tone={props.warning ? 'warning' : 'neutral'}>{props.badge}</Badge>
+    <div class="upload-start-row">
+      <button type="button" class="upload-start-row-open" onClick={props.onClick}>
+        <span class={`upload-start-row-icon upload-start-row-icon-${props.icon}`}>
+          <Icon name={props.warning ? 'alert-triangle' : props.icon} size={15} />
+        </span>
+        <span class="upload-start-row-text">
+          <span class="upload-start-row-name">{props.name}</span>
+          <span class="upload-start-row-path mono">{props.path}</span>
+        </span>
+        <Show when={props.badge}>
+          <Badge tone={props.warning ? 'warning' : 'neutral'}>{props.badge}</Badge>
+        </Show>
+        <Icon name="chevron-right" size={14} />
+      </button>
+      <Show when={props.action}>
+        {(action) => (
+          <Button variant="ghost" size="sm" class="upload-start-row-action" onClick={action().onClick}>
+            <Icon name="refresh-cw" size={14} /> {action().label}
+          </Button>
+        )}
       </Show>
-      <Icon name="chevron-right" size={14} />
-    </button>
+    </div>
   )
 }
 
@@ -231,14 +249,16 @@ export function UploadedSummary(props: {
                 {(submission) => (
                   <button
                     type="button"
-                    class="upload-start-row"
+                    class="upload-start-row upload-summary-row"
                     disabled={!submission.url}
                     onClick={() => submission.url && void window.gravlax.shell.openExternal(submission.url)}
                   >
-                    <span class="upload-start-row-icon"><Icon name="globe" size={15} /></span>
+                    <span class="upload-start-row-icon">
+                      <TrackerIcon trackerId={submission.trackerId} size={20} />
+                    </span>
                     <span class="upload-start-row-text">
-                      <span class="upload-start-row-name">{submission.label}</span>
-                      <span class="upload-start-row-path">{submission.trackerId}</span>
+                      <span class="upload-start-row-name">{submissionFormatLabel(submission)}</span>
+                      <span class="upload-start-row-path">{trackerLabel(submission.trackerId)}</span>
                     </span>
                     <Show when={submission.url}><Icon name="external-link" size={14} /></Show>
                   </button>
@@ -250,4 +270,9 @@ export function UploadedSummary(props: {
       </div>
     </div>
   )
+}
+
+function submissionFormatLabel(submission: UploadedSubmissionSummary): string {
+  const prefix = `${trackerLabel(submission.trackerId)} · `
+  return submission.label.startsWith(prefix) ? submission.label.slice(prefix.length) : submission.label
 }

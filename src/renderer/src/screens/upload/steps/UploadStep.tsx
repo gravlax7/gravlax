@@ -508,18 +508,6 @@ export function UploadStep(props: {
                   <span>Bitrate</span>
                   <div class="mono upload-report-readonly">{displayOrEmpty(format.bitrate)}</div>
                 </div>
-                <Show when={format.format !== 'FLAC'}>
-                  <div class="upload-report-field">
-                    <span>Other bitrate</span>
-                    <div class="mono upload-report-readonly">
-                      {displayOrEmpty(format.otherBitrate)}
-                    </div>
-                  </div>
-                  <div class="upload-report-field">
-                    <span>VBR</span>
-                    <div class="mono upload-report-readonly">{format.vbr ? 'Yes' : 'No'}</div>
-                  </div>
-                </Show>
                 <Show when={format.logfileNames.length > 0}>
                   <div class="upload-report-field upload-report-field-full">
                     <span>Log files</span>

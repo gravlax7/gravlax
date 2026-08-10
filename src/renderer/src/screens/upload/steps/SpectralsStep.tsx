@@ -134,7 +134,7 @@ export function SpectralsStep(props: {
       <Show when={props.spectrals.length > 0}>
         <div class="spectrals-select-header">
           <div class="spectrals-select-title">
-            Hosted in the description: {selectedIds().length} of {props.spectrals.length}
+            Hosted for the description: {selectedIds().length} of {props.spectrals.length}
           </div>
           <div class="spectrals-select-actions">
             <button

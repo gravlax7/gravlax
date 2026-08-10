@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { APP_VERSION } from '@shared/version'
 import {
   SPECTRAL_PLACEHOLDER,
   buildLossyMasterComment,
@@ -199,6 +200,7 @@ describe('generateReleaseDescription', () => {
     })
     expect(desc).toContain('[u]Lossy Notes:[/u]')
     expect(desc).toContain('Soft clipped')
+    expect(desc).toContain(`[hr]Uploaded with [b]gravlax[/b] v${APP_VERSION}`)
   })
 })
 

@@ -22,8 +22,7 @@ import {
   setTrackFieldEditorValue,
   trackHeading
 } from '@shared/tags/editor'
-import { IconButton, StatusDot } from '../../../ui'
-import { Button } from '../../../ui'
+import { Button, Callout, IconButton, Spinner, StatusDot } from '../../../ui'
 import { Toggle } from '../../../components/Toggle'
 import { Select } from '../../../components/Select'
 import { ArtistsEditor } from '../ArtistsEditor'
@@ -42,6 +41,7 @@ export function TagsStep(props: {
   onEditArtistsChange: (artists: Artist[]) => void
   onFieldBlur: () => void
   focusFieldEditor: (el: HTMLInputElement | HTMLTextAreaElement) => void
+  onReload: () => void
 }) {
   const currentTracks = (): Track[] => props.state.tags.current?.tracks ?? []
   const proposedTracks = (): Track[] => props.state.tags.proposed?.tracks ?? []
@@ -104,8 +104,29 @@ export function TagsStep(props: {
         </Show>
       </div>
 
-      <div class="tags-table-wrap">
-        <table class="tags-table">
+      <Show when={props.state.tags.releaseStatus === 'loading'}>
+        <Callout tone="info" class="tags-release-status">
+          <Spinner size="sm" /> Loading metadata for the selected release…
+        </Callout>
+      </Show>
+
+      <Show when={props.state.tags.releaseStatus === 'failed'}>
+        <Callout tone="error" class="tags-release-status">
+          <div>
+            Could not load metadata for the selected release.
+            <Show when={props.state.tags.releaseError}>
+              {(error) => <div class="tags-release-error">{error()}</div>}
+            </Show>
+          </div>
+          <Button variant="secondary" size="sm" onClick={props.onReload}>
+            Retry
+          </Button>
+        </Callout>
+      </Show>
+
+      <Show when={props.state.tags.releaseStatus !== 'loading'}>
+        <div class="tags-table-wrap">
+          <table class="tags-table">
           <thead>
             <tr>
               <th>Field</th>
@@ -191,22 +212,22 @@ export function TagsStep(props: {
               }}
             </For>
           </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
 
-      <Show when={(props.state.files.original.embeddedCoverArtCount ?? 0) > 0}>
-        <label class="tags-toggle-row">
-          <Toggle
-            on={props.state.files.apply.stripEmbeddedCoverArt}
-            disabled={busy() || locked()}
-            onChange={(value) => void window.gravlax.upload.setStripEmbeddedCoverArt(value)}
-          />
-          <span><strong>Strip embedded cover art</strong><small>External cover files stay unchanged.</small></span>
-        </label>
-      </Show>
+        <Show when={(props.state.files.original.embeddedCoverArtCount ?? 0) > 0}>
+          <label class="tags-toggle-row">
+            <Toggle
+              on={props.state.files.apply.stripEmbeddedCoverArt}
+              disabled={busy() || locked()}
+              onChange={(value) => void window.gravlax.upload.setStripEmbeddedCoverArt(value)}
+            />
+            <span><strong>Strip embedded cover art</strong><small>External cover files stay unchanged.</small></span>
+          </label>
+        </Show>
 
-      <Show when={trackCount() > 0}>
-        <section class="tags-tracks">
+        <Show when={trackCount() > 0}>
+          <section class="tags-tracks">
           <h3 class="tags-tracks-heading">Tracks</h3>
           <For each={Array.from({ length: trackCount() }, (_, index) => index)}>
             {(trackIndex) => {
@@ -313,7 +334,8 @@ export function TagsStep(props: {
               )
             }}
           </For>
-        </section>
+          </section>
+        </Show>
       </Show>
 
       <section class="filenames-section">

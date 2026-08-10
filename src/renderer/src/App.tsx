@@ -279,6 +279,7 @@ export default function App() {
                 onRefresh={() => void loadStartEntries()}
                 onOpenPath={openPath}
                 onResume={(entry) => void resumeUpload(entry)}
+                onRestart={(entry) => startNew(entry.sourcePath)}
                 onUploaded={(entry) => setUploadView({ kind: 'uploaded', entry })}
               />
             </Show>

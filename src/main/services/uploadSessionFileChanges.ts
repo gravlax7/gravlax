@@ -84,6 +84,9 @@ export class UploadSessionFileChanges {
       if (state.files.apply.phase === 'applying' || state.files.apply.phase === 'restoring') {
         return { ok: false, error: 'File changes are already running.' }
       }
+      if (state.tags.releaseStatus === 'loading') {
+        return { ok: false, error: 'Metadata is still loading.' }
+      }
       const release = state.tags.proposed
       const workspacePath = state.draft.workspacePath
       if (!workspacePath || !release) return this.fail('Tags are not ready.')

@@ -71,6 +71,7 @@ export function UploadScreen(props: {
 
   const stepIndex = () => props.state.currentStep
   const stepId = () => UPLOAD_STEPS[stepIndex()]?.id
+  const tagsStepIndex = UPLOAD_STEPS.findIndex((step) => step.id === 'tags')
 
   const title = createMemo(() =>
     props.state.draft.sourcePath ? basename(props.state.draft.sourcePath) : 'Uploader'
@@ -90,13 +91,22 @@ export function UploadScreen(props: {
     })
   }
 
+  const selectMetadataAndOpenTags = (selection: MetadataSelection): void => {
+    void window.gravlax.upload.selectMetadataMatch(selection).then(() => {
+      if (tagsStepIndex >= 0) navigateToStep(tagsStepIndex)
+    })
+  }
+
   const requestMetadataSelection = (selection: MetadataSelection): void => {
-    if (sameMetadataSelection(props.state.metadata.selected, selection)) return
+    if (sameMetadataSelection(props.state.metadata.selected, selection)) {
+      if (tagsStepIndex >= 0) navigateToStep(tagsStepIndex)
+      return
+    }
     if (props.state.tags.proposedDirty) {
       setPendingMetadataSelection(selection)
       return
     }
-    void window.gravlax.upload.selectMetadataMatch(selection)
+    selectMetadataAndOpenTags(selection)
   }
 
   const startFieldEdit = (field: string, trackIndex?: number): void => {
@@ -310,6 +320,10 @@ export function UploadScreen(props: {
               onEditArtistsChange={setEditArtists}
               onFieldBlur={onFieldBlur}
               focusFieldEditor={focusFieldEditor}
+              onReload={() => {
+                cancelFieldEdit()
+                void window.gravlax.upload.refreshTags()
+              }}
             />
           </Show>
           <Show when={stepId() === 'transcode'}>
@@ -369,7 +383,8 @@ export function UploadScreen(props: {
                 (stepId() === 'seed' && props.state.seed.phase !== 'done') ||
                 (stepId() === 'transcode' && props.state.transcode?.phase === 'inspecting') ||
                 (stepId() === 'tags' &&
-                  (props.state.files.apply.phase === 'applying' ||
+                  (props.state.tags.releaseStatus === 'loading' ||
+                    props.state.files.apply.phase === 'applying' ||
                     props.state.files.apply.phase === 'restoring'))
               }
               onClick={() => {
@@ -415,7 +430,7 @@ export function UploadScreen(props: {
             const next = pendingMetadataSelection()
             setPendingMetadataSelection(null)
             if (index === 0 && next) {
-              void window.gravlax.upload.selectMetadataMatch(next)
+              selectMetadataAndOpenTags(next)
             }
           }}
         />

@@ -153,6 +153,36 @@ describe('runSeed', () => {
     expect(getTorrent).toHaveBeenCalledWith('abc')
   })
 
+  it('records complete SFTP totals when the last progress update is throttled', async () => {
+    const { uploadFolderViaSftp } = await import('@main/core/tools/transfer')
+    vi.mocked(uploadFolderViaSftp).mockImplementationOnce(async (_cfg, options) => {
+      options.onProgress?.({
+        bytesTransferred: 250,
+        bytesTotal: 300,
+        filesTransferred: 12,
+        filesTotal: 17,
+        currentFile: '12.flac'
+      })
+      options.onProgress?.({
+        bytesTransferred: 300,
+        bytesTotal: 300,
+        filesTransferred: 17,
+        filesTotal: 17,
+        currentFile: 'cover.jpg'
+      })
+    })
+
+    const result = await runSeed({ cfg: seedboxConfig(), formats: [format()] })
+
+    expect(result.tasks.find((task) => task.id === 'transfer:flac')).toMatchObject({
+      status: 'done',
+      bytesTransferred: 300,
+      bytesTotal: 300,
+      filesTransferred: 17,
+      filesTotal: 17
+    })
+  })
+
   it('fails the inject when the client does not actually hold the torrent', async () => {
     vi.useFakeTimers()
     getTorrent.mockResolvedValue(null as never)

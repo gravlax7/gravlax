@@ -133,6 +133,17 @@ describe('UploadSessionFileChanges folder renames', () => {
     expect(mocks.applyTagsAndRenames).toHaveBeenCalledOnce()
   })
 
+  it('does not apply the empty proposal while metadata is loading', async () => {
+    const { service, getState } = setup()
+    getState().tags = { proposed: {}, releaseStatus: 'loading' }
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({
+      ok: false,
+      error: 'Metadata is still loading.'
+    })
+    expect(mocks.applyTagsAndRenames).not.toHaveBeenCalled()
+  })
+
   it('keeps a successful restore current after it restores the folder name', async () => {
     const test = setup()
     await test.service.applyTagsAndNames(true)

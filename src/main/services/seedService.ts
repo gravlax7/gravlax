@@ -119,7 +119,9 @@ export async function runSeed(options: RunSeedOptions): Promise<SeedSnapshot> {
 
     const rate = createRateMeter()
     let lastEmit = 0
+    let latestProgress: TransferProgress | undefined
     const report = (progress: TransferProgress, force = false): void => {
+      latestProgress = progress
       const now = Date.now()
       if (!force && now - lastEmit < PROGRESS_INTERVAL_MS) return
       lastEmit = now
@@ -148,7 +150,11 @@ export async function runSeed(options: RunSeedOptions): Promise<SeedSnapshot> {
         emit(
           patchSeedTask(seed, task.id, {
             status: 'done',
+            bytesTransferred: latestProgress?.bytesTotal,
+            bytesTotal: latestProgress?.bytesTotal,
             bytesPerSecond: undefined,
+            filesTransferred: latestProgress?.filesTotal,
+            filesTotal: latestProgress?.filesTotal,
             detail: path.basename(format.folderPath)
           })
         )

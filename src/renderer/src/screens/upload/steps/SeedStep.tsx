@@ -10,6 +10,16 @@ function isPlacement(task: SeedTask): boolean {
   return task.kind === 'transfer' || task.kind === 'copy'
 }
 
+function shownBytesTransferred(task: SeedTask): number {
+  if (task.status === 'done' && task.bytesTotal !== undefined) return task.bytesTotal
+  return task.bytesTransferred ?? 0
+}
+
+function shownFilesTransferred(task: SeedTask): number {
+  if (task.status === 'done' && task.filesTotal !== undefined) return task.filesTotal
+  return task.filesTransferred ?? 0
+}
+
 export function SeedStep(props: {
   state: UploadFlowStateJSON
   onRetry: () => void
@@ -25,7 +35,7 @@ export function SeedStep(props: {
     return {
       count: tasks().length,
       finished: tasks().filter((t) => t.status === 'done' || t.status === 'skipped').length,
-      bytesTransferred: placements.reduce((sum, t) => sum + (t.bytesTransferred ?? 0), 0),
+      bytesTransferred: placements.reduce((sum, t) => sum + shownBytesTransferred(t), 0),
       bytesTotal: placements.reduce((sum, t) => sum + (t.bytesTotal ?? 0), 0),
       // Only one placement runs at a time, so summing is the aggregate rate.
       bytesPerSecond: placements.reduce((sum, t) => sum + (t.bytesPerSecond ?? 0), 0)
@@ -129,7 +139,7 @@ function SeedTaskRow(props: { task: SeedTask }) {
       if (eta && running()) parts.push(`~${eta} left`)
     }
     if ((task.filesTotal ?? 0) > 0) {
-      parts.push(`${task.filesTransferred ?? 0}/${task.filesTotal} files`)
+      parts.push(`${shownFilesTransferred(task)}/${task.filesTotal} files`)
     }
     return parts.join(' · ')
   })
@@ -149,7 +159,7 @@ function SeedTaskRow(props: { task: SeedTask }) {
 
       <Show when={showBar()}>
         <ProgressBar
-          value={props.task.bytesTransferred ?? 0}
+          value={shownBytesTransferred(props.task)}
           max={props.task.bytesTotal ?? 0}
           tone={done() ? 'success' : 'accent'}
         />

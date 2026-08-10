@@ -25,7 +25,6 @@ import {
   markBackgroundTaskProgress,
   markBackgroundTaskRunning,
   resetBackgroundTask,
-  resetTagsProposed,
   selectSourcePath,
   setCurrentStep,
   setFilesCheck,
@@ -931,12 +930,15 @@ export class UploadSession {
   async refreshTags(): Promise<void> {
     if (!this.state.draft.workspacePath) return
     const workspacePath = this.state.draft.workspacePath
+    // A failed metadata request leaves the proposed release empty. Reloading
+    // tags must retry that request too, rather than only rereading the files.
+    this.tags.cancel()
+    this.apply(clearTagsRelease(this.state))
     this.apply(setTagsCurrentLoading(this.state))
     if (!(await this.loadCurrentTags(workspacePath))) return
     if (this.state.tags.currentStatus !== 'ready') return
     if (!this.state.metadata.selected) return
-    if (this.state.metadata.selected.provider === METADATA_PROVIDER_MANUAL) return
-    this.apply(resetTagsProposed(this.state))
+    void this.startTagsReleaseIfNeeded()
   }
 
   setTranscodeSelection(optionIds: string[]): void {
