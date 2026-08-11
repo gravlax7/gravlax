@@ -127,9 +127,8 @@ export function UploadStartMenu(props: {
                 {(entry) => (
                   <StartRow
                     name={entry.title || entry.name}
-                    path={entry.sourcePath}
+                    subtitle={entry.artists.join(', ') || undefined}
                     icon="check"
-                    warning={!entry.sourceExists}
                     badge={new Date(entry.completedAt).toLocaleDateString()}
                     onClick={() => props.onUploaded(entry)}
                   />
@@ -165,7 +164,8 @@ function StartSection(props: { title: string; count: number; children: JSX.Eleme
 
 function StartRow(props: {
   name: string
-  path: string
+  path?: string
+  subtitle?: string
   icon: 'plus' | 'refresh-cw' | 'check'
   badge?: string
   warning?: boolean
@@ -180,7 +180,12 @@ function StartRow(props: {
         </span>
         <span class="upload-start-row-text">
           <span class="upload-start-row-name">{props.name}</span>
-          <span class="upload-start-row-path mono">{props.path}</span>
+          <Show when={props.path}>
+            {(path) => <span class="upload-start-row-path mono">{path()}</span>}
+          </Show>
+          <Show when={props.subtitle}>
+            {(subtitle) => <span class="upload-start-row-subtitle">{subtitle()}</span>}
+          </Show>
         </span>
         <Show when={props.badge}>
           <Badge tone={props.warning ? 'warning' : 'neutral'}>{props.badge}</Badge>
@@ -200,9 +205,7 @@ function StartRow(props: {
 
 export function UploadedSummary(props: {
   entry: UploadedReleaseRecord
-  starting: boolean
   onBack: () => void
-  onStartAgain: () => void
 }) {
   const heading = () => {
     const artists = props.entry.artists.join(', ')
@@ -220,28 +223,16 @@ export function UploadedSummary(props: {
             Uploaded {new Date(props.entry.completedAt).toLocaleString()}
           </p>
         </div>
-        <Button
-          variant="primary"
-          loading={props.starting}
-          disabled={!props.entry.sourceExists}
-          onClick={props.onStartAgain}
-        >
-          <Icon name="plus" size={14} /> Start again
-        </Button>
       </header>
       <div class="upload-start-body">
         <div class="content-frame upload-summary">
-          <Show when={!props.entry.sourceExists}>
-            <div class="ui-callout ui-callout-error">
-              The source folder is missing. Put it back at the saved path to start again.
-            </div>
+          <Show when={props.entry.year}>
+            {(year) => (
+              <div class="upload-summary-meta">
+                <div><span>Year</span><strong>{year()}</strong></div>
+              </div>
+            )}
           </Show>
-          <div class="upload-summary-meta">
-            <div><span>Source</span><strong class="mono">{props.entry.sourcePath}</strong></div>
-            <Show when={props.entry.year}>
-              {(year) => <div><span>Year</span><strong>{year()}</strong></div>}
-            </Show>
-          </div>
           <section class="upload-start-section">
             <div class="upload-start-section-heading"><h2>Tracker uploads</h2></div>
             <div class="upload-start-list">

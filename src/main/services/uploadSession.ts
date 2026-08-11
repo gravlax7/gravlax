@@ -119,6 +119,7 @@ import { extractAlbumReleaseWithEmbeddedCoverArt } from '@main/core/tags/extract
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { buildFilesRenamePlan } from '@shared/upload/naming'
 import { METADATA_PROVIDER_MANUAL } from '@shared/types/upload'
+import { isNamedMainArtist } from '@shared/upload/artists'
 import { APP_VERSION } from '@shared/version'
 import { TaskScope, isAbortError, type TaskHandle } from '@main/services/taskSlot'
 import { UploadSessionRuntime, type UploadSessionRuntimeDeps } from '@main/services/uploadSessionRuntime'
@@ -579,7 +580,9 @@ export class UploadSession {
       sourcePath: this.state.draft.sourcePath,
       completedAt: Date.now(),
       sourceExists: true,
-      artists: [...new Set((upload.artists ?? []).map((artist) => artist.name).filter(Boolean))],
+      artists: [
+        ...new Set((upload.artists ?? []).filter(isNamedMainArtist).map((artist) => artist.name.trim()))
+      ],
       title: upload.title,
       year: upload.year,
       submissions: (upload.submissions ?? [])

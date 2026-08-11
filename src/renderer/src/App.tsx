@@ -315,12 +315,7 @@ export default function App() {
             <Show when={uploadView().kind === 'uploaded'}>
               <UploadedSummary
                 entry={(uploadView() as { kind: 'uploaded'; entry: UploadedReleaseRecord }).entry}
-                starting={false}
                 onBack={openUploadMenu}
-                onStartAgain={() => {
-                  const view = uploadView()
-                  if (view.kind === 'uploaded' && view.entry.sourceExists) startNew(view.entry.sourcePath)
-                }}
               />
             </Show>
           </Show>

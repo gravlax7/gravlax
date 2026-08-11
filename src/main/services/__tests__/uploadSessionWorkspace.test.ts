@@ -142,7 +142,13 @@ describe('finishing an upload', () => {
     await session.startNew(await makeSource('finished-album'))
     const state = session.getState() as State
     state.currentStep = 6
-    state.upload = { phase: 'done' }
+    state.upload = {
+      phase: 'done',
+      artists: [
+        { name: 'Main Artist', importance: 1 },
+        { name: 'Guest Artist', importance: 2 }
+      ]
+    }
     state.seed = {
       phase,
       tasks: [
@@ -170,6 +176,7 @@ describe('finishing an upload', () => {
     })
     const entries = await session.listStartEntries()
     expect(entries.uploadedEntries).toHaveLength(1)
+    expect(entries.uploadedEntries[0]?.artists).toEqual(['Main Artist'])
   })
 
   it('keeps a resumable workspace when cleanup is disabled', async () => {

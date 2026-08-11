@@ -68,10 +68,27 @@ export function UploadScreen(props: {
   const [pendingMetadataSelection, setPendingMetadataSelection] =
     createSignal<MetadataSelection | null>(null)
   const [pendingWriteStep, setPendingWriteStep] = createSignal<number | null>(null)
+  const [submitRequestActive, setSubmitRequestActive] = createSignal(false)
+  const [submitErrorAwaited, setSubmitErrorAwaited] = createSignal<string | null>(null)
+  let uploadAtSubmit = props.state.upload
 
   const stepIndex = () => props.state.currentStep
   const stepId = () => UPLOAD_STEPS[stepIndex()]?.id
   const tagsStepIndex = UPLOAD_STEPS.findIndex((step) => step.id === 'tags')
+
+  createEffect(() => {
+    const error = submitErrorAwaited()
+    // The IPC reply can arrive before the throttled state event. Keep the busy
+    // UI in place until the matching failure reaches the renderer.
+    if (
+      error &&
+      props.state.upload !== uploadAtSubmit &&
+      props.state.upload.error === error
+    ) {
+      setSubmitErrorAwaited(null)
+      setSubmitRequestActive(false)
+    }
+  })
 
   const title = createMemo(() =>
     props.state.draft.sourcePath ? basename(props.state.draft.sourcePath) : 'Uploader'
@@ -89,6 +106,23 @@ export function UploadScreen(props: {
     void window.gravlax.upload.setCurrentStep(index).then((result) => {
       if (!result.ok && result.needsConfirmation) setPendingWriteStep(index)
     })
+  }
+
+  const submitUpload = (): void => {
+    if (submitRequestActive()) return
+    uploadAtSubmit = props.state.upload
+    setSubmitErrorAwaited(null)
+    setSubmitRequestActive(true)
+    void window.gravlax.upload.submitUpload().then(
+      (result) => {
+        if (result.ok) setSubmitRequestActive(false)
+        else setSubmitErrorAwaited(result.error)
+      },
+      () => {
+        setSubmitErrorAwaited(null)
+        setSubmitRequestActive(false)
+      }
+    )
   }
 
   const selectMetadataAndOpenTags = (selection: MetadataSelection): void => {
@@ -335,6 +369,7 @@ export function UploadScreen(props: {
               config={props.config}
               health={props.health}
               healthLoading={props.healthLoading}
+              submitRequestActive={submitRequestActive()}
             />
           </Show>
           <Show when={stepId() === 'seed'}>
@@ -407,7 +442,8 @@ export function UploadScreen(props: {
             config={props.config}
             health={props.health}
             healthLoading={props.healthLoading}
-            onSubmit={() => void window.gravlax.upload.submitUpload()}
+            submitRequestActive={submitRequestActive()}
+            onSubmit={submitUpload}
           />
         </Show>
       </footer>
