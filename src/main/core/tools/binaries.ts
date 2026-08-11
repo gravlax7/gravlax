@@ -4,7 +4,7 @@ import { homedir } from 'node:os'
 import { posix, win32 } from 'node:path'
 import type { ToolsConfig } from '@shared/types/config'
 
-export const TOOL_IDS = ['sox', 'flac', 'metaflac', 'mp3val', 'lame', 'flaccheck'] as const
+export const TOOL_IDS = ['sox', 'flac', 'metaflac', 'mp3val', 'lame'] as const
 export type ToolId = (typeof TOOL_IDS)[number]
 
 export type ToolResolution =
@@ -107,8 +107,7 @@ const AUTOMATIC_CONFIG: ToolsConfig = {
   flac: '',
   metaflac: '',
   mp3val: '',
-  lame: '',
-  flaccheck: ''
+  lame: ''
 }
 
 export const automaticToolResolver: ToolResolver = new SystemToolResolver(() => AUTOMATIC_CONFIG)

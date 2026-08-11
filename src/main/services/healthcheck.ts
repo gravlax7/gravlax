@@ -16,7 +16,6 @@ const BINARY_CHECKS: Array<{
   name: string
   installURL: string
   instructions: string
-  optional?: boolean
 }> = [
   {
     id: 'sox',
@@ -47,14 +46,6 @@ const BINARY_CHECKS: Array<{
     name: 'lame',
     installURL: 'https://lame.sourceforge.io/',
     instructions: 'Install lame and ensure it is available on PATH.'
-  },
-  {
-    id: 'flaccheck',
-    name: 'flaccheck',
-    installURL: 'https://github.com/dasunNimantha/flaccheck',
-    instructions:
-      'Optional. Install flaccheck (cargo install --path crates/flaccheck-cli) and ensure it is available on PATH.',
-    optional: true
   }
 ]
 
@@ -107,9 +98,7 @@ export async function runHealthcheck(
     })
   )
 
-  const requiredBinaryIds = new Set(
-    BINARY_CHECKS.filter((b) => !b.optional).map((b) => `bin:${b.id}`)
-  )
+  const requiredBinaryIds = new Set(BINARY_CHECKS.map((b) => `bin:${b.id}`))
 
   for (const binary of BINARY_CHECKS) {
     const resolution = await tools.resolve(binary.id, { refresh: true })
@@ -122,9 +111,7 @@ export async function runHealthcheck(
         ? `Available · ${resolution.path}`
         : resolution.configuredPath
           ? resolution.reason
-          : binary.optional
-            ? 'Missing (optional)'
-            : 'Missing',
+          : 'Missing',
       installURL: binary.installURL,
       installInstructions: binary.instructions
     })

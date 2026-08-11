@@ -37,7 +37,6 @@ import {
   tags,
   seedTagsProposed
 } from '@main/core/uploadflow'
-import { emptyFlaccheckSummary } from '@main/core/tools/spectrals/flaccheck'
 import type { Release } from '@shared/types'
 
 describe('uploadflow', () => {
@@ -85,7 +84,6 @@ describe('uploadflow', () => {
     })
     state = selectSourcePath(state, '/tmp/other-release')
     expect(state.filesCheck).toEqual(emptyFilesCheck())
-    expect(state.flaccheck).toEqual(emptyFlaccheckSummary())
   })
 
   it('selectSourcePath queues the media-independent work and leaves media unset', () => {

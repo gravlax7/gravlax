@@ -181,7 +181,7 @@ describe('toolSearchDirectories', () => {
 })
 
 function emptyTools(): ToolsConfig {
-  return { sox: '', flac: '', metaflac: '', mp3val: '', lame: '', flaccheck: '' }
+  return { sox: '', flac: '', metaflac: '', mp3val: '', lame: '' }
 }
 
 async function testRoot(): Promise<string> {

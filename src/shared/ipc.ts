@@ -129,8 +129,7 @@ const configInput: z.ZodType<Config> = z.object({
     flac: z.string(),
     metaflac: z.string(),
     mp3val: z.string(),
-    lame: z.string(),
-    flaccheck: z.string()
+    lame: z.string()
   }),
   trackers: z.object({ redacted: trackerConfig, orpheus: trackerConfig }),
   metadataProviders: z.object({
@@ -160,7 +159,6 @@ const configInput: z.ZodType<Config> = z.object({
     username: z.string(),
     password: z.string(),
     privateKeyPath: z.string(),
-    hostFingerprint: z.string(),
     remotePath: z.string()
   }),
   naming: z.object({

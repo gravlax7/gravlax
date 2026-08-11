@@ -48,7 +48,6 @@ export interface ToolsConfig {
   metaflac: string
   mp3val: string
   lame: string
-  flaccheck: string
 }
 
 export interface TrackersConfig {
@@ -117,7 +116,6 @@ export interface TransferConfig {
   username: string
   password: string
   privateKeyPath: string
-  hostFingerprint: string
   remotePath: string
 }
 

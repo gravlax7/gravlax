@@ -15,7 +15,7 @@ function cfgWithRedacted(tracker: TrackerConfig): Config {
   return {
     appearance: { theme: 'system' },
     directories: { source: '', torrents: '', seeding: '' },
-    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '', flaccheck: '' },
+    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '' },
     trackers: {
       redacted: tracker,
       orpheus: { ...emptyTracker }
@@ -47,7 +47,6 @@ function cfgWithRedacted(tracker: TrackerConfig): Config {
       username: '',
       password: '',
       privateKeyPath: '',
-      hostFingerprint: '',
       remotePath: ''
     },
     naming: {

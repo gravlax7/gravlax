@@ -4,7 +4,6 @@ import type {
   Draft,
   FilesCheckSnapshot,
   FilesSnapshot,
-  FlaccheckSummary,
   MetadataSearchSnapshot,
   SourceMedia,
   StepID,
@@ -14,7 +13,6 @@ import type {
   SeedSnapshot
 } from '@shared/types'
 import { WORKFLOW_STEPS, workflowStepAt, workflowStepIndex } from '@shared/upload/workflow'
-import { emptyFlaccheckSummary } from '@main/core/tools/spectrals/flaccheck'
 import { newBackgroundWork, withSourceMedia } from './background'
 import { emptyFilesCheck } from './filesCheck'
 import { emptyFiles } from './files'
@@ -34,7 +32,6 @@ export interface State {
   tags: TagsSnapshot
   files: FilesSnapshot
   transcode: TranscodeSnapshot
-  flaccheck: FlaccheckSummary
   filesCheck: FilesCheckSnapshot
   upload: UploadSnapshot
   seed: SeedSnapshot
@@ -61,7 +58,6 @@ export function newState(): State {
     tags: {},
     files: emptyFiles(),
     transcode: emptyTranscode(),
-    flaccheck: emptyFlaccheckSummary(),
     filesCheck: emptyFilesCheck(),
     upload: emptyUpload(),
     seed: emptySeed()
@@ -146,7 +142,6 @@ export function selectSourcePath(s: State, path: string): State {
       tags: {},
       files: emptyFiles(),
       transcode: emptyTranscode(),
-      flaccheck: emptyFlaccheckSummary(),
       filesCheck: emptyFilesCheck(),
       upload: emptyUpload(),
       seed: emptySeed()

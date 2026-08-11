@@ -56,19 +56,13 @@ describe('binary healthchecks', () => {
     expect(tools.resolve).toHaveBeenCalledWith('sox', { refresh: true })
   })
 
-  it('reports an invalid override and keeps automatic optional misses concise', async () => {
+  it('reports an invalid override', async () => {
     const tools = fakeResolver((id) => {
       if (id === 'sox') {
         return {
           status: 'missing',
           configuredPath: '/bad/sox',
           reason: 'Configured executable is not a runnable file: /bad/sox'
-        }
-      }
-      if (id === 'flaccheck') {
-        return {
-          status: 'missing',
-          reason: 'Could not find flaccheck in PATH or common install locations.'
         }
       }
       return { status: 'available', path: `/tools/${id}`, source: 'path' }
@@ -79,10 +73,6 @@ describe('binary healthchecks', () => {
     expect(result.rows.find((row) => row.id === 'bin:sox')).toMatchObject({
       status: 'missing',
       detail: 'Configured executable is not a runnable file: /bad/sox'
-    })
-    expect(result.rows.find((row) => row.id === 'bin:flaccheck')).toMatchObject({
-      status: 'missing',
-      detail: 'Missing (optional)'
     })
   })
 })

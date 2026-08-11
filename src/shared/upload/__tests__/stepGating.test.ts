@@ -30,7 +30,6 @@ function baseState(overrides: Partial<UploadFlowStateJSON> = {}): UploadFlowStat
       apply: { phase: 'idle', onDiskModified: false, stripEmbeddedCoverArt: true, renameReleaseFolder: true, currentFolderName: '', files: [] }
     },
     transcode: {},
-    flaccheck: { status: 'idle', checkedCount: 0, files: [] },
     filesCheck: {
       status: 'idle',
       mqa: { checkedCount: 0, mqaPaths: [], errors: [] },

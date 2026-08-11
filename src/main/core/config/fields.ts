@@ -49,8 +49,6 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return c.mp3val
         case 'lame':
           return c.lame
-        case 'flaccheck':
-          return c.flaccheck
       }
       break
     }
@@ -149,8 +147,6 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return c.password
         case 'privateKeyPath':
           return c.privateKeyPath
-        case 'hostFingerprint':
-          return c.hostFingerprint
         case 'remotePath':
           return c.remotePath
       }
@@ -230,7 +226,6 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       if (field === 'metaflac') next.tools.metaflac = value
       if (field === 'mp3val') next.tools.mp3val = value
       if (field === 'lame') next.tools.lame = value
-      if (field === 'flaccheck') next.tools.flaccheck = value
       break
     case 'trackers':
       if (field === 'redacted.siteUrl') next.trackers.redacted.siteUrl = value
@@ -263,7 +258,6 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       if (field === 'username') next.transfer.username = value
       if (field === 'password') next.transfer.password = value
       if (field === 'privateKeyPath') next.transfer.privateKeyPath = value
-      if (field === 'hostFingerprint') next.transfer.hostFingerprint = value.trim()
       if (field === 'remotePath') next.transfer.remotePath = value
       break
     case 'naming':

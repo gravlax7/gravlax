@@ -170,10 +170,6 @@ export function finishFilesApply(
         error: undefined
       }
     },
-    flaccheck: {
-      ...s.flaccheck,
-      files: s.flaccheck.files.map((file) => ({ ...file, path: pathMap.get(file.path) ?? file.path }))
-    },
     filesCheck: {
       ...s.filesCheck,
       mqa: {
@@ -214,10 +210,6 @@ export function finishFilesRestore(s: State, workspacePath: string): State {
         currentFolderName: original.folderName,
         files: original.files.map((file) => ({ id: file.id, currentPath: file.relativePath }))
       }
-    },
-    flaccheck: {
-      ...s.flaccheck,
-      files: s.flaccheck.files.map((file) => ({ ...file, path: pathMap.get(file.path) ?? file.path }))
     },
     filesCheck: {
       ...s.filesCheck,

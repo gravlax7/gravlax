@@ -19,8 +19,7 @@ describe('config', () => {
       flac: '',
       metaflac: '',
       mp3val: '',
-      lame: '',
-      flaccheck: ''
+      lame: ''
     })
     expect(cfg.appearance.theme).toBe('system')
     expect(cfg.workflow.confirmBeforeWrites).toBe(true)
@@ -151,25 +150,6 @@ describe('config', () => {
     cfg.transfer.enabled = false
     cfg.torrentClient.savePath = '/seed/music'
     expect(validate(cfg).some((i) => i.field === 'savePath')).toBe(false)
-  })
-
-  it('validate ignores the host fingerprint while host key checks are disabled', () => {
-    let cfg = defaultConfig()
-    cfg = {
-      ...cfg,
-      transfer: {
-        ...cfg.transfer,
-        enabled: true,
-        host: 'seed.example',
-        username: 'u',
-        password: 'p',
-        remotePath: '/downloads'
-      }
-    }
-    expect(validate(cfg).some((i) => i.field === 'hostFingerprint')).toBe(false)
-
-    cfg.transfer.hostFingerprint = 'not-a-fingerprint'
-    expect(validate(cfg).some((i) => i.field === 'hostFingerprint')).toBe(false)
   })
 
   it('validate accepts enabled tracker with defaults and credentials', () => {

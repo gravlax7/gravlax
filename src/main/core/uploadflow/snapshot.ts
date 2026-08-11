@@ -2,7 +2,6 @@ import type { UploadFlowSnapshot } from '@shared/types'
 import { withTaskSnapshotStatuses } from './background'
 import { setFilesCheck } from './filesCheck'
 import { setFiles } from './files'
-import { setFlaccheck } from './flaccheck'
 import { setMetadata } from './metadata'
 import {
   newState,
@@ -59,9 +58,6 @@ export function snapshot(s: State): UploadFlowSnapshot {
   result.tags = s.tags
   result.files = s.files
   result.transcode = s.transcode
-  if (s.flaccheck.status !== 'idle') {
-    result.flaccheck = s.flaccheck
-  }
   if (s.filesCheck.status !== 'idle') {
     result.filesCheck = s.filesCheck
   }
@@ -117,9 +113,6 @@ export function restoreState(workspacePath: string, snap: UploadFlowSnapshot): S
   state = setTags(state, snap.tags ?? {})
   if (snap.files) state = setFiles(state, snap.files)
   state = setTranscode(state, snap.transcode ?? {})
-  if (snap.flaccheck) {
-    state = setFlaccheck(state, snap.flaccheck)
-  }
   if (snap.filesCheck) {
     state = setFilesCheck(state, snap.filesCheck)
   }

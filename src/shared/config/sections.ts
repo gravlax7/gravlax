@@ -43,8 +43,7 @@ export function sections(): SectionMetadata[] {
         { name: 'flac', label: 'FLAC', description: 'Used to verify and decode FLAC files.', type: 'file' },
         { name: 'metaflac', label: 'metaflac', description: 'Used to read and write FLAC metadata.', type: 'file' },
         { name: 'mp3val', label: 'mp3val', description: 'Used to validate MP3 files.', type: 'file' },
-        { name: 'lame', label: 'LAME', description: 'Used to encode MP3 files.', type: 'file' },
-        { name: 'flaccheck', label: 'flaccheck', description: 'Optional lossy-source and high-resolution check.', type: 'file' }
+        { name: 'lame', label: 'LAME', description: 'Used to encode MP3 files.', type: 'file' }
       ]
     },
     {
@@ -158,7 +157,7 @@ export function sections(): SectionMetadata[] {
           description:
             'Where qBittorrent looks for the release, as that machine sees it. With a seedbox, leave empty to reuse the remote path and set it only when qBittorrent sees a different mount.'
         },
-        { name: 'startPaused', label: 'Start paused', type: 'bool' }
+        { name: 'startPaused', label: 'Start torrents paused', type: 'bool' }
       ]
     },
     {
@@ -176,13 +175,6 @@ export function sections(): SectionMetadata[] {
           label: 'Private key path',
           type: 'file',
           description: 'Optional SSH private key. Used instead of or in addition to password.'
-        },
-        {
-          name: 'hostFingerprint',
-          label: 'Host key fingerprint',
-          type: 'string',
-          description:
-            'Temporarily ignored. Host key checks are disabled, so seedbox connections are not protected against an impersonated server.'
         },
         {
           name: 'remotePath',

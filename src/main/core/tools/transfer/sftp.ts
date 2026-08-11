@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { Client, type ConnectConfig, type SFTPWrapper } from 'ssh2'
@@ -89,27 +88,12 @@ export async function uploadFolderViaSftp(
   }
 }
 
-/**
- * OpenSSH-style key fingerprint, e.g. `SHA256:Ux3F…`. Matches what
- * `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` prints, so the value in
- * settings can be compared against the seedbox by eye.
- */
-export function hostKeyFingerprint(key: Buffer): string {
-  return `SHA256:${createHash('sha256').update(key).digest('base64').replace(/=+$/, '')}`
-}
-
 async function connect(cfg: TransferConfig): Promise<{ client: Client; sftp: SFTPWrapper }> {
-  const expected = cfg.hostFingerprint.trim()
-  // Kept for the host-key error text when fingerprint checks are turned back on.
-  let seen = ''
-
   const connectConfig: ConnectConfig = {
     host: cfg.host.trim(),
     port: cfg.port || 22,
     username: cfg.username.trim(),
-    readyTimeout: 15_000,
-    // TEMPORARY: accept every host key while fingerprint checks are disabled.
-    hostVerifier: () => true
+    readyTimeout: 15_000
   }
   if (cfg.password) connectConfig.password = cfg.password
   if (cfg.privateKeyPath.trim() !== '') {
@@ -121,7 +105,7 @@ async function connect(cfg: TransferConfig): Promise<{ client: Client; sftp: SFT
     await new Promise<void>((resolve, reject) => {
       client
         .on('ready', () => resolve())
-        .on('error', (err) => reject(rewriteHostKeyError(err, seen, expected)))
+        .on('error', reject)
         .connect(connectConfig)
     })
 
@@ -140,23 +124,6 @@ async function connect(cfg: TransferConfig): Promise<{ client: Client; sftp: SFT
     client.end()
     throw err
   }
-}
-
-function rewriteHostKeyError(err: Error, seen: string, expected: string): Error {
-  if (seen === '' || !/host key|hostkey|verification/i.test(err.message)) {
-    return err
-  }
-  if (expected === '') {
-    return new Error(
-      `Seedbox host key is not pinned. Verify this fingerprint on the server ` +
-        `(ssh-keygen -lf /etc/ssh/ssh_host_*_key.pub) and paste it into ` +
-        `Settings → Seedbox → Host key fingerprint: ${seen}`
-    )
-  }
-  return new Error(
-    `Seedbox host key mismatch — expected ${expected} but the server presented ${seen}. ` +
-      `Refusing to connect.`
-  )
 }
 
 /**

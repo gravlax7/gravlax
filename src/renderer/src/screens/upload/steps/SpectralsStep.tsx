@@ -1,14 +1,7 @@
 import { For, Show } from 'solid-js'
-import type { FlaccheckFileResult, FlaccheckHiresVerdict, UploadFlowStateJSON } from '@shared/types'
-import {
-  flaccheckHiresSuspectCount,
-  flaccheckSuspectCount,
-  isFakeHires,
-  isLikelyLossy
-} from '@shared/upload/flaccheck'
+import type { UploadFlowStateJSON } from '@shared/types'
 import { toggleSpectralId } from '@shared/upload/spectralIds'
 import {
-  Badge,
   Button,
   Card,
   Callout,
@@ -19,12 +12,6 @@ import {
   Skeleton
 } from '../../../ui'
 import { spectralUrl } from '../pathUtil'
-
-function hiresBadgeLabel(verdict: FlaccheckHiresVerdict): string {
-  if (verdict === 'PADDED_DEPTH') return 'Likely padded 16→24'
-  if (verdict === 'UPSAMPLED') return 'Likely upsampled'
-  return 'Fake hi-res'
-}
 
 export function SpectralsStep(props: {
   state: UploadFlowStateJSON
@@ -39,15 +26,8 @@ export function SpectralsStep(props: {
   const generating = () =>
     (task()?.status === 'running' || task()?.status === 'queued') && props.spectrals.length === 0
 
-  const flaccheckFile = (filename: string): FlaccheckFileResult | undefined =>
-    props.state.flaccheck?.files?.find((f) => f.path === filename)
-
-  const suspectCount = () => flaccheckSuspectCount(props.state.flaccheck)
-  const hiresSuspectCount = () => flaccheckHiresSuspectCount(props.state.flaccheck)
-
   const detailColor = (): string => {
     if (task()?.status === 'failed') return 'var(--error)'
-    if (suspectCount() > 0 || hiresSuspectCount() > 0) return 'var(--warning)'
     return 'var(--fg-primary)'
   }
 
@@ -106,20 +86,6 @@ export function SpectralsStep(props: {
         </div>
       </Show>
 
-      <Show when={suspectCount() > 0}>
-        <Callout tone="warning">
-          flaccheck flagged {suspectCount()} track{suspectCount() === 1 ? '' : 's'} as likely lossy —
-          review spectrals before choosing.
-        </Callout>
-      </Show>
-
-      <Show when={hiresSuspectCount() > 0}>
-        <Callout tone="warning">
-          flaccheck flagged {hiresSuspectCount()} track{hiresSuspectCount() === 1 ? '' : 's'} as fake
-          hi-res (padded bit depth or upsampled) — review before uploading as 24-bit.
-        </Callout>
-      </Show>
-
       <Show when={props.spectrals[0]}>
         <Button
           variant="ghost"
@@ -173,15 +139,6 @@ export function SpectralsStep(props: {
         >
           <For each={props.spectrals}>
             {(pair) => {
-              const file = () => flaccheckFile(pair.filename)
-              const likelyLossy = () => {
-                const f = file()
-                return f ? isLikelyLossy(f) : false
-              }
-              const fakeHires = () => {
-                const f = file()
-                return f ? isFakeHires(f) : false
-              }
               return (
                 <Card class="spectral-card" selected={isSelected(pair.index)}>
                   <div class="spectral-card-header">
@@ -194,12 +151,6 @@ export function SpectralsStep(props: {
                       Host
                     </label>
                     <span class="mono spectral-filename">{pair.filename}</span>
-                    <Show when={likelyLossy()}>
-                      <Badge tone="warning">Likely lossy</Badge>
-                    </Show>
-                    <Show when={fakeHires()}>
-                      <Badge tone="warning">{hiresBadgeLabel(file()!.hiresVerdict)}</Badge>
-                    </Show>
                   </div>
                   <div class="spectral-thumbs">
                     <button

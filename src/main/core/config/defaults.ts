@@ -4,7 +4,7 @@ export function defaultConfig(): Config {
   return {
     appearance: { theme: 'system' },
     directories: { source: '', torrents: '', seeding: '' },
-    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '', flaccheck: '' },
+    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '' },
     trackers: {
       redacted: {
         enabled: false,
@@ -50,7 +50,6 @@ export function defaultConfig(): Config {
       username: '',
       password: '',
       privateKeyPath: '',
-      hostFingerprint: '',
       remotePath: ''
     },
     naming: {

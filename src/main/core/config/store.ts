@@ -105,7 +105,6 @@ export function normalizeTransfer(raw: unknown, base: Config['transfer']): Confi
   if (typeof obj.username === 'string') next.username = obj.username
   if (typeof obj.password === 'string') next.password = obj.password
   if (typeof obj.privateKeyPath === 'string') next.privateKeyPath = obj.privateKeyPath
-  if (typeof obj.hostFingerprint === 'string') next.hostFingerprint = obj.hostFingerprint
   if (typeof obj.remotePath === 'string') next.remotePath = obj.remotePath
   return next
 }

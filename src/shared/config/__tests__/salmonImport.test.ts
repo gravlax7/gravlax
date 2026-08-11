@@ -24,7 +24,7 @@ function defaultConfig(): Config {
   return {
     appearance: { theme: 'system' },
     directories: { source: '', torrents: '', seeding: '' },
-    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '', flaccheck: '' },
+    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '' },
     trackers: { redacted: { ...tracker }, orpheus: { ...tracker } },
     metadataProviders: {
       musicBrainz: { enabled: true },
@@ -53,7 +53,6 @@ function defaultConfig(): Config {
       username: '',
       password: '',
       privateKeyPath: '',
-      hostFingerprint: '',
       remotePath: ''
     },
     naming: {

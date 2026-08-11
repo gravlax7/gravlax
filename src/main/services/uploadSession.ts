@@ -19,7 +19,6 @@ import type {
 import {
   clearMetadataSelection,
   clearFilesCheck,
-  clearFlaccheck,
   clearTagsRelease,
   markBackgroundTaskCompleted,
   markBackgroundTaskFailed,
@@ -30,7 +29,6 @@ import {
   setCurrentStep,
   setFilesCheck,
   setFilesCheckRunning,
-  setFlaccheck,
   setLossyComment,
   setLossyMaster,
   setSpectralIds,
@@ -106,8 +104,6 @@ import {
 } from '@main/core/appdata/workspace'
 import { saveUploadedRelease } from '@main/core/appdata/uploadHistory'
 import { generateSpectrals, listSpectralPairs } from '@main/core/tools/spectrals/generate'
-import { flaccheckSummaryDetail, runFlaccheck } from '@main/core/tools/spectrals/flaccheck'
-import { flaccheckSuspectCount } from '@shared/upload/flaccheck'
 import { spectralIdsForRelease } from '@shared/upload/spectralIds'
 import { checkMQAWorkspace, mqaSummaryDetail } from '@main/core/tools/diagnostics/workspace'
 import {
@@ -921,7 +917,7 @@ export class UploadSession {
   }
 
   async regenerateSpectrals(): Promise<void> {
-    this.apply(resetBackgroundTask(clearFlaccheck(this.state), 'spectrals'))
+    this.apply(resetBackgroundTask(this.state, 'spectrals'))
     this.startSpectralsIfReady()
   }
 
@@ -1261,29 +1257,7 @@ export class UploadSession {
               ? 'No FLAC files found.'
               : `Generated spectrals for ${summary.trackCount} tracks.`
 
-        // A flaccheck failure is reported in the summary rather than failing
-        // the whole step: the spectrals themselves were generated fine.
-        let flaccheck
-        try {
-          flaccheck = await runFlaccheck(workspacePath, task.signal, this.deps.tools)
-        } catch (err) {
-          if (isAbortError(err)) return
-          flaccheck = {
-            status: 'failed' as const,
-            checkedCount: 0,
-            files: [],
-            message: String(err)
-          }
-        }
-        if (!task.fresh()) return
-
-        const flacDetail = flaccheckSummaryDetail(flaccheck)
-        const detail = flacDetail ? `${spectralDetail}\n${flacDetail}` : spectralDetail
-        let next = setFlaccheck(this.state, flaccheck)
-        if (flaccheckSuspectCount(flaccheck) > 0) {
-          next = setLossyMaster(next, true)
-        }
-        this.apply(markBackgroundTaskCompleted(next, 'spectrals', detail))
+        this.apply(markBackgroundTaskCompleted(this.state, 'spectrals', spectralDetail))
         this.applyDefaultSpectralIds(summary.trackCount)
       },
       {

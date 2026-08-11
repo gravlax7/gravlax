@@ -13,7 +13,7 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
   return {
     appearance: { theme: 'system' },
     directories: { source: '', torrents: '', seeding: '' },
-    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '', flaccheck: '' },
+    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '' },
     trackers: {
       redacted: {
         enabled: false,
@@ -59,7 +59,6 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
       username: '',
       password: '',
       privateKeyPath: '',
-      hostFingerprint: '',
       remotePath: ''
     },
     naming: {

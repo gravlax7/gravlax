@@ -52,9 +52,8 @@ Install these tools and make sure Gravlax can find them:
 | mp3val | MP3 checks |
 | LAME | MP3 encoding |
 
-`flaccheck` is optional. It checks for lossy sources and suspect high-resolution
-files. Leave a tool path blank in **Settings → Tools** to let Gravlax search
-your `PATH` and common install locations.
+Leave a tool path blank in **Settings → Tools** to let Gravlax search your
+`PATH` and common install locations.
 
 ## Important settings
 

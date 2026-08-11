@@ -316,25 +316,6 @@ export interface TranscodeSnapshot {
   error?: string
 }
 
-export type FlaccheckVerdict = 'GENUINE' | 'SUSPICIOUS' | 'TRANSCODED' | 'INCONCLUSIVE'
-
-export type FlaccheckHiresVerdict = 'GENUINE_HIRES' | 'UPSAMPLED' | 'PADDED_DEPTH' | 'UNKNOWN'
-
-export type FlaccheckStatus = 'idle' | 'skipped' | 'ok' | 'failed'
-
-export interface FlaccheckFileResult {
-  path: string
-  verdict: FlaccheckVerdict
-  hiresVerdict: FlaccheckHiresVerdict
-}
-
-export interface FlaccheckSummary {
-  status: FlaccheckStatus
-  checkedCount: number
-  files: FlaccheckFileResult[]
-  message?: string
-}
-
 export type FilesCheckStatus = 'idle' | 'running' | 'ok' | 'failed'
 
 export interface MQASummary {
@@ -539,7 +520,6 @@ export interface UploadFlowSnapshot {
   tags?: TagsSnapshot
   files?: FilesSnapshot
   transcode?: TranscodeSnapshot
-  flaccheck?: FlaccheckSummary
   filesCheck?: FilesCheckSnapshot
   upload?: UploadSnapshot
   seed?: SeedSnapshot
@@ -597,7 +577,6 @@ export interface UploadFlowStateJSON {
   tags: TagsSnapshot
   files: FilesSnapshot
   transcode: TranscodeSnapshot
-  flaccheck: FlaccheckSummary
   filesCheck: FilesCheckSnapshot
   upload: UploadSnapshot
   seed: SeedSnapshot
