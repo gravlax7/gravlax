@@ -7,6 +7,7 @@ import { ConfigService } from './services/configService'
 import { UploadStatsService } from './services/uploadStatsService'
 import { workspaceRoot } from './core/appdata/workspace'
 import { SystemToolResolver } from './core/tools/binaries'
+import { checkForUpdate } from './services/updateCheck'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -152,6 +153,11 @@ app.whenReady().then(async () => {
         throw new Error('only http(s) URLs can be opened')
       }
       await shell.openExternal(parsed.toString())
+    },
+    checkForUpdates: () => {
+      const currentVersion = app.getVersion()
+      if (!app.isPackaged) return Promise.resolve({ status: 'disabled', currentVersion })
+      return checkForUpdate({ currentVersion })
     }
   })
 

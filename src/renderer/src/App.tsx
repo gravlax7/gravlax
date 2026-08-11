@@ -5,7 +5,8 @@ import type {
   UploadFlowStateJSON,
   UploadStartEntries,
   UploadStartResumeEntry,
-  UploadedReleaseRecord
+  UploadedReleaseRecord,
+  UpdateCheckResult
 } from '@shared/types'
 import { totalUploads } from '@shared/types'
 import type { Config } from '@shared/types/config'
@@ -39,6 +40,8 @@ export default function App() {
   const [uploadView, setUploadView] = createSignal<UploadView>({ kind: 'menu' })
   const [startEntries, setStartEntries] = createSignal<UploadStartEntries | null>(null)
   const [startLoading, setStartLoading] = createSignal(false)
+  const [update, setUpdate] = createSignal<UpdateCheckResult | null>(null)
+  const [updateChecking, setUpdateChecking] = createSignal(false)
   let toastTimers = new Map<number, number>()
   let toastSeq = 0
 
@@ -67,6 +70,22 @@ export default function App() {
       setHealth(await window.gravlax.health.refresh())
     } finally {
       setHealthLoading(false)
+    }
+  }
+
+  const checkForUpdates = async (announce = false): Promise<void> => {
+    setUpdateChecking(true)
+    try {
+      const result = await window.gravlax.updates.check()
+      setUpdate(result)
+      if (announce && result.status === 'available') {
+        showToast({
+          level: 'info',
+          message: `Gravlax v${result.latestVersion} is available. Open Settings to update.`
+        })
+      }
+    } finally {
+      setUpdateChecking(false)
     }
   }
 
@@ -118,6 +137,7 @@ export default function App() {
     setState(await window.gravlax.upload.getState())
     await loadStartEntries()
     void refreshHealth()
+    void checkForUpdates(true)
     const offState = window.gravlax.upload.onState(setState)
     const offNotify = window.gravlax.upload.onNotify(showToast)
     const offStats = window.gravlax.stats.onChange(setStats)
@@ -308,9 +328,12 @@ export default function App() {
             <SettingsScreen
               config={config()!}
               stats={stats()}
+              update={update()}
+              updateChecking={updateChecking()}
               onChange={onConfigChange}
               onBack={openUploadMenu}
               onNotify={showToast}
+              onCheckUpdates={() => void checkForUpdates()}
             />
           </Show>
           <Show when={screen() === 'health'}>

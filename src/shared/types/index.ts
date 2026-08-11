@@ -1,6 +1,7 @@
 export type { Config, SectionID, FieldMetadata, SectionMetadata, ValidationIssue, NotifyPayload, NotifyLevel } from './config'
 export type { UploadStats } from './stats'
 export { totalUploads } from './stats'
+export type { UpdateCheckResult } from './update'
 export type {
   Artist,
   Track,

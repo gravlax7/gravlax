@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import type { Config, FieldMetadata, NotifyPayload, SectionID, ValidationIssue } from '@shared/types/config'
-import { totalUploads, type UploadStats } from '@shared/types'
+import { totalUploads, type UpdateCheckResult, type UploadStats } from '@shared/types'
 import {
   coverImageHostOptions,
   enabledSpectralImageHostOptions,
@@ -39,16 +39,23 @@ const STATISTICS_PANE = {
   title: 'Statistics',
   description: 'Your successful uploads by format and tracker.'
 }
+const UPDATES_PANE = {
+  id: 'updates' as const,
+  title: 'Updates',
+  description: 'Check for new Gravlax releases.'
+}
 type PaneID =
   | SectionID
   | typeof IMPORT_PANE.id
   | typeof WORKSPACE_PANE.id
   | typeof STATISTICS_PANE.id
+  | typeof UPDATES_PANE.id
 
 const SECTION_ICONS: Partial<Record<PaneID, IconName>> = {
   import: 'upload',
   workspace: 'trash-2',
   statistics: 'activity',
+  updates: 'download',
   appearance: 'sun',
   directories: 'folder',
   tools: 'settings',
@@ -66,9 +73,12 @@ const SECTION_ICONS: Partial<Record<PaneID, IconName>> = {
 export function SettingsScreen(props: {
   config: Config
   stats: UploadStats | null
+  update: UpdateCheckResult | null
+  updateChecking: boolean
   onChange: (cfg: Config) => void
   onBack: () => void
   onNotify: (payload: NotifyPayload) => void
+  onCheckUpdates: () => void
 }) {
   const [paneId, setPaneId] = createSignal<PaneID>(sections()[0]!.id)
   const [draft, setDraft] = createSignal(structuredClone(props.config))
@@ -95,19 +105,27 @@ export function SettingsScreen(props: {
       ? WORKSPACE_PANE.title
       : paneId() === 'statistics'
         ? STATISTICS_PANE.title
-        : IMPORT_PANE.title)
+        : paneId() === 'updates'
+          ? UPDATES_PANE.title
+          : IMPORT_PANE.title)
   const paneDescription = (): string | undefined =>
     section()?.description ??
     (paneId() === 'workspace'
       ? WORKSPACE_PANE.description
       : paneId() === 'statistics'
         ? STATISTICS_PANE.description
-        : IMPORT_PANE.description)
+        : paneId() === 'updates'
+          ? UPDATES_PANE.description
+          : IMPORT_PANE.description)
 
   const panes = createMemo(() => {
     const q = query().trim().toLowerCase()
     const matchesPane = (
-      pane: typeof IMPORT_PANE | typeof WORKSPACE_PANE | typeof STATISTICS_PANE,
+      pane:
+        | typeof IMPORT_PANE
+        | typeof WORKSPACE_PANE
+        | typeof STATISTICS_PANE
+        | typeof UPDATES_PANE,
       keywords: string
     ): boolean =>
       pane.title.toLowerCase().includes(q) ||
@@ -116,7 +134,8 @@ export function SettingsScreen(props: {
     const matchesImport = matchesPane(IMPORT_PANE, 'smoked-salmon toml')
     const matchesWorkspace = matchesPane(WORKSPACE_PANE, 'clear cache destructive upload files')
     const matchesStatistics = matchesPane(STATISTICS_PANE, 'uploads formats trackers')
-    if (!q) return [...sections(), IMPORT_PANE, STATISTICS_PANE, WORKSPACE_PANE]
+    const matchesUpdates = matchesPane(UPDATES_PANE, 'version release download update')
+    if (!q) return [...sections(), IMPORT_PANE, STATISTICS_PANE, WORKSPACE_PANE, UPDATES_PANE]
     const matched = sections().filter((s) => {
       if (s.title.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q)) return true
       return s.fields.some(
@@ -130,7 +149,8 @@ export function SettingsScreen(props: {
       ...matched,
       ...(matchesImport ? [IMPORT_PANE] : []),
       ...(matchesStatistics ? [STATISTICS_PANE] : []),
-      ...(matchesWorkspace ? [WORKSPACE_PANE] : [])
+      ...(matchesWorkspace ? [WORKSPACE_PANE] : []),
+      ...(matchesUpdates ? [UPDATES_PANE] : [])
     ]
   })
 
@@ -315,11 +335,22 @@ export function SettingsScreen(props: {
                     <Show
                       when={paneId() === 'statistics'}
                       fallback={
-                        <SalmonImportPanel
-                          config={draft()}
-                          onApply={(next) => markDirty(next)}
-                          onNotify={props.onNotify}
-                        />
+                        <Show
+                          when={paneId() === 'updates'}
+                          fallback={
+                            <SalmonImportPanel
+                              config={draft()}
+                              onApply={(next) => markDirty(next)}
+                              onNotify={props.onNotify}
+                            />
+                          }
+                        >
+                          <UpdatesPanel
+                            result={props.update}
+                            checking={props.updateChecking}
+                            onCheck={props.onCheckUpdates}
+                          />
+                        </Show>
                       }
                     >
                       <StatisticsPanel stats={props.stats} />
@@ -464,6 +495,79 @@ export function SettingsScreen(props: {
           }}
         />
       </Show>
+    </div>
+  )
+}
+
+function UpdatesPanel(props: {
+  result: UpdateCheckResult | null
+  checking: boolean
+  onCheck: () => void
+}) {
+  const latestVersion = (): string =>
+    props.result?.status === 'available' ? props.result.latestVersion : ''
+
+  const openRelease = (): void => {
+    const result = props.result
+    if (result?.status !== 'available') return
+    void window.gravlax.shell.openExternal(result.releaseUrl)
+  }
+
+  const message = (): string => {
+    const result = props.result
+    if (props.checking) return 'Checking for updates…'
+    if (!result) return 'Check for the latest Gravlax release.'
+    if (result.status === 'disabled') return 'Updates are checked in packaged releases.'
+    if (result.status === 'up-to-date') return `Gravlax v${result.currentVersion} is up to date.`
+    if (result.status === 'error') return 'Could not check for updates. Try again later.'
+    return `Gravlax v${result.latestVersion} is available.`
+  }
+
+  return (
+    <div style={{ display: 'flex', 'flex-direction': 'column', gap: 'var(--space-4)' }}>
+      <Show when={props.result?.status === 'available'}>
+        <Callout tone="info">
+          <Icon name="download" size={16} />
+          <div>
+            <div style={{ 'font-weight': 600 }}>Update available</div>
+            <div style={{ 'margin-top': '4px' }}>
+                Download Gravlax v{latestVersion()}, then install it manually.
+            </div>
+          </div>
+        </Callout>
+      </Show>
+      <div
+        style={{
+          display: 'flex',
+          'align-items': 'center',
+          'justify-content': 'space-between',
+          gap: 'var(--space-4)',
+          padding: 'var(--space-4)',
+          border: '1px solid var(--border)',
+          'border-radius': 'var(--radius-md)',
+          'background-color': 'var(--bg-surface)'
+        }}
+      >
+        <div>
+          <div style={{ 'font-weight': 600 }}>Version</div>
+          <div style={{ color: 'var(--fg-secondary)', 'font-size': 'var(--text-sm)', 'margin-top': '4px' }}>
+            Installed: v{props.result?.currentVersion ?? '…'}
+          </div>
+          <div style={{ color: 'var(--fg-secondary)', 'font-size': 'var(--text-sm)', 'margin-top': '4px' }}>
+            {message()}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', 'flex-shrink': 0 }}>
+          <Show when={props.result?.status === 'available'}>
+            <Button variant="primary" onClick={openRelease}>
+              Download latest release
+            </Button>
+          </Show>
+          <Button variant="secondary" disabled={props.checking} onClick={props.onCheck}>
+            Check for updates
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

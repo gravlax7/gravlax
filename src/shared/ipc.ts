@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { Config, NotifyPayload, SectionID, ValidationIssue } from './types/config'
 import type { UploadStats } from './types/stats'
 import type { SalmonImportInput } from './config/salmonImport'
+import type { UpdateCheckResult } from './types/update'
 import type {
   HealthResult,
   MetadataSelection,
@@ -74,6 +75,7 @@ export interface IpcInvokeMap {
   'shell:openPath': { args: [string]; result: void }
   'shell:openExternal': { args: [string]; result: void }
   'health:refresh': { args: []; result: HealthResult }
+  'updates:check': { args: []; result: UpdateCheckResult }
 }
 
 export interface IpcEventMap {
@@ -231,7 +233,8 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'shell:revealPath': z.tuple([z.string().min(1)]),
   'shell:openPath': z.tuple([z.string().min(1)]),
   'shell:openExternal': z.tuple([z.string().url()]),
-  'health:refresh': noArgs
+  'health:refresh': noArgs,
+  'updates:check': noArgs
 }
 
 export function parseIpcArguments<C extends IpcInvokeChannel>(

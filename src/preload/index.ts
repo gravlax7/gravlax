@@ -106,6 +106,9 @@ const api = {
   health: {
     refresh: () => invoke('health:refresh')
   },
+  updates: {
+    check: () => invoke('updates:check')
+  },
   files: {
     getPathForFile: (file: File): string => webUtils.getPathForFile(file)
   },

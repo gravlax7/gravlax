@@ -18,6 +18,7 @@ export interface IpcDeps {
   revealPath: (path: string) => Promise<void>
   openPath: (path: string) => Promise<void>
   openExternal: (url: string) => Promise<void>
+  checkForUpdates: () => Promise<IpcInvokeResult<'updates:check'>>
 }
 
 type IpcHandler<C extends IpcInvokeChannel> = (
@@ -88,4 +89,5 @@ export function registerIpc(deps: IpcDeps): void {
   handle('shell:openExternal', (url) => deps.openExternal(url))
 
   handle('health:refresh', () => runHealthcheck(config.get(), deps.toolResolver))
+  handle('updates:check', () => deps.checkForUpdates())
 }

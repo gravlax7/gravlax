@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseIpcArguments } from '../ipc'
+import { parseIpcArguments, type IpcInvokeResult } from '../ipc'
 
 describe('IPC argument contract', () => {
   it('accepts a valid workflow transition index', () => {
@@ -17,6 +17,17 @@ describe('IPC argument contract', () => {
 
   it('allows an omitted optional argument', () => {
     expect(parseIpcArguments('upload:searchTrackerGroups', [])).toEqual([])
+  })
+
+  it('accepts an update check without renderer-supplied input', () => {
+    expect(parseIpcArguments('updates:check', [])).toEqual([])
+    const result: IpcInvokeResult<'updates:check'> = {
+      status: 'available',
+      currentVersion: '0.3.0',
+      latestVersion: '0.4.0',
+      releaseUrl: 'https://github.com/gravlax7/gravlax/releases/tag/v0.4.0'
+    }
+    expect(result.status).toBe('available')
   })
 
   it('accepts tool paths in config and the tools reset section', () => {
