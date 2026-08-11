@@ -48,6 +48,7 @@ const api = {
       invoke('upload:selectSourceMedia', media),
     setLossyMaster: (value: boolean) => invoke('upload:setLossyMaster', value),
     setLossyComment: (value: string) => invoke('upload:setLossyComment', value),
+    resolveMetadataUrl: (url: string) => invoke('upload:resolveMetadataUrl', url),
     selectMetadataMatch: (selection: IpcInvokeArgs<'upload:selectMetadataMatch'>[0]) =>
       invoke('upload:selectMetadataMatch', selection),
     updateTagsProposed: (release: IpcInvokeArgs<'upload:updateTagsProposed'>[0]) =>

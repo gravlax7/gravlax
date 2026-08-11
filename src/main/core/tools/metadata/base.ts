@@ -18,8 +18,30 @@ export interface Provider {
   name: string
   healthcheck(signal?: AbortSignal): Promise<void>
   searchReleases(search: string, limit: number, signal?: AbortSignal): Promise<ReleaseResult[]>
+  releaseIDFromURL(url: URL): unknown | null
   fetchData(releaseURL: string, releaseID: unknown, signal?: AbortSignal): Promise<Record<string, unknown>>
   formatURL(releaseID: unknown, releaseName: string, rawURL: string): string
+}
+
+export function isPlainProviderURL(url: URL, hosts: string[]): boolean {
+  return (
+    (url.protocol === 'http:' || url.protocol === 'https:') &&
+    hosts.includes(url.hostname.toLowerCase()) &&
+    !url.port &&
+    !url.username &&
+    !url.password
+  )
+}
+
+export function releaseIDFromRawURL(
+  rawURL: string,
+  parse: (url: URL) => string | null
+): string {
+  try {
+    return parse(new URL(rawURL)) ?? ''
+  } catch {
+    return ''
+  }
 }
 
 export interface FormatOptions {

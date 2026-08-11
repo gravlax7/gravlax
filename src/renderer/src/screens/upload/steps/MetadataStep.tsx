@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal } from 'solid-js'
 import type { MetadataSearchResult, MetadataSelection, UploadFlowStateJSON } from '@shared/types'
 import { METADATA_PROVIDER_MANUAL } from '@shared/types/upload'
 import { ProviderIcon } from '../../../components/ProviderIcon'
-import { Badge, Card, Icon, IconButton, Section } from '../../../ui'
+import { Badge, Button, Callout, Card, Icon, IconButton, Section } from '../../../ui'
 import {
   metadataDisplayText,
   providerStatusTone,
@@ -14,6 +14,9 @@ export function MetadataStep(props: {
   onSelect: (selection: MetadataSelection) => void
 }) {
   const [expandedProviders, setExpandedProviders] = createSignal<Set<string>>(new Set())
+  const [releaseUrl, setReleaseUrl] = createSignal(props.state.metadata.selected?.url ?? '')
+  const [urlError, setUrlError] = createSignal('')
+  const [resolvingUrl, setResolvingUrl] = createSignal(false)
 
   const manualSelected = () =>
     props.state.metadata.selected?.provider === METADATA_PROVIDER_MANUAL
@@ -37,11 +40,70 @@ export function MetadataStep(props: {
     )
   }
 
+  const loadReleaseUrl = async (): Promise<void> => {
+    const url = releaseUrl().trim()
+    if (!url) {
+      setUrlError('Enter a MusicBrainz release URL or a Deezer album URL.')
+      return
+    }
+
+    setResolvingUrl(true)
+    setUrlError('')
+    try {
+      const result = await window.gravlax.upload.resolveMetadataUrl(url)
+      if (!result.ok) {
+        setUrlError(result.error)
+        return
+      }
+      setReleaseUrl(result.selection.url ?? url)
+      props.onSelect(result.selection)
+    } catch {
+      setUrlError('Could not check the release URL.')
+    } finally {
+      setResolvingUrl(false)
+    }
+  }
+
   return (
     <Section
       title="Metadata"
       description="Choose a release match from a provider or enter metadata manually."
     >
+      <form
+        class="metadata-url-form"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void loadReleaseUrl()
+        }}
+      >
+        <label class="metadata-url-field">
+          <span>Release URL</span>
+          <input
+            class="mono"
+            type="text"
+            inputmode="url"
+            value={releaseUrl()}
+            placeholder="MusicBrainz release or Deezer album URL"
+            autocomplete="off"
+            spellcheck={false}
+            onInput={(event) => {
+              setReleaseUrl(event.currentTarget.value)
+              setUrlError('')
+            }}
+          />
+        </label>
+        <Button
+          type="submit"
+          loading={resolvingUrl()}
+          disabled={!releaseUrl().trim()}
+        >
+          Load metadata
+        </Button>
+      </form>
+      <Show when={urlError()}>
+        {(error) => <Callout tone="error">{error()}</Callout>}
+      </Show>
+
       <Card
         interactive
         selected={manualSelected()}

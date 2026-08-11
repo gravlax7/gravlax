@@ -49,6 +49,7 @@ function mockProvider(
     name,
     async healthcheck() {},
     searchReleases: search,
+    releaseIDFromURL: () => null,
     async fetchData() {
       return {}
     },

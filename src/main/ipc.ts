@@ -50,6 +50,7 @@ export function registerIpc(deps: IpcDeps): void {
   handle('upload:selectSourceMedia', (media) => upload.selectSourceMedia(media))
   handle('upload:setLossyMaster', (value) => upload.setLossyMaster(value))
   handle('upload:setLossyComment', (value) => upload.setLossyComment(value))
+  handle('upload:resolveMetadataUrl', (url) => upload.resolveMetadataUrl(url))
   handle('upload:selectMetadataMatch', (selection) => upload.selectMetadataMatch(selection))
   handle('upload:updateTagsProposed', (release) => upload.updateTagsProposed(release))
   handle('upload:setFilenameOverride', (id, value) => upload.setFilenameOverride(id, value))

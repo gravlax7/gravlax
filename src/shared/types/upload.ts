@@ -194,6 +194,10 @@ export interface MetadataSelection {
   url?: string
 }
 
+export type MetadataUrlResolution =
+  | { ok: true; selection: MetadataSelection }
+  | { ok: false; error: string }
+
 export interface MetadataSearchSnapshot {
   baseline?: MetadataBaseline
   providers?: MetadataProviderResults[]

@@ -1,8 +1,19 @@
 import type { Config } from '@shared/types/config'
 import type { Provider } from './base'
-import { formatResult, mapValue, parseYear, sliceValue, toString } from './base'
+import {
+  formatResult,
+  isPlainProviderURL,
+  mapValue,
+  parseYear,
+  releaseIDFromRawURL,
+  sliceValue,
+  toString
+} from './base'
 import { fetchJSON, timeoutMsFromConfig } from './http'
 import { createDeezerProvider } from './deezer'
+
+const MUSICBRAINZ_RELEASE_PATH =
+  /^\/release\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i
 
 export interface ProviderDefinition {
   name: string
@@ -27,6 +38,7 @@ function createMusicBrainz(timeoutMs: number): Provider {
   const siteURL = 'https://musicbrainz.org'
   return {
     name: 'MusicBrainz',
+    releaseIDFromURL: musicBrainzReleaseIDFromURL,
     async healthcheck(signal) {
       await fetchJSON(searchURL, {
         query: { query: 'test', limit: '1', fmt: 'json' },
@@ -78,7 +90,8 @@ function createMusicBrainz(timeoutMs: number): Provider {
       return results
     },
     async fetchData(releaseURL, releaseID, signal) {
-      const id = toString(releaseID) || (releaseURL.match(/release\/([a-f0-9-]+)/i)?.[1] ?? '')
+      const id =
+        toString(releaseID) || releaseIDFromRawURL(releaseURL, musicBrainzReleaseIDFromURL)
       if (!id) throw new Error('invalid MusicBrainz URL')
       return fetchJSON(`${siteURL}/ws/2/release/${id}`, {
         query: {
@@ -95,6 +108,11 @@ function createMusicBrainz(timeoutMs: number): Provider {
       return `${siteURL}/release/${toString(releaseID)}`
     }
   }
+}
+
+function musicBrainzReleaseIDFromURL(url: URL): string | null {
+  if (!isPlainProviderURL(url, ['musicbrainz.org', 'www.musicbrainz.org'])) return null
+  return MUSICBRAINZ_RELEASE_PATH.exec(url.pathname)?.[1]?.toLowerCase() ?? null
 }
 
 function joinMusicBrainzArtists(credits: unknown[]): string {

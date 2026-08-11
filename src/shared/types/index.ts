@@ -24,6 +24,7 @@ export type {
   MetadataSearchResult,
   MetadataProviderResults,
   MetadataSelection,
+  MetadataUrlResolution,
   MetadataSearchSnapshot,
   MetadataProviderStatus,
   TagsSnapshot,

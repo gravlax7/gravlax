@@ -1389,6 +1389,30 @@ button.toggle.toggle-on .toggle-thumb {
   gap: var(--space-2);
 }
 
+.metadata-url-form {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.metadata-url-field {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metadata-url-field > span {
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+}
+
+.metadata-url-field input {
+  width: 100%;
+  margin: 0;
+}
+
 .metadata-provider-header {
   display: flex;
   align-items: center;

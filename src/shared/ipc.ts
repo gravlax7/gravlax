@@ -6,6 +6,7 @@ import type { UpdateCheckResult } from './types/update'
 import type {
   HealthResult,
   MetadataSelection,
+  MetadataUrlResolution,
   Release,
   SourceMedia,
   TrackerGroupDetail,
@@ -39,6 +40,7 @@ export interface IpcInvokeMap {
   'upload:selectSourceMedia': { args: [SourceMedia]; result: void }
   'upload:setLossyMaster': { args: [boolean]; result: void }
   'upload:setLossyComment': { args: [string]; result: void }
+  'upload:resolveMetadataUrl': { args: [string]; result: MetadataUrlResolution }
   'upload:selectMetadataMatch': { args: [MetadataSelection | null]; result: void }
   'upload:updateTagsProposed': { args: [Release]; result: void }
   'upload:setFilenameOverride': { args: [string, string?]; result: void }
@@ -198,6 +200,7 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'upload:selectSourceMedia': z.tuple([z.enum(['WEB', 'CD'])]),
   'upload:setLossyMaster': z.tuple([z.boolean()]),
   'upload:setLossyComment': z.tuple([z.string()]),
+  'upload:resolveMetadataUrl': z.tuple([z.string().min(1)]),
   'upload:selectMetadataMatch': z.tuple([objectInput<MetadataSelection>().nullable()]),
   'upload:updateTagsProposed': z.tuple([objectInput<Release>()]),
   'upload:setFilenameOverride': z.tuple([z.string().min(1), z.string().optional()]),

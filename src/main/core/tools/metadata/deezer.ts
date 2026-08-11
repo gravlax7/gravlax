@@ -1,12 +1,17 @@
 import type { Provider, ReleaseResult } from './base'
-import { formatResult, mapValue, toString } from './base'
+import {
+  formatResult,
+  isPlainProviderURL,
+  mapValue,
+  releaseIDFromRawURL,
+  toString
+} from './base'
 import { fetchJSON, fetchText } from './http'
 
 const DEEZER_NAME = 'Deezer'
 const DEEZER_API = 'https://api.deezer.com'
 const DEEZER_SITE = 'https://www.deezer.com'
-const DEEZER_RELEASE_URL =
-  /^https*:\/\/.*?deezer\.com.*?\/(?:[a-z]+\/)?(?:album|playlist|track)\/([0-9]+)/i
+const DEEZER_LOCALE = /^[a-z]{2}(?:-[a-z]{2})?$/i
 
 interface DeezerSearchResponse {
   data?: Array<{
@@ -20,6 +25,7 @@ interface DeezerSearchResponse {
 export function createDeezerProvider(timeoutMs: number): Provider {
   return {
     name: DEEZER_NAME,
+    releaseIDFromURL: deezerReleaseIDFromURL,
     async healthcheck(signal) {
       await fetchJSON(`${DEEZER_API}/search/album`, {
         query: { q: 'test' },
@@ -82,7 +88,15 @@ export function createDeezerProvider(timeoutMs: number): Provider {
 function resolveDeezerID(releaseURL: string, releaseID: unknown): string {
   const direct = toString(releaseID)
   if (direct) return direct
-  return DEEZER_RELEASE_URL.exec(releaseURL)?.[1] ?? ''
+  return releaseIDFromRawURL(releaseURL, deezerReleaseIDFromURL)
+}
+
+function deezerReleaseIDFromURL(url: URL): string | null {
+  if (!isPlainProviderURL(url, ['deezer.com', 'www.deezer.com'])) return null
+  const parts = url.pathname.split('/').filter(Boolean)
+  if (parts.length === 3 && DEEZER_LOCALE.test(parts[0] ?? '')) parts.shift()
+  if (parts.length !== 2 || parts[0]?.toLowerCase() !== 'album') return null
+  return /^[1-9]\d*$/.test(parts[1] ?? '') ? parts[1]! : null
 }
 
 async function scrapeDeezerInternal(

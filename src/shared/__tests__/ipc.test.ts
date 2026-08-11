@@ -30,6 +30,13 @@ describe('IPC argument contract', () => {
     expect(result.status).toBe('available')
   })
 
+  it('accepts a metadata URL and rejects an empty one', () => {
+    expect(parseIpcArguments('upload:resolveMetadataUrl', ['https://example.test/release'])).toEqual([
+      'https://example.test/release'
+    ])
+    expect(() => parseIpcArguments('upload:resolveMetadataUrl', [''])).toThrow()
+  })
+
   it('accepts tool paths in config and the tools reset section', () => {
     const cfg = configInput()
     cfg.tools.sox = '/opt/homebrew/bin/sox'

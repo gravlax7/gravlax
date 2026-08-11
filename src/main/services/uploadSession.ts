@@ -3,6 +3,7 @@ import { basename, join } from 'node:path'
 import type { Config } from '@shared/types/config'
 import type {
   MetadataSelection,
+  MetadataUrlResolution,
   NotifyPayload,
   Release,
   SeedSnapshot,
@@ -870,6 +871,11 @@ export class UploadSession {
     if (this.state.draft.workspacePath !== workspacePath) return
     if (pairs.length === 0) return
     this.applyDefaultSpectralIds(pairs.length)
+  }
+
+  async resolveMetadataUrl(url: string): Promise<MetadataUrlResolution> {
+    const { resolveMetadataUrl } = await import('@main/core/tools/metadata/search')
+    return resolveMetadataUrl(this.deps.getConfig(), url)
   }
 
   selectMetadataMatch(selection: MetadataSelection | null): void {

@@ -1,10 +1,45 @@
 import type { Config } from '@shared/types/config'
-import type { MetadataBaseline, MetadataProviderResults, MetadataSearchResult } from '@shared/types'
+import type {
+  MetadataBaseline,
+  MetadataProviderResults,
+  MetadataSearchResult,
+  MetadataUrlResolution
+} from '@shared/types'
 import type { Provider, ReleaseResult } from './base'
 import { displayIdentifier } from './base'
 import { createProviders, providerDefinitions } from './providers'
 
 const DEFAULT_SEARCH_LIMIT = 10
+
+const UNSUPPORTED_URL_ERROR =
+  'Enter a MusicBrainz release URL or a Deezer album URL.'
+
+export function resolveMetadataUrl(cfg: Config, rawURL: string): MetadataUrlResolution {
+  const value = rawURL.trim()
+  if (!value) return { ok: false, error: UNSUPPORTED_URL_ERROR }
+
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return { ok: false, error: UNSUPPORTED_URL_ERROR }
+  }
+
+  for (const provider of createProviders(cfg)) {
+    const releaseID = provider.releaseIDFromURL(url)
+    if (releaseID == null) continue
+    return {
+      ok: true,
+      selection: {
+        provider: provider.name,
+        releaseId: serializeReleaseID(releaseID),
+        url: provider.formatURL(releaseID, '', '')
+      }
+    }
+  }
+
+  return { ok: false, error: UNSUPPORTED_URL_ERROR }
+}
 
 export function providerPlaceholders(cfg: Config): MetadataProviderResults[] {
   return providerDefinitions(cfg).map((definition) => ({
