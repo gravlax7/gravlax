@@ -55,6 +55,44 @@ Install these tools and make sure Gravlax can find them:
 Leave a tool path blank in **Settings → Tools** to let Gravlax search your
 `PATH` and common install locations.
 
+### Windows
+
+[Scoop](https://scoop.sh) is recommended for installing command-line tools on
+Windows. Open a regular PowerShell window and run:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+scoop install sox flac lame
+```
+
+Install MP3val with [winget](https://learn.microsoft.com/windows/package-manager/winget/):
+
+```powershell
+winget install -e ring0.MP3val.WF
+```
+
+Restart Gravlax after installing the tools. If it cannot find a tool, check
+that its install folder is on `PATH`, or set the tool path in **Settings →
+Tools**.
+
+### macOS
+
+[Homebrew](https://brew.sh) is recommended for installing the required tools. If
+Homebrew is not installed, open Terminal and run its installer:
+
+```sh
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Then install all four tools:
+
+```sh
+brew install sox flac mp3val lame
+```
+
+You might need to restart Gravlax. If needed, set the tool paths in **Settings → Tools**.
+
 ## Important settings
 
 - **Directories:** Set **Source** to the folder that holds releases before you
