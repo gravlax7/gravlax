@@ -212,6 +212,10 @@ textarea:focus {
   -webkit-app-region: drag;
 }
 
+.app-shell-native-titlebar {
+  --titlebar-height: 0px;
+}
+
 .app-no-drag {
   -webkit-app-region: no-drag;
 }

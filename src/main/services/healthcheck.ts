@@ -21,31 +21,31 @@ const BINARY_CHECKS: Array<{
     id: 'sox',
     name: 'Sox',
     installURL: 'https://sourceforge.net/projects/sox/',
-    instructions: 'Install SoX and ensure it is available on PATH.'
+    instructions: 'Install SoX and ensure it is available on PATH OR select the binary in the tools section of settings.'
   },
   {
     id: 'flac',
     name: 'flac',
     installURL: 'https://xiph.org/flac/',
-    instructions: 'Install flac and ensure it is available on PATH.'
+    instructions: 'Install flac and ensure it is available on PATH OR select the binary in the tools section of settings.'
   },
   {
     id: 'metaflac',
     name: 'metaflac',
     installURL: 'https://xiph.org/flac/',
-    instructions: 'Install FLAC tools and ensure metaflac is available on PATH.'
+    instructions: 'Install FLAC tools and ensure metaflac is available on PATH OR select the binary in the tools section of settings.'
   },
   {
     id: 'mp3val',
     name: 'mp3val',
     installURL: 'http://mp3val.sourceforge.net/',
-    instructions: 'Install mp3val and ensure it is available on PATH.'
+    instructions: 'Install mp3val and ensure it is available on PATH OR select the binary in the tools section of settings.'
   },
   {
     id: 'lame',
     name: 'lame',
     installURL: 'https://lame.sourceforge.io/',
-    instructions: 'Install lame and ensure it is available on PATH.'
+    instructions: 'Install lame and ensure it is available on PATH OR select the binary in the tools section of settings.'
   }
 ]
 

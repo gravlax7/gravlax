@@ -218,16 +218,22 @@ export default function App() {
   }
 
   return (
-    <div class="app-shell" style={{ display: 'flex', height: '100%', 'flex-direction': 'column' }}>
-      <div
-        class="app-drag"
-        style={{
-          height: 'var(--titlebar-height)',
-          'flex-shrink': 0,
-          'background-color': 'var(--bg-surface)',
-          'border-bottom': '1px solid var(--border)'
-        }}
-      />
+    <div
+      class="app-shell"
+      classList={{ 'app-shell-native-titlebar': window.gravlax.platform !== 'darwin' }}
+      style={{ display: 'flex', height: '100%', 'flex-direction': 'column' }}
+    >
+      <Show when={window.gravlax.platform === 'darwin'}>
+        <div
+          class="app-drag"
+          style={{
+            height: 'var(--titlebar-height)',
+            'flex-shrink': 0,
+            'background-color': 'var(--bg-surface)',
+            'border-bottom': '1px solid var(--border)'
+          }}
+        />
+      </Show>
       <div style={{ display: 'flex', flex: 1, 'min-height': 0 }}>
         <nav
           class="app-no-drag"

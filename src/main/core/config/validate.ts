@@ -120,13 +120,8 @@ export function validate(cfg: Config): ValidationIssue[] {
       add('transfer', 'remotePath', 'remote path is required when seedbox is enabled')
     }
   }
-  for (const [field, value] of Object.entries({
-    privateKeyPath: cfg.transfer.privateKeyPath,
-    remotePath: cfg.transfer.remotePath
-  })) {
-    if (value !== '' && !validCleanPath(value)) {
-      add('transfer', field, 'path value must be clean')
-    }
+  if (cfg.transfer.privateKeyPath !== '' && !validCleanPath(cfg.transfer.privateKeyPath)) {
+    add('transfer', 'privateKeyPath', 'path value must be clean')
   }
 
   if (!oneOf(cfg.naming.albumDescriptionTemplateId, ...listDescriptionTemplateIds())) {

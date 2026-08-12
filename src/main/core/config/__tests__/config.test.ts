@@ -152,6 +152,17 @@ describe('config', () => {
     expect(validate(cfg).some((i) => i.field === 'savePath')).toBe(false)
   })
 
+  it('does not apply local path rules to the seedbox remote path', () => {
+    const cfg = defaultConfig()
+    cfg.transfer.enabled = true
+    cfg.transfer.host = 'seedbox.example.com'
+    cfg.transfer.username = 'uploader'
+    cfg.transfer.password = 'secret'
+    cfg.transfer.remotePath = '/home/uploader/../seed'
+
+    expect(validate(cfg).some((i) => i.field === 'remotePath')).toBe(false)
+  })
+
   it('validate accepts enabled tracker with defaults and credentials', () => {
     let cfg = defaultConfig()
     cfg = {
