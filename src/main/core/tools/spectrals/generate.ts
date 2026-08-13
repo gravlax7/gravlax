@@ -2,8 +2,9 @@ import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { discoverFLACFiles, type FlacFile } from '@main/core/tools/flacFiles'
 import { automaticToolResolver, type ToolId, type ToolResolver } from '@main/core/tools/binaries'
+import { readFLACStreamInfo } from '@main/core/tools/diagnostics/mqa'
 import { runCommand } from '@main/core/tools/runCommand'
-import { compressSpectralPngs } from './compress'
+import { processFiles } from '@main/core/tools/transcode/processFiles'
 
 export interface SpectralSummary {
   trackCount: number
@@ -17,12 +18,13 @@ export interface SpectralProgress {
 }
 
 type CommandRunner = (name: ToolId, args: string[], signal?: AbortSignal) => Promise<Buffer>
+type DurationReader = (path: string) => Promise<number>
 
 export interface GenerateSpectralsOptions {
-  compress?: boolean
+  concurrency?: number
   signal?: AbortSignal
   onProgress?: (progress: SpectralProgress) => void
-  onCompress?: () => void
+  readDuration?: DurationReader
   run?: CommandRunner
   tools?: ToolResolver
 }
@@ -44,45 +46,49 @@ export async function generateSpectrals(
     return { trackCount: 0, outputPath }
   }
 
-  options.onProgress?.({
-    completedTracks: 0,
-    totalTracks: files.length,
-    currentTrack: files[0]!.relativePath
-  })
-
-  const generatedPaths: string[] = []
   const tools = options.tools ?? automaticToolResolver
   const run = options.run ?? ((name: ToolId, args: string[], signal?: AbortSignal) =>
     runCommand(name, args, signal, undefined, tools))
-  for (let index = 0; index < files.length; index++) {
-    const file = files[index]!
-    generatedPaths.push(
-      ...(await generateFile(run, outputPath, file, index, options.signal))
-    )
-    const nextTrack = index + 1 < files.length ? files[index + 1]!.relativePath : ''
-    options.onProgress?.({
-      completedTracks: index + 1,
-      totalTracks: files.length,
-      currentTrack: nextTrack
-    })
-  }
+  const readDuration = options.readDuration ?? (async (path: string) =>
+    (await readFLACStreamInfo(path)).durationSeconds)
+  const generatedPaths: Array<[string, string]> = new Array(files.length)
 
-  if (options.compress) {
-    options.onCompress?.()
-    await compressSpectralPngs(generatedPaths, options.signal)
-  }
+  await processFiles(
+    files,
+    options.concurrency ?? 3,
+    async (file, index) => {
+      options.signal?.throwIfAborted()
+      generatedPaths[index] = await generateFile(
+        run,
+        readDuration,
+        outputPath,
+        file,
+        index,
+        options.signal
+      )
+    },
+    (progress) => {
+      options.onProgress?.({
+        completedTracks: progress.completed,
+        totalTracks: progress.total,
+        currentTrack: progress.currentLabel
+      })
+    },
+    (file) => file.relativePath
+  )
 
   return { trackCount: files.length, outputPath }
 }
 
 async function generateFile(
   run: CommandRunner,
+  readDuration: DurationReader,
   outputPath: string,
   file: FlacFile,
   index: number,
   signal?: AbortSignal
 ): Promise<[string, string]> {
-  const zoomStart = await zoomStartpoint(run, file.absolutePath, signal)
+  const zoomStart = await zoomStartpoint(readDuration, file.absolutePath)
   const fullOutputPath = join(outputPath, `${String(index + 1).padStart(2, '0')} Full.png`)
   const zoomOutputPath = join(outputPath, `${String(index + 1).padStart(2, '0')} Zoom.png`)
   const args = [
@@ -130,9 +136,8 @@ async function generateFile(
   }
 }
 
-async function zoomStartpoint(run: CommandRunner, path: string, signal?: AbortSignal): Promise<number> {
-  const output = await run('sox', ['--i', '-D', path], signal)
-  const durationSeconds = Number.parseFloat(output.toString('utf8').trim())
+async function zoomStartpoint(readDuration: DurationReader, path: string): Promise<number> {
+  const durationSeconds = await readDuration(path)
   if (Number.isNaN(durationSeconds)) {
     throw new Error(`parse audio duration for "${path}"`)
   }
