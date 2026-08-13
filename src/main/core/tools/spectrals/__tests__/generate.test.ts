@@ -138,6 +138,31 @@ describe('compressSpectralPngs', () => {
     })
     expect((await readdir(root)).filter((entry) => entry.includes('.tmp'))).toEqual([])
   })
+
+  it('does not replace a source when cancellation arrives during the size check', async () => {
+    const root = await testRoot()
+    const path = join(root, 'spectral.png')
+    await writeFile(path, 'source')
+    const controller = new AbortController()
+    let temporary = ''
+
+    await expect(
+      compressSpectralPngs([path], {
+        signal: controller.signal,
+        encode: async (_source, temporaryPath) => {
+          temporary = temporaryPath
+          await writeFile(temporaryPath, 'x')
+        },
+        fileSize: async (filePath) => {
+          if (filePath === temporary) controller.abort()
+          return filePath === path ? 6 : 1
+        }
+      })
+    ).rejects.toMatchObject({ name: 'AbortError' })
+
+    expect(await readFile(path, 'utf8')).toBe('source')
+    await expect(readFile(temporary)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
 })
 
 async function workspace(trackCount = 1): Promise<string> {

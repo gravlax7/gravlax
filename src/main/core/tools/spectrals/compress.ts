@@ -10,6 +10,7 @@ export interface CompressSpectralPngsOptions {
   signal?: AbortSignal
   concurrency?: number
   encode?: SpectralPngEncoder
+  fileSize?: (filePath: string) => Promise<number>
 }
 
 export interface SpectralCompressionResult {
@@ -26,6 +27,7 @@ export async function compressSpectralPngs(
   const optimized = new Array<boolean>(filePaths.length).fill(false)
   const failures = new Array<{ filePath: string; error: string } | undefined>(filePaths.length)
   const encode = options.encode ?? encodePng
+  const fileSize = options.fileSize ?? (async (filePath: string) => (await stat(filePath)).size)
 
   await processFiles(filePaths, options.concurrency ?? 3, async (filePath, index) => {
     throwIfAborted(options.signal)
@@ -33,8 +35,13 @@ export async function compressSpectralPngs(
     try {
       await encode(filePath, temporaryPath)
       throwIfAborted(options.signal)
-      const [sourceInfo, encodedInfo] = await Promise.all([stat(filePath), stat(temporaryPath)])
-      if (encodedInfo.size < sourceInfo.size) {
+      const [sourceSize, encodedSize] = await Promise.all([
+        fileSize(filePath),
+        fileSize(temporaryPath)
+      ])
+      throwIfAborted(options.signal)
+      if (encodedSize < sourceSize) {
+        throwIfAborted(options.signal)
         await rename(temporaryPath, filePath)
         optimized[index] = true
       }

@@ -51,14 +51,13 @@ export async function generateSpectrals(
     runCommand(name, args, signal, undefined, tools))
   const readDuration = options.readDuration ?? (async (path: string) =>
     (await readFLACStreamInfo(path)).durationSeconds)
-  const generatedPaths: Array<[string, string]> = new Array(files.length)
 
   await processFiles(
     files,
     options.concurrency ?? 3,
     async (file, index) => {
       options.signal?.throwIfAborted()
-      generatedPaths[index] = await generateFile(
+      await generateFile(
         run,
         readDuration,
         outputPath,
