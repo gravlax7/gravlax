@@ -1,18 +1,11 @@
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
-import sharp from 'sharp'
 import { afterEach, describe, expect, it } from 'vitest'
 import { compressSpectralPngs } from '../compress'
-import { generateSpectrals, type GenerateSpectralsOptions } from '../generate'
+import { generateSpectrals } from '../generate'
 
 const roots: string[] = []
-const pixels = Buffer.from([
-  255, 0, 0, 255,
-  0, 255, 0, 255,
-  0, 0, 255, 255,
-  255, 255, 255, 255
-])
 
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
@@ -68,23 +61,79 @@ describe('generateSpectrals', () => {
 })
 
 describe('compressSpectralPngs', () => {
-  it('cleans up temporary files after an optimization failure', async () => {
+  it('replaces a source only when the encoded file is smaller', async () => {
     const root = await testRoot()
-    const path = join(root, 'broken.png')
-    await writeFile(path, 'not a PNG')
+    const smaller = join(root, 'smaller.png')
+    const larger = join(root, 'larger.png')
+    await writeFile(smaller, '12345')
+    await writeFile(larger, '12345')
 
-    await expect(compressSpectralPngs([path])).rejects.toThrow()
+    const result = await compressSpectralPngs([smaller, larger], {
+      encode: async (source, temporary) => {
+        await writeFile(temporary, source === smaller ? '12' : '123456')
+      }
+    })
+
+    expect(await readFile(smaller, 'utf8')).toBe('12')
+    expect(await readFile(larger, 'utf8')).toBe('12345')
+    expect(result).toEqual({
+      checkedPaths: [smaller, larger],
+      optimizedPaths: [smaller],
+      failures: []
+    })
     expect((await readdir(root)).filter((entry) => entry.includes('.tmp'))).toEqual([])
+  })
+
+  it('keeps working files when another image cannot be optimized', async () => {
+    const root = await testRoot()
+    const broken = join(root, 'broken.png')
+    const valid = join(root, 'valid.png')
+    await writeFile(broken, 'broken source')
+    await writeFile(valid, 'valid source')
+
+    const result = await compressSpectralPngs([broken, valid], {
+      encode: async (source, temporary) => {
+        if (source === broken) throw new Error('cannot encode')
+        await writeFile(temporary, 'ok')
+      }
+    })
+
+    expect(await readFile(broken, 'utf8')).toBe('broken source')
+    expect(await readFile(valid, 'utf8')).toBe('ok')
+    expect(result.checkedPaths).toEqual([broken, valid])
+    expect(result.optimizedPaths).toEqual([valid])
+    expect(result.failures).toEqual([{ filePath: broken, error: 'Error: cannot encode' }])
+    expect((await readdir(root)).filter((entry) => entry.includes('.tmp'))).toEqual([])
+  })
+
+  it('runs no more than three encoders at once', async () => {
+    const root = await testRoot()
+    const paths = Array.from({ length: 5 }, (_, index) => join(root, `${index + 1}.png`))
+    await Promise.all(paths.map((path) => writeFile(path, '12345')))
+    let active = 0
+    let maxActive = 0
+
+    await compressSpectralPngs(paths, {
+      encode: async (_source, temporary) => {
+        active++
+        maxActive = Math.max(maxActive, active)
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        await writeFile(temporary, '1')
+        active--
+      }
+    })
+
+    expect(maxActive).toBe(3)
   })
 
   it('does not leave temporary files when aborted', async () => {
     const root = await testRoot()
     const path = join(root, 'spectral.png')
-    await writePng(path)
+    await writeFile(path, 'source')
     const controller = new AbortController()
     controller.abort()
 
-    await expect(compressSpectralPngs([path], controller.signal)).rejects.toMatchObject({
+    await expect(compressSpectralPngs([path], { signal: controller.signal })).rejects.toMatchObject({
       name: 'AbortError'
     })
     expect((await readdir(root)).filter((entry) => entry.includes('.tmp'))).toEqual([])
@@ -108,24 +157,4 @@ async function testRoot(): Promise<string> {
   const workspacePath = join(root, 'release')
   await mkdir(workspacePath)
   return root
-}
-
-function spectralPath(workspacePath: string, name: string): string {
-  return join(workspacePath, '..', 'Spectrals', name)
-}
-
-const spectralRunner: NonNullable<GenerateSpectralsOptions['run']> = async (name, args) => {
-  if (name !== 'sox') throw new Error(`Unexpected command: ${name}`)
-  if (args[0] === '--i') return Buffer.from('10')
-
-  const outputs = args.flatMap((arg, index) => (arg === '-o' ? [args[index + 1]!] : []))
-  await Promise.all(outputs.map(writePng))
-  return Buffer.alloc(0)
-}
-
-async function writePng(path: string): Promise<void> {
-  await sharp(pixels, { raw: { width: 2, height: 2, channels: 4 } })
-    .withMetadata({ exif: { IFD0: { Artist: 'Gravlax' } } })
-    .png()
-    .toFile(path)
 }
