@@ -170,8 +170,7 @@ const configInput: z.ZodType<Config> = z.object({
   spectral: z.object({
     imageHost: z.string(),
     defaultSpectralIds: z.string(),
-    defaultSpectralIdsForLossyMasters: z.string(),
-    compress: z.boolean()
+    defaultSpectralIdsForLossyMasters: z.string()
   }),
   cleanup: z.object({ deleteTemporaryFiles: z.boolean(), deleteSpectralsAfterUpload: z.boolean() }),
   workflow: z.object({ confirmBeforeWrites: z.boolean(), useUpcAsCatNo: z.boolean() })

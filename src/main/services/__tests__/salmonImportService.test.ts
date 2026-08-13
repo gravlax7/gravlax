@@ -90,7 +90,6 @@ describe('readSalmonImportSources', () => {
       'imageHosts.imgbb.enabled': true,
       'spectral.imageHost': 'imgbb',
       'spectral.defaultSpectralIds': 'All',
-      'spectral.compress': false,
       'trackers.redacted.sessionCookie': 'red-session-cookie',
       'trackers.redacted.apiKey': 'red-api-token',
       'trackers.redacted.coverImageHost': 'imgbb',

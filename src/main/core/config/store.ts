@@ -129,6 +129,20 @@ export function normalizeCleanup(raw: unknown, base: Config['cleanup']): Config[
   return next
 }
 
+export function normalizeSpectral(raw: unknown, base: Config['spectral']): Config['spectral'] {
+  if (!raw || typeof raw !== 'object') return base
+  const obj = raw as Record<string, unknown>
+  const next = structuredClone(base)
+  if (typeof obj.imageHost === 'string') next.imageHost = obj.imageHost
+  if (typeof obj.defaultSpectralIds === 'string') {
+    next.defaultSpectralIds = obj.defaultSpectralIds
+  }
+  if (typeof obj.defaultSpectralIdsForLossyMasters === 'string') {
+    next.defaultSpectralIdsForLossyMasters = obj.defaultSpectralIdsForLossyMasters
+  }
+  return next
+}
+
 export function normalizeWorkflow(raw: unknown, base: Config['workflow']): Config['workflow'] {
   if (!raw || typeof raw !== 'object') return base
   const obj = raw as Record<string, unknown>
@@ -201,6 +215,10 @@ export function mergeLoadedConfig(raw: unknown): Config {
     }
     if (key === 'cleanup') {
       cfg.cleanup = normalizeCleanup(obj.cleanup, cfg.cleanup)
+      continue
+    }
+    if (key === 'spectral') {
+      cfg.spectral = normalizeSpectral(obj.spectral, cfg.spectral)
       continue
     }
     if (key === 'workflow') {

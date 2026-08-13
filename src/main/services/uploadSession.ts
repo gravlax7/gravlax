@@ -104,10 +104,6 @@ import {
 } from '@main/core/appdata/workspace'
 import { saveUploadedRelease } from '@main/core/appdata/uploadHistory'
 import { generateSpectrals, listSpectralPairs } from '@main/core/tools/spectrals/generate'
-import {
-  compressSpectralPngs,
-  type SpectralCompressionResult
-} from '@main/core/tools/spectrals/compress'
 import { spectralIdsForRelease } from '@shared/upload/spectralIds'
 import { checkMQAWorkspace, mqaSummaryDetail } from '@main/core/tools/diagnostics/workspace'
 import {
@@ -134,7 +130,6 @@ const FILES_CHECK_STEP = stepIndex('files-check') ?? 0
 
 export interface UploadSessionDeps extends UploadSessionRuntimeDeps {
   recordUploadStatistic?: (record: UploadStatsRecord) => Promise<void>
-  optimizeSpectralPngs?: typeof compressSpectralPngs
   tools: ToolResolver
 }
 
@@ -142,7 +137,6 @@ export class UploadSession {
   private readonly runtime: UploadSessionRuntime
   private tasks = new TaskScope()
   private spectrals = this.tasks.slot('spectrals')
-  private spectralOptimization = this.tasks.slot('spectral-optimization')
   private filesCheck = this.tasks.slot('files-check')
   private metadata = this.tasks.slot('metadata')
   private tags = this.tasks.slot('tags')
@@ -152,9 +146,6 @@ export class UploadSession {
   private submit = this.tasks.slot('submit')
   private seed = this.tasks.slot('seed')
   private fileChanges = this.tasks.slot('file-changes')
-  private spectralOptimizationPromise: Promise<void> = Promise.resolve()
-  private spectralOptimizationKey = ''
-  private checkedSpectralPaths = new Set<string>()
   private readonly fileChangesService: UploadSessionFileChanges
 
   constructor(private readonly deps: UploadSessionDeps) {
@@ -216,7 +207,6 @@ export class UploadSession {
 
   cancelAll(): void {
     this.tasks.invalidateAll()
-    this.clearSpectralOptimizationState()
   }
 
   /** Guard for tasks that are only meaningful for the workspace they started on. */
@@ -246,7 +236,6 @@ export class UploadSession {
     const uploadIdx = stepIndex('upload')
     const seedIdx = stepIndex('seed')
     const tagsIdx = stepIndex('tags')
-    const spectralsIdx = stepIndex('spectrals')
     if (tagsIdx !== null && from <= tagsIdx && index > tagsIdx) {
       const applied = await this.applyTagsAndNames(confirmedWrites)
       if (!applied.ok) return applied
@@ -255,9 +244,6 @@ export class UploadSession {
       }
     }
     this.apply(setCurrentStep(this.state, index))
-    if (spectralsIdx !== null && from === spectralsIdx && index > spectralsIdx) {
-      void this.startSelectedSpectralOptimization()
-    }
     if (transcodeIdx !== null && from <= transcodeIdx && index > transcodeIdx) {
       void this.runTranscode({ quiet: true })
     }
@@ -493,9 +479,6 @@ export class UploadSession {
     }
 
     if ((this.state.upload.spectralBbcode ?? '') !== '') return null
-
-    await this.waitForSelectedSpectralOptimization()
-    if (!task.fresh()) return null
 
     const spectrals = await hostSpectralsForUpload(
       cfg,
@@ -934,8 +917,6 @@ export class UploadSession {
   }
 
   async regenerateSpectrals(): Promise<void> {
-    this.spectralOptimization.cancel()
-    this.clearSpectralOptimizationState()
     this.apply(resetBackgroundTask(this.state, 'spectrals'))
     this.startSpectralsIfReady()
   }
@@ -1231,8 +1212,6 @@ export class UploadSession {
     if (!t || t.status !== 'queued') return
 
     const workspacePath = this.state.draft.workspacePath
-    this.spectralOptimization.cancel()
-    this.clearSpectralOptimizationState()
     this.apply(markBackgroundTaskRunning(this.state, 'spectrals'))
 
     void this.spectrals.run(
@@ -1271,84 +1250,6 @@ export class UploadSession {
         }
       }
     )
-  }
-
-  private startSelectedSpectralOptimization(): Promise<void> {
-    const key = this.currentSpectralOptimizationKey()
-    if (key === this.spectralOptimizationKey) return this.spectralOptimizationPromise
-
-    const workspacePath = this.state.draft.workspacePath
-    const selectedIds = [...this.state.draft.spectralIds]
-    const enabled = this.deps.getConfig().spectral.compress
-    this.spectralOptimizationKey = key
-
-    if (!workspacePath || !enabled || selectedIds.length === 0) {
-      this.spectralOptimization.cancel()
-      this.spectralOptimizationPromise = Promise.resolve()
-      return this.spectralOptimizationPromise
-    }
-
-    const selected = new Set(selectedIds)
-    const optimize = this.deps.optimizeSpectralPngs ?? compressSpectralPngs
-    const promise = this.spectralOptimization.run(
-      async (task) => {
-        const pairs = await listSpectralPairs(workspacePath)
-        if (!task.fresh()) return
-        const paths = pairs
-          .filter((pair) => selected.has(pair.index))
-          .flatMap((pair) => [pair.full, pair.zoom])
-          .filter((path) => !this.checkedSpectralPaths.has(path))
-        if (paths.length === 0) return
-
-        const result = await optimize(paths, { signal: task.signal })
-        if (!task.fresh()) return
-        this.recordSpectralOptimization(result)
-      },
-      {
-        guard: this.stillOn(workspacePath),
-        onError: (err) => {
-          this.notify('warning', `Could not optimize spectral images; using originals: ${String(err)}`)
-        }
-      }
-    )
-    this.spectralOptimizationPromise = promise
-    return promise
-  }
-
-  private async waitForSelectedSpectralOptimization(): Promise<void> {
-    for (;;) {
-      const key = this.currentSpectralOptimizationKey()
-      const pending = key === this.spectralOptimizationKey
-        ? this.spectralOptimizationPromise
-        : this.startSelectedSpectralOptimization()
-      await pending
-      if (key === this.currentSpectralOptimizationKey()) return
-    }
-  }
-
-  private recordSpectralOptimization(result: SpectralCompressionResult): void {
-    for (const path of result.checkedPaths) this.checkedSpectralPaths.add(path)
-    if (result.failures.length === 0) return
-    const count = result.failures.length
-    this.notify(
-      'warning',
-      `Could not optimize ${count} spectral image${count === 1 ? '' : 's'}; using originals.`
-    )
-  }
-
-  private currentSpectralOptimizationKey(): string {
-    const config = this.deps.getConfig()
-    return [
-      this.state.draft.workspacePath,
-      config.spectral.compress ? 'on' : 'off',
-      ...this.state.draft.spectralIds
-    ].join('\u0000')
-  }
-
-  private clearSpectralOptimizationState(): void {
-    this.spectralOptimizationPromise = Promise.resolve()
-    this.spectralOptimizationKey = ''
-    this.checkedSpectralPaths.clear()
   }
 
   private startFilesCheckIfReady(): void {

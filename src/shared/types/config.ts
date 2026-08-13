@@ -130,7 +130,6 @@ export interface SpectralConfig {
   imageHost: string
   defaultSpectralIds: string
   defaultSpectralIdsForLossyMasters: string
-  compress: boolean
 }
 
 export interface CleanupConfig {

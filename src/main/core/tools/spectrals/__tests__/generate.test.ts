@@ -1,8 +1,7 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { compressSpectralPngs } from '../compress'
 import { generateSpectrals } from '../generate'
 
 const roots: string[] = []
@@ -57,111 +56,6 @@ describe('generateSpectrals', () => {
     expect(outputs.get('01.flac')).toEqual(['01 Full.png', '01 Zoom.png'])
     expect(outputs.get('02.flac')).toEqual(['02 Full.png', '02 Zoom.png'])
     expect(outputs.get('03.flac')).toEqual(['03 Full.png', '03 Zoom.png'])
-  })
-})
-
-describe('compressSpectralPngs', () => {
-  it('replaces a source only when the encoded file is smaller', async () => {
-    const root = await testRoot()
-    const smaller = join(root, 'smaller.png')
-    const larger = join(root, 'larger.png')
-    await writeFile(smaller, '12345')
-    await writeFile(larger, '12345')
-
-    const result = await compressSpectralPngs([smaller, larger], {
-      encode: async (source, temporary) => {
-        await writeFile(temporary, source === smaller ? '12' : '123456')
-      }
-    })
-
-    expect(await readFile(smaller, 'utf8')).toBe('12')
-    expect(await readFile(larger, 'utf8')).toBe('12345')
-    expect(result).toEqual({
-      checkedPaths: [smaller, larger],
-      optimizedPaths: [smaller],
-      failures: []
-    })
-    expect((await readdir(root)).filter((entry) => entry.includes('.tmp'))).toEqual([])
-  })
-
-  it('keeps working files when another image cannot be optimized', async () => {
-    const root = await testRoot()
-    const broken = join(root, 'broken.png')
-    const valid = join(root, 'valid.png')
-    await writeFile(broken, 'broken source')
-    await writeFile(valid, 'valid source')
-
-    const result = await compressSpectralPngs([broken, valid], {
-      encode: async (source, temporary) => {
-        if (source === broken) throw new Error('cannot encode')
-        await writeFile(temporary, 'ok')
-      }
-    })
-
-    expect(await readFile(broken, 'utf8')).toBe('broken source')
-    expect(await readFile(valid, 'utf8')).toBe('ok')
-    expect(result.checkedPaths).toEqual([broken, valid])
-    expect(result.optimizedPaths).toEqual([valid])
-    expect(result.failures).toEqual([{ filePath: broken, error: 'Error: cannot encode' }])
-    expect((await readdir(root)).filter((entry) => entry.includes('.tmp'))).toEqual([])
-  })
-
-  it('runs no more than three encoders at once', async () => {
-    const root = await testRoot()
-    const paths = Array.from({ length: 5 }, (_, index) => join(root, `${index + 1}.png`))
-    await Promise.all(paths.map((path) => writeFile(path, '12345')))
-    let active = 0
-    let maxActive = 0
-
-    await compressSpectralPngs(paths, {
-      encode: async (_source, temporary) => {
-        active++
-        maxActive = Math.max(maxActive, active)
-        await new Promise((resolve) => setTimeout(resolve, 20))
-        await writeFile(temporary, '1')
-        active--
-      }
-    })
-
-    expect(maxActive).toBe(3)
-  })
-
-  it('does not leave temporary files when aborted', async () => {
-    const root = await testRoot()
-    const path = join(root, 'spectral.png')
-    await writeFile(path, 'source')
-    const controller = new AbortController()
-    controller.abort()
-
-    await expect(compressSpectralPngs([path], { signal: controller.signal })).rejects.toMatchObject({
-      name: 'AbortError'
-    })
-    expect((await readdir(root)).filter((entry) => entry.includes('.tmp'))).toEqual([])
-  })
-
-  it('does not replace a source when cancellation arrives during the size check', async () => {
-    const root = await testRoot()
-    const path = join(root, 'spectral.png')
-    await writeFile(path, 'source')
-    const controller = new AbortController()
-    let temporary = ''
-
-    await expect(
-      compressSpectralPngs([path], {
-        signal: controller.signal,
-        encode: async (_source, temporaryPath) => {
-          temporary = temporaryPath
-          await writeFile(temporaryPath, 'x')
-        },
-        fileSize: async (filePath) => {
-          if (filePath === temporary) controller.abort()
-          return filePath === path ? 6 : 1
-        }
-      })
-    ).rejects.toMatchObject({ name: 'AbortError' })
-
-    expect(await readFile(path, 'utf8')).toBe('source')
-    await expect(readFile(temporary)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 })
 
