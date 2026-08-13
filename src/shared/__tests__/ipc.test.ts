@@ -97,8 +97,7 @@ function configInput() {
     spectral: {
       imageHost: '',
       defaultSpectralIds: 'Random',
-      defaultSpectralIdsForLossyMasters: 'All',
-      compress: true
+      defaultSpectralIdsForLossyMasters: 'All'
     },
     cleanup: { deleteTemporaryFiles: true, deleteSpectralsAfterUpload: false },
     workflow: { confirmBeforeWrites: true, useUpcAsCatNo: true }

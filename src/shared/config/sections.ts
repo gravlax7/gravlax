@@ -79,12 +79,6 @@ export function sections(): SectionMetadata[] {
           label: 'Default spectral ids for lossy masters',
           type: 'enum',
           options: ['All', 'Random', 'First track', 'None']
-        },
-        {
-          name: 'compress',
-          label: 'Compress PNGs',
-          description: 'Losslessly optimizes generated spectrals before display and upload. Takes effect after regenerating spectrals.',
-          type: 'bool'
         }
       ]
     },

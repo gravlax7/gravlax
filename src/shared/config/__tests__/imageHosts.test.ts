@@ -70,8 +70,7 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
     spectral: {
       imageHost: '',
       defaultSpectralIds: 'Random',
-      defaultSpectralIdsForLossyMasters: 'All',
-      compress: true
+      defaultSpectralIdsForLossyMasters: 'All'
     },
     cleanup: {
       deleteTemporaryFiles: true,

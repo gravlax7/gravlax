@@ -481,15 +481,6 @@ function mapUpload(builder: PlanBuilder, toml: Record<string, unknown>): void {
   if (!upload) return
 
   const compression = table(upload, 'compression')
-  const compressSpectrals = bool(compression, 'compress_spectrals')
-  if (compressSpectrals !== undefined) {
-    builder.add({
-      sourceKey: 'upload.compression.compress_spectrals',
-      section: 'spectral',
-      field: 'compress',
-      value: compressSpectrals
-    })
-  }
   const useUpc = bool(compression, 'use_upc_as_catno')
   if (useUpc !== undefined) {
     builder.add({

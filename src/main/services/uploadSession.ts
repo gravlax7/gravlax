@@ -1215,13 +1215,11 @@ export class UploadSession {
     if (!t || t.status !== 'queued') return
 
     const workspacePath = this.state.draft.workspacePath
-    const compress = this.deps.getConfig().spectral.compress
     this.apply(markBackgroundTaskRunning(this.state, 'spectrals'))
 
     void this.spectrals.run(
       async (task) => {
         const summary = await generateSpectrals(workspacePath, {
-          compress,
           signal: task.signal,
           tools: this.deps.tools,
           onProgress: (progress) => {
@@ -1233,21 +1231,6 @@ export class UploadSession {
                 progress.completedTracks,
                 progress.totalTracks,
                 progress.currentTrack
-              )
-            )
-          },
-          onCompress: () => {
-            if (!task.fresh()) return
-            const spectralTask = this.state.background.tasks.find(
-              (backgroundTask) => backgroundTask.id === 'spectrals'
-            )
-            this.apply(
-              markBackgroundTaskProgress(
-                this.state,
-                'spectrals',
-                spectralTask?.progressCurrent ?? 0,
-                spectralTask?.progressTotal ?? 0,
-                'Optimizing spectral PNGs…'
               )
             )
           }

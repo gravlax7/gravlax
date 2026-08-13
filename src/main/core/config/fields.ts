@@ -175,8 +175,6 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return c.defaultSpectralIds
         case 'defaultSpectralIdsForLossy':
           return c.defaultSpectralIdsForLossyMasters
-        case 'compress':
-          return String(c.compress)
       }
       break
     }
@@ -326,9 +324,6 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
       break
     case 'transfer':
       if (field === 'enabled') next.transfer.enabled = value
-      break
-    case 'spectral':
-      if (field === 'compress') next.spectral.compress = value
       break
     case 'cleanup':
       if (field === 'deleteTemporaryFiles') next.cleanup.deleteTemporaryFiles = value
