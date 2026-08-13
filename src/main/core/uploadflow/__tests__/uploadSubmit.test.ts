@@ -95,7 +95,6 @@ describe('multi-format submission', () => {
       upload,
       submissions,
       workspacePath: '/workspace/Album [FLAC]',
-      version: 'test',
       lossyMaster: false,
       lossyComment: '',
       sourceUrl: '',

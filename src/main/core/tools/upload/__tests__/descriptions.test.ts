@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { APP_VERSION } from '@shared/version'
 import {
   SPECTRAL_PLACEHOLDER,
   buildLossyMasterComment,
@@ -196,11 +195,12 @@ describe('generateReleaseDescription', () => {
   it('adds lossy notes when flagged', () => {
     const desc = generateReleaseDescription({
       lossyMaster: true,
-      lossyComment: 'Soft clipped'
+      lossyComment: 'Soft clipped',
+      version: '0.1.0'
     })
     expect(desc).toContain('[u]Lossy Notes:[/u]')
     expect(desc).toContain('Soft clipped')
-    expect(desc).toContain(`[hr]Uploaded with [b]gravlax[/b] v${APP_VERSION}`)
+    expect(desc).toContain('[hr]Uploaded with [b]gravlax[/b] v0.1.0')
   })
 })
 
@@ -261,7 +261,11 @@ describe('substituteSpectralBbcode', () => {
   })
 
   it('is what generateReleaseDescription emits', () => {
-    const desc = generateReleaseDescription({ bitDepth: 16, sampleRate: 44100 })
+    const desc = generateReleaseDescription({
+      bitDepth: 16,
+      sampleRate: 44100,
+      version: '0.1.0'
+    })
     expect(substituteSpectralBbcode(desc, bbcode).startsWith(bbcode)).toBe(true)
   })
 })

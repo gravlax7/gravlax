@@ -57,7 +57,6 @@ export interface RunSubmissionsOptions {
   upload: UploadSnapshot
   submissions: UploadSubmission[]
   workspacePath: string
-  version: string
   lossyMaster: boolean
   lossyComment: string
   sourceUrl: string

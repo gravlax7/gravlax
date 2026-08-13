@@ -3,7 +3,6 @@ import { normalizeArtistRole } from '@shared/tags/editor'
 import { isMultiDisc as discNumbersAreMultiDisc } from '@shared/upload/naming'
 import { getDescriptionTemplate } from '@shared/upload/templates'
 import { renderTemplate, type TemplateContext } from '@shared/upload/templateRender'
-import { APP_VERSION } from '@shared/version'
 
 export interface TrackDescInput {
   discNumber?: string
@@ -39,7 +38,7 @@ export interface ReleaseDescInput {
   metadataUrls?: string[]
   tracks?: TrackDescInput[]
   includeTracklist?: boolean
-  version?: string
+  version: string
 }
 
 const KNOWN_PROVIDERS: Array<{ name: string; match: RegExp }> = [
@@ -284,7 +283,6 @@ export function generateAlbumDescription(
 }
 
 export function generateReleaseDescription(input: ReleaseDescInput): string {
-  const version = input.version ?? APP_VERSION
   let description = spectralsPlaceholderBbcode()
 
   if (!input.hybrid) {
@@ -322,6 +320,6 @@ export function generateReleaseDescription(input: ReleaseDescInput): string {
     description += `[b]More info:[/b] ${moreInfo}\n`
   }
 
-  description += `[hr]Uploaded with [b]gravlax[/b] v${version}`
+  description += `[hr]Uploaded with [b]gravlax[/b] v${input.version}`
   return description
 }

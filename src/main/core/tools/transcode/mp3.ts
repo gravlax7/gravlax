@@ -2,7 +2,6 @@ import { spawn } from 'node:child_process'
 import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
 import type { Bitrate } from '@shared/types'
-import { APP_VERSION } from '@shared/version'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { readFLACStreamInfo } from '@main/core/tools/diagnostics/mqa'
@@ -84,7 +83,11 @@ export async function transcodeFolder(
   return { outputPath: newPath }
 }
 
-export function generateTranscodeDescription(url: string, bitrate: Bitrate, version = APP_VERSION): string {
+export function generateTranscodeDescription(
+  url: string,
+  bitrate: Bitrate,
+  version: string
+): string {
   const lameCommand = LAME_COMMAND_MAP[bitrate].join(' ')
   return (
     `[b]Source:[/b] ${url}\n` +

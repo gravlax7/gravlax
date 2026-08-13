@@ -121,7 +121,7 @@ export function resolveCatalogueNumber(release: Release | undefined, cfg: Config
   return ''
 }
 
-export function fingerprintUploadInputs(s: State, cfg: Config): string {
+export function fingerprintUploadInputs(s: State, cfg: Config, version: string): string {
   const trackers = enabledTrackerOptions(cfg).sort().join(',')
   const proposed = s.tags.proposed ?? {}
   const jobs = (s.transcode.jobs ?? [])
@@ -130,6 +130,7 @@ export function fingerprintUploadInputs(s: State, cfg: Config): string {
     .sort()
   const selected = [...(s.transcode.selectedOptionIds ?? [])].sort()
   return JSON.stringify({
+    version,
     trackers,
     workspace: s.draft.workspacePath,
     filePlan: s.files.apply.appliedHash ?? '',
@@ -165,7 +166,7 @@ export function fingerprintUploadInputs(s: State, cfg: Config): string {
 export async function buildUploadSnapshot(
   s: State,
   cfg: Config,
-  options: { previousImage?: string } = {}
+  options: { version: string; previousImage?: string }
 ): Promise<UploadSnapshot> {
   const proposed = s.tags.proposed ?? {}
   const inspection = s.transcode.inspection
@@ -197,7 +198,8 @@ export async function buildUploadSnapshot(
     lossyComment: s.draft.lossyComment,
     sourceUrl,
     metadataUrls: proposed.urls,
-    tracks: hybrid ? trackInputs : undefined
+    tracks: hybrid ? trackInputs : undefined,
+    version: options.version
   })
 
   const logfileNames =
@@ -237,7 +239,11 @@ export async function buildUploadSnapshot(
         bitrate: trackerEncoding(option.bitrate),
         otherBitrate: '',
         vbr: option.bitrate === 'V0',
-        releaseDesc: generateTranscodeDescription(sourceUrl ?? '', option.bitrate as Bitrate),
+        releaseDesc: generateTranscodeDescription(
+          sourceUrl ?? '',
+          option.bitrate as Bitrate,
+          options.version
+        ),
         logfileNames: []
       })
       continue
@@ -254,7 +260,12 @@ export async function buildUploadSnapshot(
         bitrate: targetDepth === 24 ? '24bit Lossless' : 'Lossless',
         otherBitrate: '',
         vbr: false,
-        releaseDesc: generateConversionDescription(sourceUrl ?? '', targetRate, targetDepth),
+        releaseDesc: generateConversionDescription(
+          sourceUrl ?? '',
+          targetRate,
+          targetDepth,
+          options.version
+        ),
         logfileNames: []
       })
     }
@@ -288,7 +299,7 @@ export async function buildUploadSnapshot(
     groupIds: emptyGroupIds(),
     formats,
     groupSearch: emptyGroupSearch(),
-    seededFrom: fingerprintUploadInputs(s, cfg),
+    seededFrom: fingerprintUploadInputs(s, cfg, options.version),
     error: undefined
   }
 }
@@ -323,8 +334,8 @@ function carryUserSelections(next: UploadSnapshot, previous: UploadSnapshot): Up
   }
 }
 
-export async function ensureUploadReport(s: State, cfg: Config): Promise<State> {
-  const fingerprint = fingerprintUploadInputs(s, cfg)
+export async function ensureUploadReport(s: State, cfg: Config, version: string): Promise<State> {
+  const fingerprint = fingerprintUploadInputs(s, cfg, version)
   const current = s.upload
   // Once submitted, the payload is a record of what was sent; never rebuild it.
   // The same holds mid-submit, where a rebuild would swap the descriptions out
@@ -336,6 +347,7 @@ export async function ensureUploadReport(s: State, cfg: Config): Promise<State> 
     return backfillCoverIfNeeded(s)
   }
   const next = await buildUploadSnapshot(s, cfg, {
+    version,
     previousImage: current.image
   })
   return setUpload(s, carryUserSelections(next, current))

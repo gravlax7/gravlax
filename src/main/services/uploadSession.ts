@@ -117,7 +117,6 @@ import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { buildFilesRenamePlan } from '@shared/upload/naming'
 import { METADATA_PROVIDER_MANUAL } from '@shared/types/upload'
 import { isNamedMainArtist } from '@shared/upload/artists'
-import { APP_VERSION } from '@shared/version'
 import { TaskScope, isAbortError, type TaskHandle } from '@main/services/taskSlot'
 import { UploadSessionRuntime, type UploadSessionRuntimeDeps } from '@main/services/uploadSessionRuntime'
 import { UploadSessionFileChanges } from '@main/services/uploadSessionFileChanges'
@@ -129,6 +128,7 @@ import type { ToolResolver } from '@main/core/tools/binaries'
 const FILES_CHECK_STEP = stepIndex('files-check') ?? 0
 
 export interface UploadSessionDeps extends UploadSessionRuntimeDeps {
+  appVersion: string
   recordUploadStatistic?: (record: UploadStatsRecord) => Promise<void>
   tools: ToolResolver
 }
@@ -263,7 +263,11 @@ export class UploadSession {
     // not let a build that began before a user edit replace that edit once it
     // finishes.
     const state = this.state
-    const next = await ensureUploadReport(state, this.deps.getConfig())
+    const next = await ensureUploadReport(
+      state,
+      this.deps.getConfig(),
+      this.deps.appVersion
+    )
     if (state !== this.state) return
     if (next !== state) this.apply(next)
   }
@@ -398,7 +402,6 @@ export class UploadSession {
           upload: this.state.upload,
           submissions: this.state.upload.submissions ?? [],
           workspacePath,
-          version: APP_VERSION,
           lossyMaster: this.state.draft.lossyMaster,
           lossyComment: this.state.draft.lossyComment,
           sourceUrl: this.state.metadata.selected?.url?.trim() ?? '',

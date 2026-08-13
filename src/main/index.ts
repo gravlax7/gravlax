@@ -109,6 +109,7 @@ app.whenReady().then(async () => {
   })
 
   const uploadSession = new UploadSession({
+    appVersion: app.getVersion(),
     userDataPath: app.getPath('userData'),
     getConfig: () => configService.get(),
     tools: toolResolver,

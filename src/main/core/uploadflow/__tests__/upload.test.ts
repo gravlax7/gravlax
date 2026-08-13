@@ -34,6 +34,7 @@ import { planSubmissions } from '@main/services/uploadSubmit'
 import { seedFormatsFromUpload } from '@main/services/seedService'
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46])
+const TEST_VERSION = 'test'
 
 function cfgWithTrackers(enabled: Array<'redacted' | 'orpheus'>): Config {
   const cfg = structuredClone(defaultConfig())
@@ -94,6 +95,15 @@ describe('upload helpers', () => {
     cfg.workflow.useUpcAsCatNo = false
     expect(resolveCatalogueNumber({ upc: '602567971092' }, cfg)).toBe('')
   })
+
+  it('includes the running app version in the upload fingerprint', () => {
+    const state = newState()
+    const cfg = cfgWithTrackers([])
+
+    expect(fingerprintUploadInputs(state, cfg, '1.0.0')).not.toBe(
+      fingerprintUploadInputs(state, cfg, '2.0.0')
+    )
+  })
 })
 
 describe('multi-format upload', () => {
@@ -151,7 +161,9 @@ describe('multi-format upload', () => {
         ]
       }
 
-      const snapshot = await buildUploadSnapshot(state, cfgWithTrackers(['redacted']))
+      const snapshot = await buildUploadSnapshot(state, cfgWithTrackers(['redacted']), {
+        version: TEST_VERSION
+      })
       expect(snapshot.formats?.map((format) => format.id)).toEqual([
         'source',
         'transcode-320',
@@ -192,6 +204,67 @@ describe('multi-format upload', () => {
         'transcode-320',
         'transcode-V0'
       ])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('uses the running app version in every format description', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-version-'))
+    try {
+      const state = newState()
+      state.draft.workspacePath = dir
+      state.draft.sourceMedia = 'WEB'
+      state.tags.proposed = { title: 'Album' }
+      state.transcode = {
+        phase: 'done',
+        inspection: {
+          encoding: '24bit Lossless',
+          sampleRate: 96000,
+          trackCount: 1,
+          hybrid: false,
+          blockers: [],
+          options: [
+            {
+              id: 'transcode-V0',
+              name: 'MP3 V0',
+              action: 'transcode',
+              bitrate: 'V0',
+              outputFolderName: 'Album [MP3 V0]'
+            },
+            {
+              id: 'downconvert-16-48000',
+              name: '16bit 48.0 kHz',
+              action: 'downconvert',
+              targetBitDepth: 16,
+              targetSampleRate: 48000,
+              outputFolderName: 'Album [WEB FLAC]'
+            }
+          ]
+        },
+        selectedOptionIds: ['transcode-V0', 'downconvert-16-48000'],
+        jobs: [
+          {
+            optionId: 'transcode-V0',
+            status: 'succeeded',
+            outputPath: path.join(dir, '..', 'Album [MP3 V0]')
+          },
+          {
+            optionId: 'downconvert-16-48000',
+            status: 'succeeded',
+            outputPath: path.join(dir, '..', 'Album [WEB FLAC]')
+          }
+        ]
+      }
+
+      const snapshot = await buildUploadSnapshot(state, cfgWithTrackers(['redacted']), {
+        version: '9.8.7'
+      })
+
+      expect(snapshot.formats).toHaveLength(3)
+      for (const format of snapshot.formats ?? []) {
+        expect(format.releaseDesc).toContain('[hr]Uploaded with [b]gravlax[/b] v9.8.7')
+      }
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
@@ -379,13 +452,13 @@ describe('resumeSubmit', () => {
       groupYear: '2020',
       genres: ['electronic']
     }
-    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     state = updateUploadReport(state, {
       groupIds: { redacted: 99 },
       albumDesc: 'hand written'
     })
 
-    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     expect(next.upload.groupIds?.redacted).toBe(99)
     expect(next.upload.albumDesc).toBe('hand written')
   })
@@ -401,7 +474,7 @@ describe('resumeSubmit', () => {
       groupYear: '2020',
       genres: ['electronic']
     }
-    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     state = updateUploadReport(state, {
       groupIds: { redacted: 99 },
       selectedTrackerIds: ['redacted'],
@@ -411,7 +484,7 @@ describe('resumeSubmit', () => {
 
     // A tag change moves the fingerprint, so the payload must be rebuilt.
     state.tags.proposed = { ...state.tags.proposed, title: 'Album II' }
-    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
 
     expect(next.upload.title).toBe('Album II')
     expect(next.upload.albumDesc).not.toBe('hand written')
@@ -431,7 +504,7 @@ describe('resumeSubmit', () => {
       groupYear: '2020',
       genres: ['electronic']
     }
-    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     // The FLAC landed and the transcode did not — the shape a partial submit
     // leaves behind.
     state = {
@@ -453,7 +526,7 @@ describe('resumeSubmit', () => {
     }
 
     // Revisiting the step rebuilds, because a failed report is still editable.
-    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
 
     // Forgetting this row would let the retry upload the FLAC a second time.
     const done = (next.upload.submissions ?? []).find((sub) => sub.id === 'redacted:source')
@@ -479,11 +552,11 @@ describe('resumeSubmit', () => {
       groupYear: '2020',
       genres: ['electronic']
     }
-    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     state = failUploadReport(state, 'Release type "Split" is not valid on Redacted')
 
     state.tags.proposed = { ...state.tags.proposed, releaseType: 'Album' }
-    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     expect(next.upload.phase).toBe('ready')
     expect(next.upload.error).toBeUndefined()
   })
@@ -499,11 +572,11 @@ describe('resumeSubmit', () => {
       groupYear: '2020',
       genres: ['electronic']
     }
-    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     state = { ...state, upload: { ...state.upload, phase: 'done' } }
 
     state.tags.proposed = { ...state.tags.proposed, title: 'Album II' }
-    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     expect(next.upload.title).toBe('Album')
     expect(next.upload.phase).toBe('done')
   })
@@ -550,7 +623,7 @@ describe('resumeSubmit', () => {
       seededFrom: 'stale'
     }
 
-    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     expect(state.upload.groupSearch?.status).toBe('done')
     expect(state.upload.groupSearch?.results).toHaveLength(1)
     expect(state.upload.groupSearch?.results?.[0]?.groupId).toBe(7)
@@ -603,7 +676,9 @@ describe('cover image resolution', () => {
       genres: ['electronic']
     }
 
-    const snapshot = await buildUploadSnapshot(state, cfgWithCoverHost())
+    const snapshot = await buildUploadSnapshot(state, cfgWithCoverHost(), {
+      version: TEST_VERSION
+    })
     expect(snapshot.image).toBe('')
     expect(snapshot.coverPath).toBe(path.join(dir, 'cover.jpg'))
     expect(fetchMock).not.toHaveBeenCalled()
@@ -640,10 +715,10 @@ describe('cover image resolution', () => {
       phase: 'ready',
       image: '',
       coverPath: '',
-      seededFrom: fingerprintUploadInputs(state, cfgWithTrackers(['redacted']))
+      seededFrom: fingerprintUploadInputs(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     }
 
-    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']))
+    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     expect(state.upload.coverPath).toBe(coverPath)
   })
 
@@ -669,7 +744,7 @@ describe('cover image resolution', () => {
       seededFrom: 'stale'
     }
 
-    state = await ensureUploadReport(state, cfgWithCoverHost())
+    state = await ensureUploadReport(state, cfgWithCoverHost(), TEST_VERSION)
     expect(state.upload.image).toBe('https://i.ibb.co/cached.jpg')
     expect(fetchMock).not.toHaveBeenCalled()
   })

@@ -6,6 +6,7 @@ import { automaticToolResolver } from '@main/core/tools/binaries'
 
 function newSession(): UploadSession {
   return new UploadSession({
+    appVersion: 'test',
     userDataPath: '/userdata',
     getConfig: () => ({}) as Config,
     tools: automaticToolResolver,

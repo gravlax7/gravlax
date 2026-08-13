@@ -61,6 +61,7 @@ describe('UploadSession tracker health gate', () => {
     ])
 
     const session = new UploadSession({
+      appVersion: 'test',
       userDataPath: '',
       getConfig: () => cfg,
       tools: automaticToolResolver,

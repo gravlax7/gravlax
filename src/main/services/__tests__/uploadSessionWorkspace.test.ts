@@ -14,6 +14,7 @@ let sourceRoot = ''
 
 function newSession(config = defaultConfig()): UploadSession {
   return new UploadSession({
+    appVersion: 'test',
     userDataPath,
     getConfig: () => config,
     tools: automaticToolResolver,

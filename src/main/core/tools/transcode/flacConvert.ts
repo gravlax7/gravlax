@@ -2,7 +2,6 @@ import { spawn } from 'node:child_process'
 import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
 import type { BitDepth } from '@shared/types'
-import { APP_VERSION } from '@shared/version'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 import { gatherTrackAudioInfo } from './audioInfo'
 import { copyExtraFiles } from './extras'
@@ -91,7 +90,7 @@ export function generateConversionDescription(
   url: string,
   sampleRate: number | null,
   bitDepth: BitDepth = 16,
-  version = APP_VERSION
+  version: string
 ): string {
   if (sampleRate === null) return ''
   const depthArgs = SOX_DEPTH_ARGS[bitDepth].join(' ')
