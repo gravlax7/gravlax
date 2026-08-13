@@ -10,3 +10,4 @@ coverage/
 *.tsbuildinfo
 red-*.md
 temp/
+.worktrees/
