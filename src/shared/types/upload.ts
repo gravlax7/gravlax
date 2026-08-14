@@ -478,6 +478,11 @@ export interface UploadSubmission {
   error?: string
 }
 
+export type TorrentExportResult =
+  | { ok: true; paths: string[] }
+  | { ok: false; canceled: true }
+  | { ok: false; error: string }
+
 export interface UploadSnapshot {
   phase?: UploadPhase
   selectedTrackerIds?: UploadTrackerId[]

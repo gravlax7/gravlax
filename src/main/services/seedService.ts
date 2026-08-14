@@ -154,6 +154,10 @@ export async function runSeed(options: RunSeedOptions): Promise<SeedSnapshot> {
     emit(patchSeedTask(seed, task.id, { status: 'running', detail: 'Starting…' }))
     try {
       if (task.kind === 'transfer') {
+        const remoteDestination = path.posix.join(
+          cfg.transfer.remotePath.trim().replace(/\\/g, '/'),
+          path.basename(format.folderPath)
+        )
         await uploadFolderViaSftp(cfg.transfer, {
           localFolder: format.folderPath,
           remoteFolder: cfg.transfer.remotePath.trim(),
@@ -168,7 +172,7 @@ export async function runSeed(options: RunSeedOptions): Promise<SeedSnapshot> {
             bytesPerSecond: undefined,
             filesTransferred: latestProgress?.filesTotal,
             filesTotal: latestProgress?.filesTotal,
-            detail: path.basename(format.folderPath)
+            detail: remoteDestination
           })
         )
         return

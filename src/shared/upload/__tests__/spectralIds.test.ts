@@ -26,16 +26,24 @@ describe('parseSpectralIds', () => {
     expect(parseSpectralIds('Random', 3, () => 2)).toEqual([2])
   })
 
+  it('matches smoked-salmon random samples', () => {
+    const picks = [9, 1, 4]
+    expect(parseSpectralIds('Random', 9, () => picks.shift()!)).toEqual([1, 5, 9])
+    expect(parseSpectralIds('Random', 8, () => 1)).toHaveLength(2)
+    expect(parseSpectralIds('Random', 2, () => 1)).toHaveLength(1)
+  })
+
   it('has nothing to pick from an empty release', () => {
     expect(parseSpectralIds('First track', 0)).toEqual([])
     expect(parseSpectralIds('Random', 0, () => 1)).toEqual([])
   })
 
-  it('picks a real track for Random', () => {
+  it('picks unique real tracks for Random', () => {
     for (let i = 0; i < 50; i++) {
-      const [id] = parseSpectralIds('Random', 4)
-      expect(id).toBeGreaterThanOrEqual(1)
-      expect(id).toBeLessThanOrEqual(4)
+      const ids = parseSpectralIds('Random', 12)
+      expect(ids).toHaveLength(4)
+      expect(new Set(ids).size).toBe(4)
+      expect(ids.every((id) => id >= 1 && id <= 12)).toBe(true)
     }
   })
 

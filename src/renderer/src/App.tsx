@@ -13,8 +13,8 @@ import type { Config } from '@shared/types/config'
 import type { UploadStats } from '@shared/types/stats'
 import { activeBackgroundTasks, UPLOAD_STEPS } from '@shared/upload/stepGating'
 import { StatusBar, summarizeHealth } from './components/StatusBar'
-import { ToastStack, type ToastItem } from './components/Toast'
 import { TaskWidget } from './components/TaskWidget'
+import { ToastStack, type ToastItem } from './components/Toast'
 import { UploadScreen } from './screens/upload/UploadScreen'
 import { UploadStartMenu, UploadedSummary } from './screens/upload/UploadStartMenu'
 import { SettingsScreen } from './screens/SettingsScreen'
@@ -170,7 +170,7 @@ export default function App() {
   const jumpToTaskStep = (stepId: string): void => {
     setScreen('upload')
     setUploadView({ kind: 'flow' })
-    const index = UPLOAD_STEPS.find((s) => s.id === stepId)?.index
+    const index = UPLOAD_STEPS.find((step) => step.id === stepId)?.index
     if (index != null) void window.gravlax.upload.setCurrentStep(index)
   }
 
@@ -241,57 +241,75 @@ export default function App() {
             width: 'var(--sidebar-width)',
             'background-color': 'var(--bg-surface)',
             'border-right': '1px solid var(--border)',
-            padding: '12px',
             display: 'flex',
-            'flex-direction': 'column',
-            gap: '4px'
+            'flex-direction': 'column'
           }}
         >
           <div
             style={{
               display: 'flex',
-              'align-items': 'center',
-              gap: '8px',
-              'font-family': 'Futura, "Arial Narrow", var(--font-ui)',
-              'font-weight': 800,
-              'font-stretch': 'condensed',
-              'font-size': '18px',
-              'letter-spacing': '0.1em',
-              'margin-bottom': '12px',
-              'padding-left': '8px'
+              flex: 1,
+              'min-height': 0,
+              'flex-direction': 'column',
+              gap: '4px',
+              padding: '12px'
             }}
           >
-            <img
-              src={gravlaxLogo}
-              alt=""
-              width={24}
-              height={24}
-              style={{ display: 'block', transform: 'translateY(-1px)' }}
-            />
-            GRAVLAX
+            <div
+              style={{
+                display: 'flex',
+                'align-items': 'center',
+                gap: '8px',
+                'font-family': 'Futura, "Arial Narrow", var(--font-ui)',
+                'font-weight': 800,
+                'font-stretch': 'condensed',
+                'font-size': '18px',
+                'letter-spacing': '0.1em',
+                'margin-bottom': '12px',
+                'padding-left': '8px'
+              }}
+            >
+              <img
+                src={gravlaxLogo}
+                alt=""
+                width={24}
+                height={24}
+                style={{ display: 'block', transform: 'translateY(-1px)' }}
+              />
+              GRAVLAX
+            </div>
+            <NavButton
+              active={screen() === 'upload'}
+              icon="upload"
+              onClick={openUploadMenu}
+            >
+              Upload
+            </NavButton>
+            <NavButton
+              active={screen() === 'settings'}
+              icon="settings"
+              onClick={() => setScreen('settings')}
+            >
+              Settings
+            </NavButton>
+            <NavButton
+              active={screen() === 'health'}
+              icon="activity"
+              onClick={() => setScreen('health')}
+            >
+              Healthchecks
+            </NavButton>
+            <div style={{ flex: 1 }} />
           </div>
-          <NavButton
-            active={screen() === 'upload'}
-            icon="upload"
-            onClick={openUploadMenu}
-          >
-            Upload
-          </NavButton>
-          <NavButton
-            active={screen() === 'settings'}
-            icon="settings"
-            onClick={() => setScreen('settings')}
-          >
-            Settings
-          </NavButton>
-          <NavButton
-            active={screen() === 'health'}
-            icon="activity"
-            onClick={() => setScreen('health')}
-          >
-            Healthchecks
-          </NavButton>
-          <div style={{ flex: 1 }} />
+          <Show when={state()}>
+            {(s) => (
+              <TaskWidget
+                compact
+                tasks={activeBackgroundTasks(s().background.tasks)}
+                onJump={jumpToTaskStep}
+              />
+            )}
+          </Show>
         </nav>
         <main
           class="app-no-drag"
@@ -346,11 +364,6 @@ export default function App() {
           </Show>
         </main>
       </div>
-      <Show when={state()}>
-        {(s) => (
-          <TaskWidget tasks={activeBackgroundTasks(s().background.tasks)} onJump={jumpToTaskStep} />
-        )}
-      </Show>
       <StatusBar
         theme={theme()}
         onToggleTheme={() => void toggleTheme()}

@@ -146,7 +146,10 @@ describe('runSeed', () => {
     const result = await runSeed({ cfg: seedboxConfig(), formats: [format()] })
 
     expect(result.phase).toBe('done')
-    expect(result.tasks.find((t) => t.id === 'transfer:flac')?.status).toBe('done')
+    expect(result.tasks.find((t) => t.id === 'transfer:flac')).toMatchObject({
+      status: 'done',
+      detail: '/downloads/Album [FLAC]'
+    })
     const inject = result.tasks.find((t) => t.id === 'inject:flac:redacted')
     expect(inject?.status).toBe('done')
     expect(inject?.detail).toBe('Album [FLAC] · uploading · /seed')

@@ -23,6 +23,21 @@ describe('IPC argument contract', () => {
     expect(parseIpcArguments('updates:check', [])).toEqual([])
   })
 
+  it('accepts torrent save commands and rejects an empty submission id', () => {
+    expect(parseIpcArguments('upload:saveTorrent', ['redacted:flac'])).toEqual([
+      'redacted:flac'
+    ])
+    expect(parseIpcArguments('upload:saveTorrents', [])).toEqual([])
+    expect(() => parseIpcArguments('upload:saveTorrent', [''])).toThrow()
+  })
+
+  it('accepts clipboard text and rejects an empty value', () => {
+    expect(parseIpcArguments('clipboard:writeText', ['/downloads/music'])).toEqual([
+      '/downloads/music'
+    ])
+    expect(() => parseIpcArguments('clipboard:writeText', [''])).toThrow()
+  })
+
   it('accepts a metadata URL and rejects an empty one', () => {
     expect(parseIpcArguments('upload:resolveMetadataUrl', ['https://example.test/release'])).toEqual([
       'https://example.test/release'

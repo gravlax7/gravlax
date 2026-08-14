@@ -13,11 +13,14 @@ export interface IpcDeps {
   uploadStatsService: UploadStatsService
   uploadSession: UploadSession
   toolResolver: ToolResolver
+  saveTorrent: (submissionId: string) => Promise<IpcInvokeResult<'upload:saveTorrent'>>
+  saveTorrents: () => Promise<IpcInvokeResult<'upload:saveTorrents'>>
   pickDirectory: () => Promise<string | null>
   pickFile: (options?: { filters?: Array<{ name: string; extensions: string[] }> }) => Promise<string | null>
   revealPath: (path: string) => Promise<void>
   openPath: (path: string) => Promise<void>
   openExternal: (url: string) => Promise<void>
+  writeClipboardText: (text: string) => void
   checkForUpdates: () => Promise<IpcInvokeResult<'updates:check'>>
 }
 
@@ -76,6 +79,8 @@ export function registerIpc(deps: IpcDeps): void {
   handle('upload:resolveTorrentGroupId', (trackerId, torrentId) => upload.resolveTorrentGroupId(trackerId, torrentId))
   handle('upload:submitUpload', () => upload.submitUpload())
   handle('upload:startSeed', () => upload.startSeed())
+  handle('upload:saveTorrent', (submissionId) => deps.saveTorrent(submissionId))
+  handle('upload:saveTorrents', () => deps.saveTorrents())
   handle('upload:finish', () => upload.finish())
   handle('upload:getState', () => upload.getState())
   handle('upload:listSpectrals', () => upload.listSpectrals())
@@ -88,6 +93,7 @@ export function registerIpc(deps: IpcDeps): void {
   handle('shell:revealPath', (path) => deps.revealPath(path))
   handle('shell:openPath', (path) => deps.openPath(path))
   handle('shell:openExternal', (url) => deps.openExternal(url))
+  handle('clipboard:writeText', (text) => deps.writeClipboardText(text))
 
   handle('health:refresh', () => runHealthcheck(config.get(), deps.toolResolver))
   handle('updates:check', () => deps.checkForUpdates())

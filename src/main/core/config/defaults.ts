@@ -64,7 +64,7 @@ export function defaultConfig(): Config {
       defaultSpectralIdsForLossyMasters: 'All'
     },
     cleanup: {
-      deleteTemporaryFiles: true,
+      deleteTemporaryFiles: false,
       deleteSpectralsAfterUpload: false
     },
     workflow: {

@@ -1,5 +1,5 @@
 import { access, rm } from 'node:fs/promises'
-import { basename, join } from 'node:path'
+import { basename, isAbsolute, join, relative, sep } from 'node:path'
 import type { Config } from '@shared/types/config'
 import type {
   MetadataSelection,
@@ -126,6 +126,16 @@ import type { UploadStatsRecord } from '@main/services/uploadStatsService'
 import type { ToolResolver } from '@main/core/tools/binaries'
 
 const FILES_CHECK_STEP = stepIndex('files-check') ?? 0
+
+function pathIsInside(parent: string, candidate: string): boolean {
+  const pathFromParent = relative(parent, candidate)
+  return (
+    pathFromParent === '' ||
+    (!isAbsolute(pathFromParent) &&
+      pathFromParent !== '..' &&
+      !pathFromParent.startsWith(`..${sep}`))
+  )
+}
 
 export interface UploadSessionDeps extends UploadSessionRuntimeDeps {
   appVersion: string
@@ -626,8 +636,21 @@ export class UploadSession {
 
     const workspacePath = this.state.draft.workspacePath
     if (!workspacePath) return
+    const workspaceRoot = uploadWorkspaceRootForPath(workspacePath)
+    const manualTorrentInWorkspace =
+      !cfg.torrentClient.enabled &&
+      (this.state.upload.submissions ?? []).some(
+        (submission) =>
+          submission.status === 'done' &&
+          submission.torrentPath &&
+          pathIsInside(workspaceRoot, submission.torrentPath)
+      )
+    if (manualTorrentInWorkspace) {
+      this.notify('info', 'Working copy kept — its torrent files still need manual injection.')
+      return
+    }
     try {
-      await removeUploadWorkspace(uploadWorkspaceRootForPath(workspacePath))
+      await removeUploadWorkspace(workspaceRoot)
       this.notify(
         'info',
         'Working copy removed — the release now lives at its seeding location.'

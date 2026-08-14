@@ -375,6 +375,7 @@ export function UploadScreen(props: {
           <Show when={stepId() === 'seed'}>
             <SeedStep
               state={props.state}
+              config={props.config}
               onRetry={() => void window.gravlax.upload.startSeed()}
             />
           </Show>

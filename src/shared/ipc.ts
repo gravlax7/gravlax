@@ -13,6 +13,7 @@ import type {
   UploadFlowStateJSON,
   UploadStartEntries,
   UploadSnapshot,
+  TorrentExportResult,
   UploadTrackerId
 } from './types/upload'
 import { WORKFLOW_STEPS } from './upload/workflow'
@@ -66,6 +67,8 @@ export interface IpcInvokeMap {
   'upload:resolveTorrentGroupId': { args: [UploadTrackerId, number]; result: number | null }
   'upload:submitUpload': { args: []; result: { ok: true } | { ok: false; error: string } }
   'upload:startSeed': { args: []; result: void }
+  'upload:saveTorrent': { args: [string]; result: TorrentExportResult }
+  'upload:saveTorrents': { args: []; result: TorrentExportResult }
   'upload:finish': { args: []; result: { ok: true } | { ok: false; error: string } }
   'upload:listSpectrals': { args: []; result: Array<{ full: string; zoom: string; index: number; filename: string }> }
   'upload:cancel': { args: []; result: void }
@@ -76,6 +79,7 @@ export interface IpcInvokeMap {
   'shell:revealPath': { args: [string]; result: void }
   'shell:openPath': { args: [string]; result: void }
   'shell:openExternal': { args: [string]; result: void }
+  'clipboard:writeText': { args: [string]; result: void }
   'health:refresh': { args: []; result: HealthResult }
   'updates:check': { args: []; result: UpdateCheckResult }
 }
@@ -223,6 +227,8 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'upload:resolveTorrentGroupId': z.tuple([trackerID, z.number().int().positive()]),
   'upload:submitUpload': noArgs,
   'upload:startSeed': noArgs,
+  'upload:saveTorrent': z.tuple([z.string().min(1)]),
+  'upload:saveTorrents': noArgs,
   'upload:finish': noArgs,
   'upload:listSpectrals': noArgs,
   'upload:cancel': noArgs,
@@ -233,6 +239,7 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'shell:revealPath': z.tuple([z.string().min(1)]),
   'shell:openPath': z.tuple([z.string().min(1)]),
   'shell:openExternal': z.tuple([z.string().url()]),
+  'clipboard:writeText': z.tuple([z.string().min(1)]),
   'health:refresh': noArgs,
   'updates:check': noArgs
 }

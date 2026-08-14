@@ -23,6 +23,7 @@ describe('config', () => {
     expect(cfg.metadataProviders.deezer.enabled).toBe(false)
     expect(cfg.spectral.defaultSpectralIds).toBe('Random')
     expect(cfg.spectral.defaultSpectralIdsForLossyMasters).toBe('All')
+    expect(cfg.cleanup.deleteTemporaryFiles).toBe(false)
   })
 
   it('resetSection restores defaults for one section', () => {
@@ -77,6 +78,11 @@ describe('config', () => {
     })
     expect(cfg.cleanup.deleteTemporaryFiles).toBe(false)
     expect(cfg.cleanup).not.toHaveProperty('temporaryDirectory')
+  })
+
+  it('keeps an existing workspace cleanup choice after the default changes', () => {
+    const cfg = mergeLoadedConfig({ cleanup: { deleteTemporaryFiles: true } })
+    expect(cfg.cleanup.deleteTemporaryFiles).toBe(true)
   })
 
   it('drops the retired spectral compression setting when loading config', () => {

@@ -69,6 +69,7 @@ export type {
   TrackerGroupSearchSnapshot,
   UploadSubmissionStatus,
   UploadSubmission,
+  TorrentExportResult,
   UploadSnapshot,
   UploadFlowSnapshot,
   UploadFlowStateJSON,

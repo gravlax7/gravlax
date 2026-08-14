@@ -1,10 +1,28 @@
-/** Picks a one-based track id out of `count` tracks. Injected so tests can pin it. */
+/** Picks a one-based position out of `count` choices. Injected so tests can pin it. */
 export type TrackPicker = (count: number) => number
 
 const randomTrack: TrackPicker = (count) => Math.floor(Math.random() * count) + 1
 
 function allTracks(count: number): number[] {
   return Array.from({ length: count }, (_, i) => i + 1)
+}
+
+/** Match smoked-salmon: sample one third of the tracks, with at least one. */
+function randomTracks(count: number, pick: TrackPicker): number[] {
+  if (count === 0) return []
+
+  const remaining = allTracks(count)
+  const selected: number[] = []
+  const subsetSize = Math.max(1, Math.floor(count / 3))
+
+  while (selected.length < subsetSize) {
+    const position = pick(remaining.length)
+    const safePosition =
+      Number.isInteger(position) && position >= 1 && position <= remaining.length ? position : 1
+    selected.push(remaining.splice(safePosition - 1, 1)[0]!)
+  }
+
+  return selected.sort((a, b) => a - b)
 }
 
 /**
@@ -26,11 +44,7 @@ export function parseSpectralIds(
   if (trimmed === '' || trimmed === '0' || name === 'none') return []
   if (trimmed === '*' || name === 'all') return allTracks(count)
   if (name === 'first track') return count > 0 ? [1] : []
-  if (name === 'random') {
-    if (count === 0) return []
-    const id = pick(count)
-    return id >= 1 && id <= count ? [id] : [1]
-  }
+  if (name === 'random') return randomTracks(count, pick)
 
   const selected = new Set<number>()
   for (const part of trimmed.split(',')) {

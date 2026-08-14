@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, protocol, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, protocol, shell } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { extname, join, relative, resolve, isAbsolute } from 'node:path'
 import { registerIpc } from './ipc'
@@ -8,6 +8,7 @@ import { UploadStatsService } from './services/uploadStatsService'
 import { workspaceRoot } from './core/appdata/workspace'
 import { SystemToolResolver } from './core/tools/binaries'
 import { checkForUpdate } from './services/updateCheck'
+import { TorrentExportService } from './services/torrentExportService'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -118,12 +119,37 @@ app.whenReady().then(async () => {
       await uploadStatsService.record(record)
     }
   })
+  const torrentExportService = new TorrentExportService({
+    getUpload: () => uploadSession.getState().upload,
+    pickSavePath: async (filename) => {
+      const options: Electron.SaveDialogOptions = {
+        defaultPath: join(app.getPath('downloads'), filename),
+        filters: [{ name: 'Torrent files', extensions: ['torrent'] }]
+      }
+      const result = mainWindow
+        ? await dialog.showSaveDialog(mainWindow, options)
+        : await dialog.showSaveDialog(options)
+      return result.canceled ? null : (result.filePath ?? null)
+    },
+    pickDirectory: async () => {
+      const options: Electron.OpenDialogOptions = {
+        defaultPath: app.getPath('downloads'),
+        properties: ['openDirectory', 'createDirectory']
+      }
+      const result = mainWindow
+        ? await dialog.showOpenDialog(mainWindow, options)
+        : await dialog.showOpenDialog(options)
+      return result.canceled ? null : (result.filePaths[0] ?? null)
+    }
+  })
 
   registerIpc({
     configService,
     uploadStatsService,
     uploadSession,
     toolResolver,
+    saveTorrent: (submissionId) => torrentExportService.saveOne(submissionId),
+    saveTorrents: () => torrentExportService.saveAll(),
     pickDirectory: async () => {
       const result = mainWindow
         ? await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] })
@@ -155,6 +181,7 @@ app.whenReady().then(async () => {
       }
       await shell.openExternal(parsed.toString())
     },
+    writeClipboardText: (text) => clipboard.writeText(text),
     checkForUpdates: () => {
       const currentVersion = app.getVersion()
       if (!app.isPackaged) return Promise.resolve({ status: 'disabled', currentVersion })

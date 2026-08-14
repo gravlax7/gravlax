@@ -5,18 +5,23 @@ import { ProgressBar, Spinner } from '../ui'
 export function TaskWidget(props: {
   tasks: BackgroundTask[]
   onJump: (step: string) => void
+  compact?: boolean
 }) {
   return (
     <Show when={props.tasks.length > 0}>
       <div
         class="app-no-drag"
         style={{
-          'border-top': '1px solid var(--border)',
+          'border-top': props.compact ? '1px solid var(--border)' : 'none',
+          'border-bottom': props.compact ? 'none' : '1px solid var(--border)',
           'background-color': 'var(--bg-surface)',
-          padding: '8px 12px',
+          padding: props.compact ? '6px 0' : '8px 12px',
           display: 'flex',
           'flex-direction': 'column',
-          gap: '6px'
+          gap: props.compact ? '0' : '6px',
+          'flex-shrink': 0,
+          'max-height': props.compact ? '45%' : 'none',
+          'overflow-y': props.compact ? 'auto' : 'visible'
         }}
       >
         <For each={props.tasks}>
@@ -27,12 +32,12 @@ export function TaskWidget(props: {
               style={{
                 display: 'flex',
                 'align-items': 'center',
-                gap: '10px',
+                gap: props.compact ? '8px' : '10px',
                 width: '100%',
-                padding: '6px 8px',
-                background: 'var(--bg-raised)',
-                border: '1px solid var(--border)',
-                'border-radius': 'var(--radius-sm)',
+                padding: props.compact ? '6px 12px' : '6px 8px',
+                background: props.compact ? 'transparent' : 'var(--bg-raised)',
+                border: props.compact ? 'none' : '1px solid var(--border)',
+                'border-radius': props.compact ? '0' : 'var(--radius-sm)',
                 'text-align': 'left'
               }}
             >
@@ -40,7 +45,7 @@ export function TaskWidget(props: {
               <div style={{ flex: 1, 'min-width': 0 }}>
                 <div
                   style={{
-                    'font-size': 'var(--text-sm)',
+                    'font-size': props.compact ? 'var(--text-xs)' : 'var(--text-sm)',
                     'font-weight': 600,
                     'white-space': 'nowrap',
                     overflow: 'hidden',

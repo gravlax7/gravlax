@@ -85,6 +85,8 @@ const api = {
     ) => invoke('upload:resolveTorrentGroupId', trackerId, torrentId),
     submitUpload: () => invoke('upload:submitUpload'),
     startSeed: () => invoke('upload:startSeed'),
+    saveTorrent: (submissionId: string) => invoke('upload:saveTorrent', submissionId),
+    saveTorrents: () => invoke('upload:saveTorrents'),
     finish: () => invoke('upload:finish'),
     listSpectrals: () => invoke('upload:listSpectrals'),
     cancel: () => invoke('upload:cancel'),
@@ -103,6 +105,9 @@ const api = {
     revealPath: (path: string) => invoke('shell:revealPath', path),
     openPath: (path: string) => invoke('shell:openPath', path),
     openExternal: (url: string) => invoke('shell:openExternal', url)
+  },
+  clipboard: {
+    writeText: (text: string) => invoke('clipboard:writeText', text)
   },
   health: {
     refresh: () => invoke('health:refresh')

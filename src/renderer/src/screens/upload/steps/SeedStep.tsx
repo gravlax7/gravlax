@@ -1,5 +1,11 @@
-import { For, Show, createMemo } from 'solid-js'
-import type { SeedTask, SeedTaskStatus, UploadFlowStateJSON } from '@shared/types'
+import { For, Show, createMemo, createSignal } from 'solid-js'
+import type { Config } from '@shared/types/config'
+import type {
+  SeedTask,
+  SeedTaskStatus,
+  UploadFlowStateJSON,
+  UploadSubmission
+} from '@shared/types'
 import { etaSeconds, formatByteSize, formatEta, formatTransferRate } from '@shared/format'
 import { TrackerIcon } from '../../../components/TrackerIcon'
 import { Badge, Button, Callout, EmptyState, Icon, ProgressBar, type BadgeTone } from '../../../ui'
@@ -23,6 +29,7 @@ function shownFilesTransferred(task: SeedTask): number {
 
 export function SeedStep(props: {
   state: UploadFlowStateJSON
+  config: Config
   onRetry: () => void
 }) {
   const seed = createMemo(() => props.state.seed ?? { phase: 'idle' as const, tasks: [] })
@@ -30,6 +37,69 @@ export function SeedStep(props: {
   const phase = createMemo(() => seed().phase ?? 'idle')
   const uploadDone = createMemo(() => props.state.upload?.phase === 'done')
   const hasCompleted = createMemo(() => tasks().some((t) => t.status === 'done'))
+  const torrents = createMemo(() =>
+    (props.state.upload?.submissions ?? []).filter(
+      (submission) => submission.status === 'done' && Boolean(submission.torrentPath)
+    )
+  )
+  const torrentFolder = createMemo(() => props.config.directories.torrents.trim())
+  const clientSavePath = createMemo(() => {
+    const explicit = props.config.torrentClient.savePath.trim()
+    if (explicit) return explicit
+    return props.config.transfer.enabled
+      ? props.config.transfer.remotePath.trim()
+      : props.config.directories.seeding.trim()
+  })
+  const [saving, setSaving] = createSignal<string | null>(null)
+  const [copiedSubmission, setCopiedSubmission] = createSignal<string | null>(null)
+  const [saveMessage, setSaveMessage] = createSignal<{
+    tone: 'info' | 'error'
+    text: string
+  } | null>(null)
+
+  const saveOne = async (submission: UploadSubmission): Promise<void> => {
+    setSaving(submission.id)
+    setSaveMessage(null)
+    const result = await window.gravlax.upload.saveTorrent(submission.id)
+    setSaving(null)
+    if (!result.ok) {
+      if ('canceled' in result) return
+      setSaveMessage({ tone: 'error', text: result.error })
+      return
+    }
+    setSaveMessage({ tone: 'info', text: `Saved ${fileName(result.paths[0] ?? '')}.` })
+  }
+
+  const saveAll = async (): Promise<void> => {
+    setSaving('all')
+    setSaveMessage(null)
+    const result = await window.gravlax.upload.saveTorrents()
+    setSaving(null)
+    if (!result.ok) {
+      if ('canceled' in result) return
+      setSaveMessage({ tone: 'error', text: result.error })
+      return
+    }
+    setSaveMessage({
+      tone: 'info',
+      text: `Saved ${result.paths.length} torrent file${result.paths.length === 1 ? '' : 's'}.`
+    })
+  }
+
+  const copyDataPath = async (submissionId: string, path: string): Promise<void> => {
+    try {
+      await window.gravlax.clipboard.writeText(path)
+      setCopiedSubmission(submissionId)
+      window.setTimeout(() => {
+        if (copiedSubmission() === submissionId) setCopiedSubmission(null)
+      }, 2000)
+    } catch (err) {
+      setSaveMessage({
+        tone: 'error',
+        text: err instanceof Error ? err.message : 'Could not copy the path.'
+      })
+    }
+  }
 
   const totals = createMemo(() => {
     const placements = tasks().filter(isPlacement)
@@ -97,7 +167,9 @@ export function SeedStep(props: {
 
         <Show when={tasks().length === 0 && phase() !== 'running'}>
           <Callout tone="info">
-            Seedbox, seeding folder and torrent client are all off, or no torrents were created.
+            {torrents().length > 0
+              ? 'No automatic placement is configured. The release data remains in the working copy.'
+              : 'Seedbox, seeding folder and torrent client are all off, or no torrents were created.'}
           </Callout>
         </Show>
 
@@ -106,9 +178,118 @@ export function SeedStep(props: {
             <For each={tasks()}>{(task) => <SeedTaskRow task={task} />}</For>
           </div>
         </Show>
+
+        <Show when={torrents().length > 0}>
+          <section class="seed-torrents">
+            <div class="seed-torrents-header">
+              <div>
+                <div class="seed-torrents-title">Torrent files</div>
+                <div class="seed-torrents-help">Save or reveal the generated .torrent files.</div>
+              </div>
+              <div class="seed-torrents-header-actions">
+                <Show when={torrentFolder()}>
+                  {(folder) => (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void window.gravlax.shell.openPath(folder())}
+                    >
+                      <Icon name="folder" size={14} />
+                      Open folder
+                    </Button>
+                  )}
+                </Show>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={saving() === 'all'}
+                  disabled={saving() !== null}
+                  onClick={() => void saveAll()}
+                >
+                  <Icon name="download" size={14} />
+                  Save all
+                </Button>
+              </div>
+            </div>
+
+            <Show when={!props.config.torrentClient.enabled}>
+              <Callout tone="info">
+                Add each .torrent file to your client. When asked for a save location, select the
+                matching client save location shown below—not the .torrent file folder. You can still
+                finish this upload now.
+              </Callout>
+            </Show>
+
+            <div class="seed-torrent-list">
+              <For each={torrents()}>
+                {(submission) => (
+                  <div class="seed-torrent-row">
+                    <div class="seed-torrent-main">
+                      <div class="seed-torrent-label">
+                        <TrackerIcon trackerId={submission.trackerId} size={18} alt="" />
+                        <span>{submission.label}</span>
+                      </div>
+                      <div class="mono seed-torrent-path" title={submission.torrentPath}>
+                        Torrent file: {submission.torrentPath}
+                      </div>
+                      <Show when={clientSavePath()}>
+                        {(value) => (
+                          <div class="seed-torrent-data">
+                            <div class="mono seed-torrent-path" title={value()}>
+                              Client save location: {value()}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void copyDataPath(submission.id, value())}
+                            >
+                              <Show when={copiedSubmission() === submission.id}>
+                                <Icon name="check" size={14} />
+                              </Show>
+                              {copiedSubmission() === submission.id ? 'Copied' : 'Copy path'}
+                            </Button>
+                          </div>
+                        )}
+                      </Show>
+                    </div>
+                    <div class="seed-torrent-actions">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        loading={saving() === submission.id}
+                        disabled={saving() !== null}
+                        onClick={() => void saveOne(submission)}
+                      >
+                        <Icon name="download" size={14} />
+                        Save as
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          void window.gravlax.shell.revealPath(submission.torrentPath!)
+                        }
+                      >
+                        Reveal
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </For>
+            </div>
+
+            <Show when={saveMessage()}>
+              {(message) => <Callout tone={message().tone}>{message().text}</Callout>}
+            </Show>
+          </section>
+        </Show>
       </Show>
     </div>
   )
+}
+
+function fileName(path: string): string {
+  return path.split(/[\\/]/).pop() || 'torrent file'
 }
 
 function SeedTaskRow(props: { task: SeedTask }) {

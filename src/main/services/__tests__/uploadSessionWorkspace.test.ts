@@ -167,7 +167,9 @@ describe('finishing an upload', () => {
   }
 
   it('records the upload, removes an eligible workspace, and resets', async () => {
-    const { session, workspacePath } = await settledSession(defaultConfig(), 'done')
+    const config = defaultConfig()
+    config.cleanup.deleteTemporaryFiles = true
+    const { session, workspacePath } = await settledSession(config, 'done')
 
     await expect(session.finish()).resolves.toEqual({ ok: true })
 
@@ -195,6 +197,60 @@ describe('finishing an upload', () => {
     const entries = await session.listStartEntries()
     expect(entries.resumeEntries).toHaveLength(0)
     expect(entries.uploadedEntries).toHaveLength(1)
+  })
+
+  it('keeps manual torrent files that exist only in the workspace', async () => {
+    const config = defaultConfig()
+    config.cleanup.deleteTemporaryFiles = true
+    config.torrentClient.enabled = false
+    const { session, workspacePath } = await settledSession(config, 'done')
+    const torrentPath = join(uploadWorkspaceRootForPath(workspacePath), 'manual.torrent')
+    await writeFile(torrentPath, 'torrent data')
+    const state = session.getState() as State
+    state.upload.submissions = [
+      {
+        id: 'redacted:flac',
+        trackerId: 'redacted',
+        formatId: 'flac',
+        label: 'Redacted · FLAC',
+        status: 'done',
+        torrentPath
+      }
+    ]
+    setState(session, state)
+
+    await expect(session.finish()).resolves.toEqual({ ok: true })
+
+    await expect(readFile(torrentPath, 'utf8')).resolves.toBe('torrent data')
+  })
+
+  it('cleans the workspace when manual torrent files use the configured folder', async () => {
+    const config = defaultConfig()
+    config.cleanup.deleteTemporaryFiles = true
+    config.torrentClient.enabled = false
+    config.directories.torrents = sourceRoot
+    const { session, workspacePath } = await settledSession(config, 'done')
+    const torrentPath = join(sourceRoot, 'manual.torrent')
+    await writeFile(torrentPath, 'torrent data')
+    const state = session.getState() as State
+    state.upload.submissions = [
+      {
+        id: 'redacted:flac',
+        trackerId: 'redacted',
+        formatId: 'flac',
+        label: 'Redacted · FLAC',
+        status: 'done',
+        torrentPath
+      }
+    ]
+    setState(session, state)
+
+    await expect(session.finish()).resolves.toEqual({ ok: true })
+
+    await expect(readdir(uploadWorkspaceRootForPath(workspacePath))).rejects.toMatchObject({
+      code: 'ENOENT'
+    })
+    await expect(readFile(torrentPath, 'utf8')).resolves.toBe('torrent data')
   })
 
   it('keeps the workspace after failed seeding', async () => {
