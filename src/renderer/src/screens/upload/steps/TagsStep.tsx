@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from 'solid-js'
+import { For, Index, Show, createMemo } from 'solid-js'
 import type { Artist, Track, UploadFlowStateJSON } from '@shared/types'
 import type { Config } from '@shared/types/config'
 import { buildFilesRenamePlan } from '@shared/upload/naming'
@@ -377,23 +377,31 @@ export function TagsStep(props: {
         </Show>
 
         <div class="filename-list">
-          <For each={plan().files}>
+          <Index each={plan().files}>
             {(file) => {
-              const stateFile = () => props.state.files.apply.files.find((item) => item.id === file.id)
+              const stateFile = () =>
+                props.state.files.apply.files.find((item) => item.id === file().id)
               return (
                 <div class="filename-edit-row">
-                  <span class="mono filename-current">{file.currentPath}</span>
+                  <span class="mono filename-current">{file().currentPath}</span>
                   <span>→</span>
                   <div class="filename-target">
-                    <Show when={file.targetPath.slice(0, -file.targetFilename.length)}>
-                      <span class="mono filename-directory">{file.targetPath.slice(0, -file.targetFilename.length)}</span>
+                    <Show when={file().targetPath.slice(0, -file().targetFilename.length)}>
+                      <span class="mono filename-directory">
+                        {file().targetPath.slice(0, -file().targetFilename.length)}
+                      </span>
                     </Show>
                     <input
                       class="mono filename-input"
                       disabled={busy() || locked()}
-                      value={stateFile()?.filenameOverride ?? file.targetFilename}
-                      onChange={(event) => void window.gravlax.upload.setFilenameOverride(file.id, event.currentTarget.value)}
-                      aria-label={`Filename for ${file.currentPath}`}
+                      value={stateFile()?.filenameOverride ?? file().targetFilename}
+                      onChange={(event) =>
+                        void window.gravlax.upload.setFilenameOverride(
+                          file().id,
+                          event.currentTarget.value
+                        )
+                      }
+                      aria-label={`Filename for ${file().currentPath}`}
                     />
                   </div>
                   <IconButton
@@ -401,12 +409,12 @@ export function TagsStep(props: {
                     label="Reset filename"
                     size="sm"
                     disabled={!stateFile()?.filenameOverride || busy() || locked()}
-                    onClick={() => void window.gravlax.upload.setFilenameOverride(file.id)}
+                    onClick={() => void window.gravlax.upload.setFilenameOverride(file().id)}
                   />
                 </div>
               )
             }}
-          </For>
+          </Index>
         </div>
 
         <Show when={plan().errors.length > 0}>

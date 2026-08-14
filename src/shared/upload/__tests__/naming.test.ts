@@ -21,6 +21,69 @@ describe('buildFilesRenamePlan', () => {
     expect(plan.files[0]?.targetPath).toBe('Disc 02/01. A_B.flac')
     expect(plan.errors).toEqual([])
   })
+
+  it('removes invisible Unicode formatting characters from generated names', () => {
+    const plan = buildFilesRenamePlan({
+      release: {
+        artists: [{ name: 'A\u2060rtist' }],
+        title: 'Alb\u200bum',
+        groupYear: '2001',
+        tracks: [{ trackNumber: '2', title: '\u03a9 \u2060\u2060Cosmos' }]
+      },
+      files: {
+        original: { captured: false, coverCaptured: false, folderName: 'old', files: [] },
+        apply: {
+          phase: 'idle',
+          onDiskModified: false,
+          stripEmbeddedCoverArt: true,
+          renameReleaseFolder: true,
+          currentFolderName: 'old',
+          files: [{ id: 'a', currentPath: 'source.flac' }]
+        }
+      },
+      naming,
+      sourceMedia: 'WEB',
+      encoding: 'Lossless'
+    })
+
+    expect(plan.folderName).toBe('Artist - Album (2001) [WEB FLAC]')
+    expect(plan.files[0]?.targetPath).toBe('02. \u03a9 Cosmos.flac')
+    expect(plan.errors).toEqual([])
+  })
+
+  it('removes invisible Unicode formatting characters from manual names', () => {
+    const plan = buildFilesRenamePlan({
+      release: {
+        artists: [{ name: 'Artist' }],
+        title: 'Album',
+        groupYear: '2001',
+        tracks: [{ trackNumber: '2', title: 'Cosmos' }]
+      },
+      files: {
+        original: { captured: false, coverCaptured: false, folderName: 'old', files: [] },
+        apply: {
+          phase: 'idle',
+          onDiskModified: false,
+          stripEmbeddedCoverArt: true,
+          renameReleaseFolder: true,
+          currentFolderName: 'old',
+          folderNameOverride: 'Clean\ufeff Folder',
+          files: [{
+            id: 'a',
+            currentPath: 'source.flac',
+            filenameOverride: '02. \u2060\u2060Cosmos.flac'
+          }]
+        }
+      },
+      naming,
+      sourceMedia: 'WEB',
+      encoding: 'Lossless'
+    })
+
+    expect(plan.folderName).toBe('Clean Folder')
+    expect(plan.files[0]?.targetPath).toBe('02. Cosmos.flac')
+    expect(plan.errors).toEqual([])
+  })
 })
 
 describe('isMultiDisc', () => {

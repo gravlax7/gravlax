@@ -19,6 +19,7 @@ export interface FilesRenamePlan {
 
 const TRACK_KEYS = new Set(['trackNumber', 'discNumber', 'title', 'artist'])
 const DISC_KEYS = new Set(['discNumber', 'discTotal'])
+const UNICODE_FORMAT_CHARACTERS = /\p{Cf}/gu
 const FOLDER_KEYS = new Set([
   'artists', 'albumArtist', 'title', 'year', 'groupYear', 'editionTitle', 'label',
   'catNo', 'source', 'format', 'encoding', 'releaseType'
@@ -167,6 +168,7 @@ export function isMultiDisc(discNumbers: Array<string | undefined>): boolean {
 
 function sanitize(value: string): string {
   return value
+    .replace(UNICODE_FORMAT_CHARACTERS, '')
     .replace(/[\u0000-\u001f:?<>\\*|"/]/g, '_')
     .replace(/\s+/g, ' ')
     .replace(/[. ]+$/g, '')
@@ -174,7 +176,7 @@ function sanitize(value: string): string {
 }
 
 function validateManualName(value: string): string | undefined {
-  const name = value.trim()
+  const name = normalizeManualName(value)
   if (!name) return 'Name cannot be empty.'
   if (name === '.' || name === '..') return 'Name is reserved by the filesystem.'
   if (/[\u0000-\u001f:?<>\\*|"/]/.test(name)) return 'Name contains a character which is not allowed.'
@@ -185,7 +187,7 @@ function validateManualName(value: string): string | undefined {
 }
 
 function normalizeManualName(value: string): string {
-  return value.trim()
+  return value.replace(UNICODE_FORMAT_CHARACTERS, '').trim()
 }
 
 function normalizeManualFlacName(value: string): string {
