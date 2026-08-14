@@ -145,6 +145,15 @@ export function finishFilesApply(
   appliedHash: string,
   counts: { changedFileCount: number; strippedPictureCount: number }
 ): State {
+  // Every planned file must have a rename result. A file left out keeps its
+  // pre-rename path — which no longer exists on disk — and would silently
+  // drop out of the file set the upload and seed stages copy.
+  const resultIds = new Set(currentPaths.map((item) => item.id))
+  for (const file of s.files.apply.files) {
+    if (!resultIds.has(file.id)) {
+      throw new Error(`finishFilesApply: no rename result for planned file "${file.id}"`)
+    }
+  }
   const pathMap = new Map(
     s.files.apply.files.map((file) => [
       file.currentPath,

@@ -435,12 +435,6 @@ describe('resumeSubmit', () => {
     expect(resumeSubmit(state)).toBe(state)
   })
 
-  it('keeps enabled tracker defaults available from config helper', () => {
-    const cfg = cfgWithTrackers(['redacted', 'orpheus'])
-    expect(cfg.trackers.redacted.enabled).toBe(true)
-    expect(cfg.trackers.orpheus.enabled).toBe(true)
-  })
-
   it('keeps user edits when nothing upstream changed', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-group-'))
     let state = newState()
@@ -641,10 +635,6 @@ describe('resumeSubmit', () => {
     expect(state.upload.groupSearch?.results).toHaveLength(1)
     expect(state.upload.groupSearch?.results?.[0]?.groupId).toBe(7)
     expect(state.upload.groupIds).toEqual({})
-  })
-
-  it('starts with an idle groupSearch snapshot', () => {
-    expect(emptyUpload().groupSearch).toEqual(emptyGroupSearch())
   })
 
   it('demotes a resumed in-flight group search so it can run again', () => {

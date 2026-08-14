@@ -1902,6 +1902,13 @@ button.toggle.toggle-on .toggle-thumb {
   font-size: var(--text-sm);
 }
 
+.seed-task-tracker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
 .seed-header-text {
   min-width: 0;
 }

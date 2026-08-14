@@ -36,6 +36,19 @@ export interface RunSeedOptions {
 /** One placement per uploaded format, with each tracker torrent for that folder. */
 export function seedFormatsFromUpload(upload: UploadSnapshot): SeedFormatInput[] {
   const succeeded = (upload.submissions ?? []).filter((submission) => submission.status === 'done')
+  // A done row is a torrent confirmed on the tracker. Without its torrent data
+  // the placement below would be silently dropped and a live torrent would
+  // never be seeded; fail loudly instead.
+  const incomplete = succeeded.filter(
+    (submission) => !submission.torrentPath || !submission.infoHash
+  )
+  if (incomplete.length > 0) {
+    throw new Error(
+      `seedFormatsFromUpload: done submission(s) missing torrent data: ${incomplete
+        .map((submission) => submission.id)
+        .join(', ')}`
+    )
+  }
   const formats: SeedFormatInput[] = []
   for (const format of upload.formats ?? []) {
     const torrents = succeeded

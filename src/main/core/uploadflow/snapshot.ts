@@ -122,5 +122,17 @@ export function restoreState(workspacePath: string, snap: UploadFlowSnapshot): S
   if (snap.seed) {
     state = resumeSeed(setSeed(state, snap.seed))
   }
+
+  // A restored session has no work in flight: anything still running would
+  // show a frozen progress bar and hide the retry affordance behind a phase
+  // that never resolves.
+  const running = [
+    ...state.background.tasks.filter((task) => task.status === 'running'),
+    ...state.seed.tasks.filter((task) => task.status === 'running'),
+    ...(state.upload.submissions ?? []).filter((submission) => submission.status === 'running')
+  ]
+  if (running.length > 0) {
+    throw new Error(`restoreState: ${running.length} task(s) left running after restore`)
+  }
   return state
 }

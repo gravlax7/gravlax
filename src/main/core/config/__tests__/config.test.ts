@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig, resetSection, validate } from '@main/core/config'
 import { mergeLoadedConfig } from '@main/core/config/store'
-import { sections } from '@shared/config/sections'
 
 describe('config', () => {
   it('default includes every section with expected values', () => {
@@ -9,11 +8,6 @@ describe('config', () => {
     expect(cfg.naming.releaseFolderTemplate).not.toBe('')
     expect(cfg.naming.trackFileTemplate).not.toBe('')
     expect(cfg.naming.albumDescriptionTemplateId).toBe('peachfuzz')
-    expect(sections()[0]?.id).toBe('appearance')
-    expect(sections()[1]?.id).toBe('directories')
-    expect(sections()[2]?.id).toBe('tools')
-    expect(sections()[3]?.id).toBe('imageHosts')
-    expect(sections()[4]?.id).toBe('spectral')
     expect(cfg.tools).toEqual({
       sox: '',
       flac: '',

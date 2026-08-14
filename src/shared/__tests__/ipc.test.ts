@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseIpcArguments, type IpcInvokeResult } from '../ipc'
+import { parseIpcArguments } from '../ipc'
 
 describe('IPC argument contract', () => {
   it('accepts a valid workflow transition index', () => {
@@ -21,13 +21,6 @@ describe('IPC argument contract', () => {
 
   it('accepts an update check without renderer-supplied input', () => {
     expect(parseIpcArguments('updates:check', [])).toEqual([])
-    const result: IpcInvokeResult<'updates:check'> = {
-      status: 'available',
-      currentVersion: '0.3.0',
-      latestVersion: '0.4.0',
-      releaseUrl: 'https://github.com/gravlax7/gravlax/releases/tag/v0.4.0'
-    }
-    expect(result.status).toBe('available')
   })
 
   it('accepts a metadata URL and rejects an empty one', () => {

@@ -133,6 +133,40 @@ describe('UploadSessionFileChanges folder renames', () => {
     expect(mocks.applyTagsAndRenames).toHaveBeenCalledOnce()
   })
 
+  it('allows navigation past unchanged tags after seeding', async () => {
+    const { service, getState, startTranscodeInspection } = setup()
+    await service.applyTagsAndNames(true)
+    startTranscodeInspection.mockClear()
+    getState().seed.phase = 'done'
+    getState().files.apply.phase = 'failed'
+    getState().files.apply.error = 'Files cannot change after upload or seeding has started.'
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
+    expect(getState().files.apply.phase).toBe('applied')
+    expect(getState().files.apply.error).toBeUndefined()
+    expect(startTranscodeInspection).toHaveBeenCalledOnce()
+    expect(mocks.applyTagsAndRenames).toHaveBeenCalledOnce()
+  })
+
+  it('still blocks file changes after seeding', async () => {
+    const { service, getState } = setup()
+    await service.applyTagsAndNames(true)
+    getState().seed.phase = 'done'
+    mocks.buildFilesRenamePlan.mockReturnValueOnce({
+      folderName: 'Changed Album',
+      files: [],
+      errors: [],
+      warnings: [],
+      hash: 'changed-plan'
+    })
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({
+      ok: false,
+      error: 'Files cannot change after upload or seeding has started.'
+    })
+    expect(mocks.applyTagsAndRenames).toHaveBeenCalledOnce()
+  })
+
   it('does not apply the empty proposal while metadata is loading', async () => {
     const { service, getState } = setup()
     getState().tags = { proposed: {}, releaseStatus: 'loading' }

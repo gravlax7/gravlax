@@ -548,6 +548,19 @@ export function patchSubmission(
  */
 export function finishSubmit(s: State): State {
   const submissions = s.upload.submissions ?? []
+  // The books only close when every row is terminal. A row still pending or
+  // running was never finished by the submit loop; counting it as a failure
+  // would hide an upload that is genuinely in flight.
+  const unfinished = submissions.filter(
+    (submission) => submission.status !== 'done' && submission.status !== 'failed'
+  )
+  if (unfinished.length > 0) {
+    throw new Error(
+      `finishSubmit: ${unfinished.length} submission(s) never reached a terminal state: ${unfinished
+        .map((submission) => submission.id)
+        .join(', ')}`
+    )
+  }
   const failed = submissions.filter((sub) => sub.status !== 'done')
   if (submissions.length === 0 || failed.length > 0) {
     const succeeded = submissions.length - failed.length

@@ -79,7 +79,6 @@ export class UploadSessionFileChanges {
   async applyTagsAndNames(confirmedWrites = false): Promise<FileChangeResult> {
     let stillCurrent = (): boolean => true
     try {
-      this.assertUnlocked()
       const state = this.context.getState()
       if (state.files.apply.phase === 'applying' || state.files.apply.phase === 'restoring') {
         return { ok: false, error: 'File changes are already running.' }
@@ -98,13 +97,23 @@ export class UploadSessionFileChanges {
         sourceMedia: state.draft.sourceMedia,
         encoding: state.transcode.inspection?.encoding
       })
-      if (plan.errors.length > 0) return this.fail(plan.errors[0]!)
-      if (state.files.apply.phase === 'applied' && state.files.apply.appliedHash === plan.hash) {
+      if (state.files.apply.appliedHash === plan.hash) {
         // A prior folder rename may have finished before navigation did. Make
         // sure its queued inspection is not left waiting when Continue retries.
+        if (state.files.apply.phase !== 'applied') {
+          this.context.apply({
+            ...state,
+            files: {
+              ...state.files,
+              apply: { ...state.files.apply, phase: 'applied', error: undefined }
+            }
+          })
+        }
         this.context.startTranscodeInspection()
         return { ok: true }
       }
+      this.assertUnlocked()
+      if (plan.errors.length > 0) return this.fail(plan.errors[0]!)
       if (this.context.getConfig().workflow.confirmBeforeWrites && !confirmedWrites) {
         return { ok: false, error: 'Confirmation required.', needsConfirmation: true }
       }

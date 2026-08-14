@@ -1,6 +1,7 @@
 import { For, Show, createMemo } from 'solid-js'
 import type { SeedTask, SeedTaskStatus, UploadFlowStateJSON } from '@shared/types'
 import { etaSeconds, formatByteSize, formatEta, formatTransferRate } from '@shared/format'
+import { TrackerIcon } from '../../../components/TrackerIcon'
 import { Badge, Button, Callout, EmptyState, Icon, ProgressBar, type BadgeTone } from '../../../ui'
 
 const TRACKER_LABELS: Record<string, string> = { redacted: 'RED', orpheus: 'OPS' }
@@ -150,7 +151,12 @@ function SeedTaskRow(props: { task: SeedTask }) {
         <div class="seed-task-label">
           <span class="seed-task-kind">{kindLabel(props.task.kind)}</span>
           <Show when={props.task.trackerId}>
-            {(id) => <Badge tone="neutral">{TRACKER_LABELS[id()] ?? id()}</Badge>}
+            {(id) => (
+              <span class="seed-task-tracker">
+                <TrackerIcon trackerId={id()} size={18} alt="" />
+                <Badge tone="neutral">{TRACKER_LABELS[id()] ?? id()}</Badge>
+              </span>
+            )}
           </Show>
           <span>{props.task.label.replace(/^(Transfer|Copy|Inject)\s+/, '')}</span>
         </div>

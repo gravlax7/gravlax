@@ -65,6 +65,21 @@ export async function createTorrent(options: CreateTorrentOptions): Promise<Crea
   const meta = bencode.decode(data) as unknown as TorrentMeta
   normalizeToMultiFile(meta, files)
 
+  // The torrent must name exactly the files the enumerator returned. A drift —
+  // create-torrent trimming a common prefix or dropping a stream — would
+  // publish a torrent that can never reach 100%: the client looks for files
+  // the torrent never listed.
+  const expectedPaths = files.map((file) => file.relativePath).sort()
+  const listedPaths = (meta.info.files ?? [])
+    .map((file) => file.path.map((part) => new TextDecoder().decode(part)).join('/'))
+    .sort()
+  if (
+    listedPaths.length !== expectedPaths.length ||
+    listedPaths.some((path, index) => path !== expectedPaths[index])
+  ) {
+    throw new Error(`torrent: file list does not match the enumerated release (${folderPath})`)
+  }
+
   return {
     meta,
     data: bencode.encode(meta) as unknown as Uint8Array,

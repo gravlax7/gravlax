@@ -3,7 +3,7 @@
     {
       "id": "peachfuzz",
       "name": "Peachfuzz",
-      "content": "[b]{{ artist_bbcode }} - {{ album }}[/b]{% if year %}\n{{ year }}{% endif %}\n\n{% for track in tracks %}[b]{{ number }}.[/b] {{ title }}{% if duration %} [i]({{ duration }})[/i]{% endif %}\n{% endfor %}\n\nMore info: [url={{ source_url }}]{{ source }}[/url]",
+      "content": "[b]{{ artist_bbcode }} - {{ album }}[/b]{% if year %}\n{{ year }}{% endif %}\n\n{% for track in tracks %}[b]{{ number }}.[/b] {{ title }}{% if duration %} [i]({{ duration }})[/i]{% endif %}\n{% endfor %}\nMore info: [url={{ source_url }}]{{ source }}[/url]",
       "builtin": true
     },
     {

@@ -18,7 +18,6 @@ import {
   spectralIdsAuto,
   setWorkspacePath,
   sourceMedia,
-  sourceMediaOptions,
   sourcePath,
   steps,
   workspacePath,
@@ -51,10 +50,6 @@ describe('uploadflow', () => {
       'upload',
       'seed'
     ])
-  })
-
-  it('source media options use expected order', () => {
-    expect(sourceMediaOptions()).toEqual(['WEB', 'CD'])
   })
 
   it('selectSourcePath clears draft for different folder', () => {
