@@ -485,6 +485,8 @@ export interface UploadSnapshot {
   title?: string
   year?: number
   releaseType?: string
+  /** Use Orpheus' tracker-only Split type while other trackers keep releaseType. */
+  orpheusSplit?: boolean
   unknown?: boolean
   remasterYear?: number
   remasterTitle?: string

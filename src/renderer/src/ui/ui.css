@@ -2191,6 +2191,24 @@ button.toggle.toggle-on .toggle-thumb {
   grid-column: 1 / -1;
 }
 
+.upload-report-orpheus-type {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+
+.upload-report-release-type-select {
+  width: min(100%, 360px);
+}
+
+.upload-report-field-note {
+  max-width: 62ch;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
 .upload-report-field input,
 .upload-report-textarea {
   width: 100%;

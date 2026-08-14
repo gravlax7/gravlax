@@ -109,6 +109,33 @@ describe('buildTrackerUploadData', () => {
     ).toBe(10)
   })
 
+  it('uses Split for Orpheus while keeping the shared type on Redacted', () => {
+    const split = upload({
+      selectedTrackerIds: ['redacted', 'orpheus'],
+      artists: [
+        { name: 'A', importance: 1 },
+        { name: 'B', importance: 1 }
+      ],
+      orpheusSplit: true
+    })
+
+    expect(
+      buildTrackerUploadData({ upload: split, format: sourceFormat(), trackerId: 'redacted' })
+        .releasetype
+    ).toBe(1)
+    expect(
+      buildTrackerUploadData({ upload: split, format: sourceFormat(), trackerId: 'orpheus' })
+        .releasetype
+    ).toBe(12)
+    expect(
+      buildTrackerUploadData({
+        upload: split,
+        format: sourceFormat({ id: 'transcode-320', format: 'MP3', bitrate: '320' }),
+        trackerId: 'orpheus'
+      }).releasetype
+    ).toBe(12)
+  })
+
   it('rejects a release type the tracker does not have', () => {
     expect(() =>
       buildTrackerUploadData({

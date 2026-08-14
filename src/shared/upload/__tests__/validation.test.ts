@@ -178,6 +178,24 @@ describe('validateUploadTargets', () => {
     expect(validateUploadTargets({ ...upload, selectedTrackerIds: [...upload.selectedTrackerIds] }, cfg)).toBeNull()
   })
 
+  it('validates the Orpheus Split override without changing Redacted', () => {
+    expect(
+      validateUploadTargets(
+        {
+          ...validUpload(),
+          selectedTrackerIds: ['redacted', 'orpheus'],
+          artists: [
+            { name: 'A', importance: 1 },
+            { name: 'B', importance: 1 }
+          ],
+          releaseType: 'Album',
+          orpheusSplit: true
+        },
+        cfg
+      )
+    ).toBeNull()
+  })
+
   it('rejects a release type the selected tracker lacks', () => {
     expect(
       validateUploadTargets(

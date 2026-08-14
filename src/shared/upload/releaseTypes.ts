@@ -1,4 +1,5 @@
-import type { UploadTrackerId } from '@shared/types/upload'
+import type { UploadSnapshot, UploadTrackerId } from '@shared/types/upload'
+import { isNamedMainArtist } from './artists'
 
 export const STANDARD_RELEASE_TYPES = [
   'Album',
@@ -66,4 +67,33 @@ export function releaseTypesFor(trackerId: UploadTrackerId): Record<string, numb
 
 export function releaseTypeId(trackerId: UploadTrackerId, releaseType: string): number | null {
   return releaseTypesFor(trackerId)[releaseType.trim()] ?? null
+}
+
+export function namedMainArtistCount(
+  upload: Pick<UploadSnapshot, 'artists'>
+): number {
+  return (upload.artists ?? []).filter(isNamedMainArtist).length
+}
+
+/** Split is an Orpheus group-level choice, not a shared release type. */
+export function isOrpheusSplitEligible(
+  upload: Pick<UploadSnapshot, 'artists' | 'selectedTrackerIds' | 'groupIds'>
+): boolean {
+  if (!(upload.selectedTrackerIds ?? []).includes('orpheus')) return false
+  const groupId = upload.groupIds?.orpheus
+  if (typeof groupId === 'number' && Number.isFinite(groupId)) return false
+  return namedMainArtistCount(upload) >= 2
+}
+
+export function effectiveReleaseType(
+  upload: Pick<
+    UploadSnapshot,
+    'artists' | 'selectedTrackerIds' | 'groupIds' | 'releaseType' | 'orpheusSplit'
+  >,
+  trackerId: UploadTrackerId
+): string {
+  if (trackerId === 'orpheus' && upload.orpheusSplit && isOrpheusSplitEligible(upload)) {
+    return 'Split'
+  }
+  return (upload.releaseType ?? '').trim()
 }

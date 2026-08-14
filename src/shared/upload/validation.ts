@@ -7,7 +7,7 @@ import type {
   UploadTrackerId
 } from '@shared/types'
 import { isNamedMainArtist } from './artists'
-import { releaseTypeId } from './releaseTypes'
+import { effectiveReleaseType, releaseTypeId } from './releaseTypes'
 
 export function validateUploadReport(upload: UploadSnapshot): string | null {
   if ((upload.selectedTrackerIds ?? []).length === 0) {
@@ -149,8 +149,9 @@ export function validateUploadTargets(
     if (credentials) return credentials
 
     // Only a new group carries a release type; joining an existing one does not.
-    if (!hasGroupId && releaseTypeId(trackerId, upload.releaseType ?? '') === null) {
-      return `Release type "${upload.releaseType ?? ''}" is not valid on ${TRACKER_NAMES[trackerId]}.`
+    const releaseType = effectiveReleaseType(upload, trackerId)
+    if (!hasGroupId && releaseTypeId(trackerId, releaseType) === null) {
+      return `Release type "${releaseType}" is not valid on ${TRACKER_NAMES[trackerId]}.`
     }
   }
   return null

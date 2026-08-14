@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import type { UploadFormatPayload, UploadSnapshot, UploadTrackerId } from '@shared/types/upload'
-import { releaseTypeId } from '@shared/upload/releaseTypes'
+import { effectiveReleaseType, releaseTypeId } from '@shared/upload/releaseTypes'
 import type { TrackerUploadData, TrackerUploadFiles } from '@main/core/tools/trackers/types'
 
 export interface BuildUploadDataInput {
@@ -45,10 +45,11 @@ export function buildTrackerUploadData(input: BuildUploadDataInput): TrackerUplo
     return { ...common, groupid: groupId }
   }
 
-  const releaseType = releaseTypeId(trackerId, upload.releaseType ?? '')
+  const releaseTypeName = effectiveReleaseType(upload, trackerId)
+  const releaseType = releaseTypeId(trackerId, releaseTypeName)
   if (releaseType === null) {
     throw new Error(
-      `Release type "${upload.releaseType ?? ''}" is not valid on ${trackerLabel(trackerId)}`
+      `Release type "${releaseTypeName}" is not valid on ${trackerLabel(trackerId)}`
     )
   }
 

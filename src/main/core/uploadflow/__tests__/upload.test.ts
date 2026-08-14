@@ -470,27 +470,40 @@ describe('resumeSubmit', () => {
     state.draft.sourceMedia = 'WEB'
     state.tags.proposed = {
       title: 'Album',
-      artists: [{ name: 'A', role: 'main' }],
+      artists: [
+        { name: 'A', role: 'main' },
+        { name: 'B', role: 'main' }
+      ],
       groupYear: '2020',
       genres: ['electronic']
     }
-    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
+    state = await ensureUploadReport(
+      state,
+      cfgWithTrackers(['redacted', 'orpheus']),
+      TEST_VERSION
+    )
     state = updateUploadReport(state, {
       groupIds: { redacted: 99 },
-      selectedTrackerIds: ['redacted'],
+      selectedTrackerIds: ['redacted', 'orpheus'],
       scene: true,
+      orpheusSplit: true,
       albumDesc: 'hand written'
     })
 
     // A tag change moves the fingerprint, so the payload must be rebuilt.
     state.tags.proposed = { ...state.tags.proposed, title: 'Album II' }
-    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
+    const next = await ensureUploadReport(
+      state,
+      cfgWithTrackers(['redacted', 'orpheus']),
+      TEST_VERSION
+    )
 
     expect(next.upload.title).toBe('Album II')
     expect(next.upload.albumDesc).not.toBe('hand written')
     expect(next.upload.groupIds?.redacted).toBe(99)
-    expect(next.upload.selectedTrackerIds).toEqual(['redacted'])
+    expect(next.upload.selectedTrackerIds).toEqual(['redacted', 'orpheus'])
     expect(next.upload.scene).toBe(true)
+    expect(next.upload.orpheusSplit).toBe(true)
   })
 
   it('keeps the record of what already uploaded when a failed report rebuilds', async () => {

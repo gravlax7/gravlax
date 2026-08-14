@@ -23,12 +23,17 @@ import {
   type BadgeTone
 } from '../../../ui'
 import { Modal } from '../../../components/Modal'
+import { Select } from '../../../components/Select'
 import { Toggle } from '../../../components/Toggle'
 import { TrackerIcon, trackerLabel } from '../../../components/TrackerIcon'
 import { spectralUrl } from '../pathUtil'
 import { GroupSuggestions } from '../GroupSuggestions'
 import { anySelectedTrackerHasGroupId } from '@shared/upload/groupIds'
 import { importanceToArtistRole } from '@shared/upload/artists'
+import {
+  effectiveReleaseType,
+  isOrpheusSplitEligible
+} from '@shared/upload/releaseTypes'
 import {
   pendingUploadTrackerIds,
   validateTrackerHealth,
@@ -334,6 +339,7 @@ export function UploadStep(props: {
     () => uploadBlockedReason(props.state, props.config, props.health, props.healthLoading)
   )
   const submissions = createMemo(() => upload().submissions ?? [])
+  const showOrpheusSplit = createMemo(() => isOrpheusSplitEligible(upload()))
   const completed = createMemo(() => submissions().filter((s) => s.status === 'done'))
   const isRetry = createMemo(() => completed().length > 0 && upload().phase !== 'done')
   const progressVisible = createMemo(
@@ -479,6 +485,27 @@ export function UploadStep(props: {
             <span>Release type</span>
             <div class="mono upload-report-readonly">{displayOrEmpty(upload().releaseType)}</div>
           </div>
+
+          <Show when={showOrpheusSplit()}>
+            <div class="upload-report-field upload-report-field-full upload-report-orpheus-type">
+              <span>Orpheus release type</span>
+              <Select
+                value={upload().orpheusSplit ? 'split' : 'shared'}
+                options={['shared', 'split']}
+                labelFor={(value) =>
+                  value === 'split'
+                    ? 'Split'
+                    : `Same as shared (${displayOrEmpty(upload().releaseType)})`
+                }
+                class="upload-report-release-type-select"
+                onChange={(value) => patch({ orpheusSplit: value === 'split' })}
+              />
+              <div class="upload-report-field-note">
+                Choose Split when each main artist contributes several tracks of new material or
+                new performances.
+              </div>
+            </div>
+          </Show>
 
           <div class="upload-report-field">
             <span>Media</span>
@@ -670,7 +697,10 @@ export function UploadSubmitAction(props: {
         )
         .map((format) => {
           const groupId = upload().groupIds?.[trackerId]
-          const target = typeof groupId === 'number' ? `group ${groupId}` : 'a new group'
+          const target =
+            typeof groupId === 'number'
+              ? `group ${groupId}`
+              : `a new ${effectiveReleaseType(upload(), trackerId)} group`
           return `${trackerLabel(trackerId)} · ${format.label} → ${target}`
         })
     )

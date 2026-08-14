@@ -42,6 +42,7 @@ export function emptyUpload(): UploadSnapshot {
     title: '',
     year: undefined,
     releaseType: '',
+    orpheusSplit: false,
     unknown: false,
     remasterYear: undefined,
     remasterTitle: '',
@@ -285,6 +286,7 @@ export async function buildUploadSnapshot(
     title: (proposed.title ?? '').trim(),
     year: parseYear(proposed.groupYear),
     releaseType: (proposed.releaseType ?? '').trim(),
+    orpheusSplit: false,
     unknown: false,
     remasterYear: parseYear(proposed.year),
     remasterTitle: (proposed.editionTitle ?? '').trim(),
@@ -322,6 +324,7 @@ function carryUserSelections(next: UploadSnapshot, previous: UploadSnapshot): Up
     image: previous.image ?? next.image,
     scene: previous.scene ?? next.scene,
     unknown: previous.unknown ?? next.unknown,
+    orpheusSplit: previous.orpheusSplit ?? next.orpheusSplit,
     groupSearch: previous.groupSearch ?? emptyGroupSearch(),
     submissions: submissions.map((sub) => ({ ...sub })),
     // A failed submit stays failed while any of its rows survive, so the user
