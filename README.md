@@ -1,8 +1,10 @@
 # Gravlax
 
-Gravlax prepares music releases for Gazelle-based trackers. It guides each
+Gravlax prepares music releases for RED/OPS. It guides each
 release through file checks, spectrals, metadata, tags, transcodes, upload, and
 seeding.
+
+![Gravlax demo](assets/gravlax.gif)
 
 ## Quick start
 
@@ -20,10 +22,10 @@ seeding.
 | --- | --- |
 | Image hosts | Ra (thesungod), ImgBB, and the Redacted image host |
 | Metadata providers | MusicBrainz and Deezer |
-| Torrent clients | qBittorrent through its Web UI |
+| Torrent clients | qBittorrent |
 
 Only ImgBB supports spectral uploads. The Redacted image host requires an
-enabled Redacted tracker with an API key, and it can be uses only for
+enabled Redacted tracker with an API key, and it can be used only for
 Redacted cover images.
 
 Support for more image hosts, metadata providers, and torrent clients can be discussed.
