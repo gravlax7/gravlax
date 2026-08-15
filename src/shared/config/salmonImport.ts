@@ -319,7 +319,7 @@ function mapDirectories(builder: PlanBuilder, toml: Record<string, unknown>): vo
 }
 
 const SPECTRAL_ID_SELECTION: Record<string, string> = { '*': 'All', '+': 'Random', '0': 'None' }
-const SUPPORTED_IMAGE_HOSTS = new Set(['imgbb'])
+const SUPPORTED_IMAGE_HOSTS = new Set(['imgbb', 'catbox'])
 
 function mapImages(builder: PlanBuilder, toml: Record<string, unknown>): void {
   const image = table(toml, 'image')
@@ -328,6 +328,20 @@ function mapImages(builder: PlanBuilder, toml: Record<string, unknown>): void {
   const imageUploader = str(image, 'image_uploader')
   const coverUploader = str(image, 'cover_uploader')
   const specsUploader = str(image, 'specs_uploader')
+
+  const catboxSource = [
+    ['image.image_uploader', imageUploader],
+    ['image.cover_uploader', coverUploader],
+    ['image.specs_uploader', specsUploader]
+  ].find(([, host]) => host === 'catbox')?.[0]
+  if (catboxSource !== undefined) {
+    builder.add({
+      sourceKey: catboxSource,
+      section: 'imageHosts',
+      field: 'catbox.enabled',
+      value: true
+    })
+  }
 
   const imgbbKey = str(image, 'imgbb_key')
   if (imgbbKey !== undefined) {
@@ -353,6 +367,14 @@ function mapImages(builder: PlanBuilder, toml: Record<string, unknown>): void {
       value: 'imgbb'
     })
   }
+  if (specsUploader === 'catbox') {
+    builder.add({
+      sourceKey: 'image.specs_uploader',
+      section: 'spectral',
+      field: 'imageHost',
+      value: 'catbox'
+    })
+  }
 
   if (coverUploader === 'imgbb') {
     builder.add({
@@ -368,6 +390,20 @@ function mapImages(builder: PlanBuilder, toml: Record<string, unknown>): void {
       value: 'imgbb'
     })
   }
+  if (coverUploader === 'catbox') {
+    builder.add({
+      sourceKey: 'image.cover_uploader',
+      section: 'trackers',
+      field: 'redacted.coverImageHost',
+      value: 'catbox'
+    })
+    builder.add({
+      sourceKey: 'image.cover_uploader',
+      section: 'trackers',
+      field: 'orpheus.coverImageHost',
+      value: 'catbox'
+    })
+  }
 
   for (const [key, host] of [
     ['image.image_uploader', imageUploader],
@@ -375,7 +411,10 @@ function mapImages(builder: PlanBuilder, toml: Record<string, unknown>): void {
     ['image.specs_uploader', specsUploader]
   ] as const) {
     if (host !== undefined && !SUPPORTED_IMAGE_HOSTS.has(host)) {
-      builder.skip(`${key} = "${host}"`, 'Gravlax supports imgbb, Ra (thesungod) and the Redacted host.')
+      builder.skip(
+        `${key} = "${host}"`,
+        'Gravlax supports imgbb, Catbox, Ra (thesungod) and the Redacted host.'
+      )
     }
   }
 

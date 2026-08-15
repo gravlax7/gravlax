@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { defaultConfig, resetSection, validate } from '@main/core/config'
+import {
+  defaultConfig,
+  fieldBoolValue,
+  resetSection,
+  setFieldBool,
+  validate
+} from '@main/core/config'
 import { mergeLoadedConfig } from '@main/core/config/store'
 
 describe('config', () => {
@@ -21,6 +27,7 @@ describe('config', () => {
     expect(cfg.metadataProviders.requestTimeoutSeconds).toBe(10)
     expect(cfg.metadataProviders.musicBrainz.enabled).toBe(true)
     expect(cfg.metadataProviders.deezer.enabled).toBe(false)
+    expect(cfg.imageHosts.catbox).toEqual({ enabled: true })
     expect(cfg.spectral.defaultSpectralIds).toBe('Random')
     expect(cfg.spectral.defaultSpectralIdsForLossyMasters).toBe('All')
     expect(cfg.cleanup.deleteTemporaryFiles).toBe(false)
@@ -43,6 +50,24 @@ describe('config', () => {
 
     loaded.tools.sox = '/custom/sox'
     expect(resetSection(loaded, 'tools').tools).toEqual(defaultConfig().tools)
+  })
+
+  it('adds the enabled catbox default when loading an older config', () => {
+    const cfg = mergeLoadedConfig({
+      imageHosts: { imgbb: { enabled: true, apiKey: 'key' } }
+    })
+    expect(cfg.imageHosts.imgbb).toEqual({ enabled: true, apiKey: 'key' })
+    expect(cfg.imageHosts.catbox).toEqual({ enabled: true })
+  })
+
+  it('keeps catbox disabled when a saved config turns it off', () => {
+    const cfg = mergeLoadedConfig({ imageHosts: { catbox: { enabled: false } } })
+    expect(cfg.imageHosts.catbox).toEqual({ enabled: false })
+  })
+
+  it('reads and updates the catbox settings toggle', () => {
+    const cfg = setFieldBool(defaultConfig(), 'imageHosts', 'catbox.enabled', false)
+    expect(fieldBoolValue(cfg, 'imageHosts', 'catbox.enabled')).toBe(false)
   })
 
   it('requires configured tool overrides to be absolute clean paths', () => {
@@ -262,12 +287,21 @@ describe('config', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: true, apiKey: 'key' },
+        catbox: { enabled: false },
         redacted: { enabled: false }
       },
       spectral: { ...cfg.spectral, imageHost: 'thesungod' }
     }
     const issues = validate(cfg)
     expect(issues.some((i) => i.section === 'spectral' && i.field === 'imageHost')).toBe(true)
+  })
+
+  it('accepts catbox as a spectral image host when enabled', () => {
+    const cfg = defaultConfig()
+    cfg.imageHosts.catbox.enabled = true
+    cfg.spectral.imageHost = 'catbox'
+    const issues = validate(cfg)
+    expect(issues.some((i) => i.section === 'spectral' && i.field === 'imageHost')).toBe(false)
   })
 
   it('rejects redacted image host when redacted tracker is not configured', () => {
@@ -346,6 +380,7 @@ describe('config', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: false, apiKey: '' },
+        catbox: { enabled: false },
         redacted: { enabled: true }
       }
     }
@@ -373,6 +408,7 @@ describe('config', () => {
       imageHosts: {
         thesungod: { enabled: false, apiKey: '' },
         imgbb: { enabled: false, apiKey: '' },
+        catbox: { enabled: false },
         redacted: { enabled: true }
       }
     }
@@ -390,6 +426,7 @@ describe('config', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: false, apiKey: '' },
+        catbox: { enabled: false },
         redacted: { enabled: true }
       }
     })

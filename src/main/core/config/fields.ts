@@ -105,6 +105,8 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return String(c.imgbb.enabled)
         case 'imgbb.apiKey':
           return c.imgbb.apiKey
+        case 'catbox.enabled':
+          return String(c.catbox.enabled)
         case 'redacted.enabled':
           return String(c.redacted.enabled)
       }
@@ -312,6 +314,7 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
     case 'imageHosts':
       if (field === 'thesungod.enabled') next.imageHosts.thesungod.enabled = value
       if (field === 'imgbb.enabled') next.imageHosts.imgbb.enabled = value
+      if (field === 'catbox.enabled') next.imageHosts.catbox.enabled = value
       if (field === 'redacted.enabled') {
         next.imageHosts.redacted.enabled = value && canEnableRedactedImageHost(next)
       }

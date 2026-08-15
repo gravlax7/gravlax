@@ -2118,12 +2118,17 @@ button.toggle.toggle-on .toggle-thumb {
 }
 
 .tracker-icon,
-.provider-icon {
+.provider-icon,
+.image-host-icon {
   display: inline-block;
   flex-shrink: 0;
   border-radius: 3px;
   object-fit: cover;
   vertical-align: middle;
+}
+
+.image-host-icon {
+  background-color: #fff;
 }
 
 .group-suggestions-header {

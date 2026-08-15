@@ -34,6 +34,7 @@ function defaultConfig(): Config {
     imageHosts: {
       thesungod: { enabled: false, apiKey: '' },
       imgbb: { enabled: false, apiKey: '' },
+      catbox: { enabled: true },
       redacted: { enabled: false }
     },
     torrentClient: {
@@ -73,6 +74,12 @@ function defaultConfig(): Config {
 
 function plan(toml: Record<string, unknown>, options?: Partial<SalmonImportInput>): SalmonImportPlan {
   return buildSalmonImportPlan({ toml, ...options }, defaultConfig())
+}
+
+function planWithCatboxDisabled(toml: Record<string, unknown>): SalmonImportPlan {
+  const current = defaultConfig()
+  current.imageHosts.catbox.enabled = false
+  return buildSalmonImportPlan({ toml }, current)
 }
 
 function row(result: SalmonImportPlan, id: string): ImportRow | undefined {
@@ -197,6 +204,32 @@ describe('buildSalmonImportPlan — image hosts and spectrals', () => {
     const result = plan({ image: { specs_uploader: 'imgbb', imgbb_key: 'imgbb-key' } })
     expect(values(result)).toMatchObject({ 'spectral.imageHost': 'imgbb' })
   })
+
+  it('imports catbox for general, cover, and spectral uploads', () => {
+    const result = planWithCatboxDisabled({
+      image: {
+        image_uploader: 'catbox',
+        cover_uploader: 'catbox',
+        specs_uploader: 'catbox'
+      }
+    })
+
+    expect(values(result)).toMatchObject({
+      'imageHosts.catbox.enabled': true,
+      'trackers.redacted.coverImageHost': 'catbox',
+      'trackers.orpheus.coverImageHost': 'catbox',
+      'spectral.imageHost': 'catbox'
+    })
+    expect(result.skipped).toEqual([])
+  })
+
+  it.each(['image_uploader', 'cover_uploader', 'specs_uploader'])(
+    'enables catbox when %s selects it',
+    (setting) => {
+      const result = planWithCatboxDisabled({ image: { [setting]: 'catbox' } })
+      expect(values(result)).toMatchObject({ 'imageHosts.catbox.enabled': true })
+    }
+  )
 
   it('leaves imgbb disabled when it is selected but has no key', () => {
     const result = plan({ image: { cover_uploader: 'imgbb' } })

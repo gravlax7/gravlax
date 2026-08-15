@@ -20,11 +20,11 @@ seeding.
 
 | Type | Supported services |
 | --- | --- |
-| Image hosts | Ra (thesungod), ImgBB, and the Redacted image host |
+| Image hosts | Ra (thesungod), ImgBB, catbox, and the Redacted image host |
 | Metadata providers | MusicBrainz and Deezer |
 | Torrent clients | qBittorrent |
 
-Only ImgBB supports spectral uploads. The Redacted image host requires an
+Only ImgBB & Catbox can be used spectral uploads. The Redacted image host requires an
 enabled Redacted tracker with an API key, and it can be used only for
 Redacted cover images.
 

@@ -144,6 +144,7 @@ const configInput: z.ZodType<Config> = z.object({
   imageHosts: z.object({
     thesungod: z.object({ enabled: z.boolean(), apiKey: z.string() }),
     imgbb: z.object({ enabled: z.boolean(), apiKey: z.string() }),
+    catbox: z.object({ enabled: z.boolean() }),
     redacted: z.object({ enabled: z.boolean() })
   }),
   torrentClient: z.object({

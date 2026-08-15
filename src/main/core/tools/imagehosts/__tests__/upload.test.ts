@@ -17,6 +17,7 @@ function cfg(): Config {
   c.imageHosts.imgbb.apiKey = 'imgbb-key'
   c.imageHosts.thesungod.enabled = true
   c.imageHosts.thesungod.apiKey = 'sun-key'
+  c.imageHosts.catbox.enabled = false
   c.imageHosts.redacted.enabled = true
   c.trackers.redacted.enabled = true
   c.trackers.redacted.siteUrl = 'https://redacted.example'
@@ -36,6 +37,12 @@ describe('selectCoverImageHost', () => {
     const c = cfg()
     expect(selectCoverImageHost(c, ['redacted'])).toBe('imgbb')
     expect(selectCoverImageHost(c, ['orpheus'])).toBe('thesungod')
+  })
+
+  it('selects catbox as a tracker cover host', () => {
+    const c = cfg()
+    c.trackers.orpheus.coverImageHost = 'catbox'
+    expect(selectCoverImageHost(c, ['orpheus'])).toBe('catbox')
   })
 
   it('prefers a non-redacted host when multiple trackers are selected', () => {
@@ -100,6 +107,29 @@ describe('uploadCoverImage', () => {
 
     expect(await uploadCoverImage(cfg(), 'thesungod', file)).toBe(
       'https://cdn.thesungod.xyz/images/a.jpg'
+    )
+  })
+
+  it('uploads anonymously to catbox', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-img-'))
+    const file = path.join(dir, 'cover.jpg')
+    await writeFile(file, JPEG)
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        expect(String(url)).toBe('https://catbox.moe/user/api.php')
+        const body = init?.body as FormData
+        expect(body.get('reqtype')).toBe('fileupload')
+        expect(body.get('userhash')).toBeNull()
+        expect(body.get('fileToUpload')).toBeInstanceOf(Blob)
+        expect((body.get('fileToUpload') as File).name).toBe('cover.jpg')
+        return new Response('https://files.catbox.moe/a.jpg\n')
+      })
+    )
+
+    expect(await uploadCoverImage(cfg(), 'catbox', file)).toBe(
+      'https://files.catbox.moe/a.jpg'
     )
   })
 
@@ -211,6 +241,47 @@ describe('uploadCoverImage', () => {
       status: 'failing',
       detail: 'Invalid API key'
     })
+  })
+
+  it('healthchecks catbox without an API key', async () => {
+    const c = cfg()
+    c.imageHosts.thesungod.enabled = false
+    c.imageHosts.imgbb.enabled = false
+    c.imageHosts.catbox.enabled = true
+    c.imageHosts.redacted.enabled = false
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('method not allowed', { status: 405 })))
+
+    const rows = await healthcheckImageHosts(c)
+    expect(rows.find((row) => row.id === 'img:catbox')).toMatchObject({
+      status: 'available',
+      detail: 'Available'
+    })
+  })
+
+  it('reports catbox as disabled without probing it', async () => {
+    const c = cfg()
+    c.imageHosts.thesungod.enabled = false
+    c.imageHosts.imgbb.enabled = false
+    c.imageHosts.catbox.enabled = false
+    c.imageHosts.redacted.enabled = false
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const rows = await healthcheckImageHosts(c)
+    expect(rows.find((row) => row.id === 'img:catbox')).toMatchObject({
+      status: 'disabled',
+      detail: 'Disabled'
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('returns null when catbox returns an empty response', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-img-'))
+    const file = path.join(dir, 'cover.jpg')
+    await writeFile(file, JPEG)
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('  \n')))
+
+    expect(await uploadCoverImage(cfg(), 'catbox', file)).toBeNull()
   })
 
   it('returns null on upload failure', async () => {

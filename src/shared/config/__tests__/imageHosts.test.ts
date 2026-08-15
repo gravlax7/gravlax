@@ -40,6 +40,7 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
     imageHosts: {
       thesungod: { enabled: false, apiKey: '' },
       imgbb: { enabled: false, apiKey: '' },
+      catbox: { enabled: false },
       redacted: { enabled: false }
     },
     torrentClient: {
@@ -85,29 +86,32 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
 }
 
 describe('imageHosts', () => {
-  it('marks only imgbb as supporting spectral upload', () => {
+  it('marks imgbb and catbox as supporting spectral upload', () => {
     expect(supportsSpectralUpload('imgbb')).toBe(true)
+    expect(supportsSpectralUpload('catbox')).toBe(true)
     expect(supportsSpectralUpload('thesungod')).toBe(false)
     expect(supportsSpectralUpload('redacted')).toBe(false)
   })
 
-  it('lists enabled hosts and filters spectral options to imgbb', () => {
+  it('lists enabled hosts and filters spectral options', () => {
     const cfg = baseConfig({
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: true, apiKey: 'key' },
+        catbox: { enabled: true },
         redacted: { enabled: false }
       }
     })
-    expect(enabledImageHostOptions(cfg)).toEqual(['thesungod', 'imgbb'])
-    expect(enabledSpectralImageHostOptions(cfg)).toEqual(['imgbb'])
+    expect(enabledImageHostOptions(cfg)).toEqual(['thesungod', 'imgbb', 'catbox'])
+    expect(enabledSpectralImageHostOptions(cfg)).toEqual(['imgbb', 'catbox'])
   })
 
-  it('returns no spectral options when imgbb is disabled', () => {
+  it('returns no spectral options when imgbb and catbox are disabled', () => {
     const cfg = baseConfig({
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: false, apiKey: '' },
+        catbox: { enabled: false },
         redacted: { enabled: false }
       }
     })
@@ -137,6 +141,7 @@ describe('imageHosts', () => {
       imageHosts: {
         thesungod: { enabled: false, apiKey: '' },
         imgbb: { enabled: false, apiKey: '' },
+        catbox: { enabled: false },
         redacted: { enabled: true }
       }
     })
@@ -175,11 +180,18 @@ describe('imageHosts', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: true, apiKey: 'key' },
+        catbox: { enabled: true },
         redacted: { enabled: true }
       }
     })
-    expect(coverImageHostOptions(cfg, 'redacted')).toEqual(['thesungod', 'imgbb', 'redacted'])
-    expect(coverImageHostOptions(cfg, 'orpheus')).toEqual(['thesungod', 'imgbb'])
+    expect(coverImageHostOptions(cfg, 'redacted')).toEqual([
+      'thesungod',
+      'imgbb',
+      'catbox',
+      'redacted'
+    ])
+    expect(coverImageHostOptions(cfg, 'orpheus')).toEqual(['thesungod', 'imgbb', 'catbox'])
+    expect(isValidCoverImageHost(cfg, 'orpheus', 'catbox')).toBe(true)
     expect(isValidCoverImageHost(cfg, 'redacted', 'redacted')).toBe(true)
     expect(isValidCoverImageHost(cfg, 'orpheus', 'redacted')).toBe(false)
   })
@@ -207,6 +219,7 @@ describe('imageHosts', () => {
       imageHosts: {
         thesungod: { enabled: false, apiKey: '' },
         imgbb: { enabled: true, apiKey: 'key' },
+        catbox: { enabled: false },
         redacted: { enabled: false }
       }
     })

@@ -54,7 +54,10 @@ export function selectCoverImageHost(
 ): CoverImageHostId | null {
   const hosts = selectedTrackerIds
     .map((id) => cfg.trackers[id]?.coverImageHost?.trim() ?? '')
-    .filter((h): h is CoverImageHostId => h === 'thesungod' || h === 'imgbb' || h === 'redacted')
+    .filter(
+      (h): h is CoverImageHostId =>
+        h === 'thesungod' || h === 'imgbb' || h === 'catbox' || h === 'redacted'
+    )
 
   if (hosts.length === 0) return null
   if (selectedTrackerIds.length > 1) {

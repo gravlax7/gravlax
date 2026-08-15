@@ -1,7 +1,7 @@
 import type { Config } from '@shared/types/config'
 import { canEnableRedactedImageHost } from '@shared/config/trackers'
 
-const SPECTRAL_UPLOAD_HOSTS = new Set(['imgbb'])
+const SPECTRAL_UPLOAD_HOSTS = new Set(['imgbb', 'catbox'])
 
 export type TrackerImageHostTarget = 'redacted' | 'orpheus'
 
@@ -13,6 +13,7 @@ export function enabledImageHostOptions(cfg: Config): string[] {
   const options: string[] = []
   if (cfg.imageHosts.thesungod.enabled) options.push('thesungod')
   if (cfg.imageHosts.imgbb.enabled) options.push('imgbb')
+  if (cfg.imageHosts.catbox.enabled) options.push('catbox')
   if (cfg.imageHosts.redacted.enabled && canEnableRedactedImageHost(cfg)) options.push('redacted')
   return options
 }

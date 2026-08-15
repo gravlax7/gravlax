@@ -19,6 +19,7 @@ import { Select } from '../components/Select'
 import { Toggle } from '../components/Toggle'
 import { ProviderIcon, providerFromFieldName } from '../components/ProviderIcon'
 import { TrackerIcon, trackerIdFromFieldName } from '../components/TrackerIcon'
+import { ImageHostIcon, imageHostIdFromFieldName } from '../components/ImageHostIcon'
 import { hasPrimaryModifier } from '../keybinds'
 import { Badge, Button, Callout, Divider, Icon, IconButton, Kbd, type IconName } from '../ui'
 
@@ -368,6 +369,7 @@ export function SettingsScreen(props: {
                       when={field.type === 'separator'}
                       fallback={
                         <FieldRow
+                          section={current().id}
                           field={field}
                           value={fieldValue(draft(), current().id, field)}
                           options={enumOptions(draft(), current().id, field)}
@@ -734,6 +736,7 @@ function StatusWarn() {
 }
 
 function FieldRow(props: {
+  section: SectionID
   field: FieldMetadata
   value: string
   options: string[]
@@ -764,6 +767,7 @@ function FieldRow(props: {
   }
 
   const trackerId = (): ReturnType<typeof trackerIdFromFieldName> => {
+    if (props.section !== 'trackers') return null
     const name = props.field.name
     if (name === 'redacted.enabled' || name === 'orpheus.enabled') {
       return trackerIdFromFieldName(name)
@@ -772,13 +776,20 @@ function FieldRow(props: {
   }
 
   const providerName = (): string | null => {
+    if (props.section !== 'metadataProviders') return null
     const name = props.field.name
     if (!name.endsWith('.enabled')) return null
     return providerFromFieldName(name)
   }
 
+  const imageHostId = (): ReturnType<typeof imageHostIdFromFieldName> => {
+    if (props.section !== 'imageHosts' || !props.field.name.endsWith('.enabled')) return null
+    return imageHostIdFromFieldName(props.field.name)
+  }
+
   const inlineIconToggle = (): boolean =>
-    props.field.type === 'bool' && (trackerId() != null || providerName() != null)
+    props.field.type === 'bool' &&
+    (trackerId() != null || providerName() != null || imageHostId() != null)
 
   return (
     <div style={{ 'margin-bottom': '18px' }}>
@@ -801,6 +812,9 @@ function FieldRow(props: {
           </Show>
           <Show when={providerName()}>
             {(name) => <ProviderIcon provider={name()} size={16} />}
+          </Show>
+          <Show when={imageHostId()}>
+            {(id) => <ImageHostIcon imageHostId={id()} size={16} />}
           </Show>
           <span>{label()}</span>
         </label>

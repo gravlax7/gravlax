@@ -77,6 +77,7 @@ export interface MetadataProviderConfig {
 export interface ImageHostsConfig {
   thesungod: ImageHostAPIKeyConfig
   imgbb: ImageHostAPIKeyConfig
+  catbox: ImageHostToggleConfig
   redacted: ImageHostToggleConfig
 }
 
