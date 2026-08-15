@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 import { imageFileBlob } from './file'
 import type { ImageHostProvider } from './provider'
 
@@ -28,7 +29,7 @@ export const imgbbProvider: ImageHostProvider = {
 
     const response = await fetch(UPLOAD_URL, {
       method: 'POST',
-      headers: { Referer: 'https://imgbb.com/', 'User-Agent': 'gravlax/1.0' },
+      headers: { Referer: 'https://imgbb.com/', 'User-Agent': DEFAULT_USER_AGENT },
       body: form,
       signal: AbortSignal.timeout(60_000)
     })

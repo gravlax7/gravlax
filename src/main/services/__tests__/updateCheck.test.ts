@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 import { checkForUpdate, compareVersions, releasePageUrl } from '../updateCheck'
 
 const currentVersion = '0.3.0'
@@ -23,7 +24,13 @@ describe('update checks', () => {
     })
     expect(fetch).toHaveBeenCalledWith(
       'https://api.github.com/repos/gravlax7/gravlax/releases/latest',
-      expect.objectContaining({ signal: expect.any(AbortSignal) })
+      expect.objectContaining({
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': DEFAULT_USER_AGENT
+        },
+        signal: expect.any(AbortSignal)
+      })
     )
   })
 

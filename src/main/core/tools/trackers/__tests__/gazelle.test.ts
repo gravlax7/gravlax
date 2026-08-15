@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 import {
   GazelleClient,
   RateLimiter,
@@ -74,7 +75,7 @@ describe('authHeaders', () => {
         apiKey: 'key',
         sessionCookie: 'cookie',
         preferApiKey: true,
-        userAgent: 'gravlax/1.0'
+        userAgent: 'test-client/1.0'
       })
     ).toMatchObject({ Authorization: 'key' })
   })
@@ -85,7 +86,7 @@ describe('authHeaders', () => {
         apiKey: '',
         sessionCookie: 'cookie',
         preferApiKey: true,
-        userAgent: 'gravlax/1.0'
+        userAgent: 'test-client/1.0'
       }).Cookie
     ).toBe('session=cookie')
     expect(
@@ -93,7 +94,7 @@ describe('authHeaders', () => {
         apiKey: 'key',
         sessionCookie: 'cookie',
         preferApiKey: false,
-        userAgent: 'gravlax/1.0'
+        userAgent: 'test-client/1.0'
       }).Cookie
     ).toBe('session=cookie')
   })
@@ -130,6 +131,7 @@ describe('GazelleClient', () => {
     expect(calls[0]?.url).toContain('action=index')
     const headers = new Headers(calls[0]?.headers)
     expect(headers.get('Authorization')).toBe('api-key')
+    expect(headers.get('User-Agent')).toBe(DEFAULT_USER_AGENT)
   })
 
   it('throws TrackerRequestError on failed envelope', async () => {

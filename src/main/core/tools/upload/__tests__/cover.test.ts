@@ -3,6 +3,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 import {
   downloadCoverIfNonexistent,
   getCoverFromPath,
@@ -72,17 +73,20 @@ describe('downloadCoverIfNonexistent', () => {
 
   it('downloads cover when missing', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-cover-'))
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      expect(new Headers(init?.headers).get('User-Agent')).toBe(DEFAULT_USER_AGENT)
+      return new Response(JPEG, { status: 200, headers: { 'Content-Type': 'image/jpeg' } })
+    })
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        new Response(JPEG, { status: 200, headers: { 'Content-Type': 'image/jpeg' } })
-      )
+      fetchMock
     )
 
     const result = await downloadCoverIfNonexistent(dir, 'https://example.com/art.jpg')
     expect(result.downloaded).toBe(true)
     expect(result.path).toBe(path.join(dir, 'cover.jpg'))
     expect(await isValidCoverImage(result.path!)).toBe(true)
+    expect(fetchMock).toHaveBeenCalledOnce()
   })
 
   it('rejects downloaded non-image payloads', async () => {

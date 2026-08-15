@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 import { normalizeTrackerUrl } from '@main/core/tools/trackers/gazelle'
 import { imageFileBlob } from './file'
 import { ImageHostUploadError, type ImageHostProvider } from './provider'
@@ -41,7 +42,7 @@ export const redactedProvider: ImageHostProvider = {
 
     const response = await fetch(uploadUrl(siteUrl), {
       method: 'POST',
-      headers: { Authorization: apiKey, 'User-Agent': 'gravlax/1.0' },
+      headers: { Authorization: apiKey, 'User-Agent': DEFAULT_USER_AGENT },
       body: form,
       signal: AbortSignal.timeout(60_000)
     })

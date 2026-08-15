@@ -1,4 +1,5 @@
 import type { UpdateCheckResult } from '@shared/types'
+import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 
 const LATEST_RELEASE_URL = 'https://api.github.com/repos/gravlax7/gravlax/releases/latest'
 const RELEASE_PAGE_ROOT = 'https://github.com/gravlax7/gravlax/releases/tag/'
@@ -20,7 +21,7 @@ export async function checkForUpdate(options: UpdateCheckOptions): Promise<Updat
     const response = await (options.fetch ?? globalThis.fetch)(LATEST_RELEASE_URL, {
       headers: {
         Accept: 'application/vnd.github+json',
-        'User-Agent': `Gravlax/${currentVersion}`
+        'User-Agent': DEFAULT_USER_AGENT
       },
       signal: AbortSignal.timeout(UPDATE_TIMEOUT_MS)
     })

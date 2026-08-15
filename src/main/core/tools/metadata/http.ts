@@ -1,4 +1,4 @@
-const DEFAULT_UA = 'gravlax/1.0'
+import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 
 export async function fetchText(
   url: string,
@@ -15,7 +15,7 @@ export async function fetchText(
     if (value) parsed.searchParams.set(key, value)
   }
   const headers = new Headers(options.headers)
-  if (!headers.has('User-Agent')) headers.set('User-Agent', DEFAULT_UA)
+  if (!headers.has('User-Agent')) headers.set('User-Agent', DEFAULT_USER_AGENT)
 
   const timeout = options.timeoutMs && options.timeoutMs > 0 ? AbortSignal.timeout(options.timeoutMs) : undefined
   const signals = [options.signal, timeout].filter(Boolean) as AbortSignal[]

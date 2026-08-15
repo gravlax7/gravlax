@@ -5,6 +5,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Config } from '@shared/types/config'
 import { defaultConfig } from '@main/core/config/defaults'
+import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 import { healthcheckImageHosts } from '../health'
 import { redactedProvider } from '../redacted'
 import { selectCoverImageHost, uploadCoverImage } from '../upload'
@@ -119,6 +120,7 @@ describe('uploadCoverImage', () => {
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
         expect(String(url)).toBe('https://catbox.moe/user/api.php')
+        expect(new Headers(init?.headers).get('User-Agent')).toBe(DEFAULT_USER_AGENT)
         const body = init?.body as FormData
         expect(body.get('reqtype')).toBe('fileupload')
         expect(body.get('userhash')).toBeNull()

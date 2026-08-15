@@ -1,3 +1,4 @@
+import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 import {
   extractHtmlErrorMessage,
   extractSiteUploadError,
@@ -19,7 +20,6 @@ import type {
 } from './types'
 import { asArray, asRecord, compileArtists, decodeHtml } from './json'
 
-const DEFAULT_UA = 'gravlax/1.0'
 const MAX_ATTEMPTS = 5
 const RETRY_WAIT_MS = 1000
 
@@ -168,7 +168,7 @@ export class GazelleClient {
     this.sessionCookie = options.sessionCookie
     this.releaseTypes = options.releaseTypes
     this.timeoutMs = options.timeoutMs ?? 10_000
-    this.userAgent = options.userAgent ?? DEFAULT_UA
+    this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT
     this.rateLimiters = rateLimitersForSite(this.siteUrl, options.rateLimits)
   }
 

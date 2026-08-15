@@ -1,5 +1,6 @@
 import { readdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 
 const COVER_NAME_RE = /^(cover|folder)\.(jpe?g|png)$/i
 const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff])
@@ -55,7 +56,7 @@ async function downloadCover(dir: string, coverUrl: string): Promise<string | nu
 
   try {
     const response = await fetch(coverUrl, {
-      headers: { 'User-Agent': 'gravlax/1.0' },
+      headers: { 'User-Agent': DEFAULT_USER_AGENT },
       signal: AbortSignal.timeout(30_000),
       redirect: 'follow'
     })
