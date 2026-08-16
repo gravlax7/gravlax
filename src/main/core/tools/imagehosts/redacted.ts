@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
+import { isHTTPSURL } from '@shared/config/network'
 import { normalizeTrackerUrl } from '@main/core/tools/trackers/gazelle'
 import { imageFileBlob } from './file'
 import { ImageHostUploadError, type ImageHostProvider } from './provider'
@@ -16,6 +17,7 @@ export const redactedProvider: ImageHostProvider = {
     const trackerReady =
       tracker.enabled && tracker.siteUrl.trim() !== '' && tracker.announceUrl.trim() !== ''
     const apiKey = tracker.apiKey.trim()
+    const secureSiteUrl = isHTTPSURL(tracker.siteUrl.trim())
     return {
       id: 'redacted',
       name: 'Redacted Image Host',
@@ -24,7 +26,11 @@ export const redactedProvider: ImageHostProvider = {
       apiKey,
       url: uploadUrl(tracker.siteUrl),
       headers: apiKey ? { Authorization: apiKey } : undefined,
-      blockedReason: trackerReady ? undefined : 'Requires Redacted tracker'
+      blockedReason: !trackerReady
+        ? 'Requires Redacted tracker'
+        : secureSiteUrl
+          ? undefined
+          : 'Redacted tracker site URL must use HTTPS'
     }
   },
 
@@ -32,6 +38,9 @@ export const redactedProvider: ImageHostProvider = {
     const tracker = cfg.trackers.redacted
     const siteUrl = normalizeTrackerUrl(tracker.siteUrl)
     if (!siteUrl) return null
+    if (!isHTTPSURL(siteUrl)) {
+      throw new ImageHostUploadError('RED image host requires a tracker HTTPS URL.')
+    }
     const apiKey = tracker.apiKey.trim()
     if (!apiKey) {
       throw new ImageHostUploadError('RED image host requires a Redacted API key.')

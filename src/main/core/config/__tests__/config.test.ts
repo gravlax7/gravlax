@@ -164,6 +164,22 @@ describe('config', () => {
     expect(validate(cfg).some((i) => i.field === 'savePath')).toBe(false)
   })
 
+  it('only allows qBittorrent HTTP on localhost or loopback', () => {
+    const cfg = defaultConfig()
+    cfg.torrentClient.url = 'http://192.168.1.20:8080'
+    expect(validate(cfg)).toContainEqual({
+      section: 'torrentClient',
+      field: 'url',
+      message: 'WebUI URL must use HTTPS, or HTTP on localhost/loopback'
+    })
+
+    cfg.torrentClient.url = 'https://192.168.1.20:8080'
+    expect(validate(cfg).some((issue) => issue.field === 'url')).toBe(false)
+
+    cfg.torrentClient.url = 'http://[::1]:8080'
+    expect(validate(cfg).some((issue) => issue.field === 'url')).toBe(false)
+  })
+
   it('validate requires a save path only when there is no seedbox to fall back to', () => {
     const cfg = defaultConfig()
     cfg.torrentClient.enabled = true
@@ -209,6 +225,23 @@ describe('config', () => {
     }
     const issues = validate(cfg)
     expect(issues.some((i) => i.section === 'trackers')).toBe(false)
+  })
+
+  it('requires HTTPS for enabled tracker URLs', () => {
+    const cfg = defaultConfig()
+    cfg.trackers.redacted = {
+      ...cfg.trackers.redacted,
+      enabled: true,
+      apiKey: 'key',
+      siteUrl: 'http://example.test',
+      announceUrl: 'https://example.test'
+    }
+
+    expect(validate(cfg)).toContainEqual({
+      section: 'trackers',
+      field: 'redacted.siteUrl',
+      message: 'Redacted site URL must use HTTPS'
+    })
   })
 
   it('loads legacy metadata provider keys and ignores removed providers', () => {

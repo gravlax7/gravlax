@@ -1,3 +1,4 @@
+import { isSafeQBittorrentURL } from '@shared/config/network'
 import type { TorrentClientConfig } from '@shared/types/config'
 
 export interface QBittorrentAddOptions {
@@ -156,7 +157,11 @@ export function createQBittorrentClient(cfg: TorrentClientConfig): QBittorrentCl
 }
 
 function normalizeBaseUrl(url: string): string {
-  return url.trim().replace(/\/+$/, '')
+  const normalized = url.trim().replace(/\/+$/, '')
+  if (!isSafeQBittorrentURL(normalized)) {
+    throw new Error('qBittorrent WebUI URL must use HTTPS, or HTTP on localhost/loopback')
+  }
+  return normalized
 }
 
 async function encodeMultipartForm(

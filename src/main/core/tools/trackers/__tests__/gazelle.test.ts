@@ -100,6 +100,14 @@ describe('authHeaders', () => {
   })
 })
 
+describe('GazelleClient', () => {
+  it('rejects HTTP tracker URLs before sending credentials', () => {
+    expect(() => client({ siteUrl: 'http://example.test' })).toThrow(
+      'Tracker site URL must use HTTPS'
+    )
+  })
+})
+
 describe('parseTorrentGroupIdFromUrl', () => {
   it('extracts id query param', () => {
     expect(parseTorrentGroupIdFromUrl('https://example.test/torrents.php?id=42&foo=1')).toBe(42)

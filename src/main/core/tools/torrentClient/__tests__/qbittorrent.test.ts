@@ -8,6 +8,17 @@ describe('QBittorrentClient', () => {
     vi.unstubAllGlobals()
   })
 
+  it('rejects non-loopback HTTP URLs before sending credentials', () => {
+    expect(
+      () =>
+        new QBittorrentClient({
+          url: 'http://192.168.1.20:8080',
+          username: 'user',
+          password: 'password'
+        })
+    ).toThrow('qBittorrent WebUI URL must use HTTPS, or HTTP on localhost/loopback')
+  })
+
   it('logs in and stores SID cookie', async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input)

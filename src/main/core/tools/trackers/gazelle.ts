@@ -1,4 +1,5 @@
 import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
+import { isHTTPSURL } from '@shared/config/network'
 import {
   extractHtmlErrorMessage,
   extractSiteUploadError,
@@ -148,6 +149,12 @@ export function resetTrackerRateLimiter(): void {
   rateLimitersBySite.clear()
 }
 
+function assertHTTPSURL(url: string, label: string): void {
+  if (url !== '' && !isHTTPSURL(url)) {
+    throw new TrackerRequestError(`Tracker ${label} must use HTTPS`)
+  }
+}
+
 export class GazelleClient {
   readonly siteUrl: string
   readonly announceUrl: string
@@ -164,6 +171,8 @@ export class GazelleClient {
   constructor(options: GazelleClientOptions) {
     this.siteUrl = normalizeTrackerUrl(options.siteUrl)
     this.announceUrl = normalizeTrackerUrl(options.announceUrl)
+    assertHTTPSURL(this.siteUrl, 'site URL')
+    assertHTTPSURL(this.announceUrl, 'announce URL')
     this.apiKey = options.apiKey
     this.sessionCookie = options.sessionCookie
     this.releaseTypes = options.releaseTypes

@@ -4,6 +4,7 @@ import {
   enabledSpectralImageHostOptions,
   isValidCoverImageHost
 } from '@shared/config/imageHosts'
+import { isHTTPSURL, isSafeQBittorrentURL } from '@shared/config/network'
 import { canEnableRedactedImageHost } from '@shared/config/trackers'
 import { listDescriptionTemplateIds } from '@shared/upload/templates'
 import { validateMultiDiscFolderTemplate, validateReleaseFolderTemplate, validateTrackFileTemplate } from '@shared/upload/naming'
@@ -76,8 +77,12 @@ export function validate(cfg: Config): ValidationIssue[] {
   if (cfg.torrentClient.enabled && cfg.torrentClient.url === '') {
     add('torrentClient', 'url', 'WebUI URL is required when torrent client is enabled')
   }
-  if (cfg.torrentClient.url !== '' && !validHTTPURL(cfg.torrentClient.url)) {
-    add('torrentClient', 'url', 'WebUI URL must be an http or https URL')
+  if (cfg.torrentClient.url !== '' && !isSafeQBittorrentURL(cfg.torrentClient.url)) {
+    add(
+      'torrentClient',
+      'url',
+      'WebUI URL must use HTTPS, or HTTP on localhost/loopback'
+    )
   }
   if (cfg.torrentClient.enabled) {
     if (cfg.torrentClient.useAutoTMM) {
@@ -166,15 +171,6 @@ export function validate(cfg: Config): ValidationIssue[] {
   return issues
 }
 
-function validHTTPURL(raw: string): boolean {
-  try {
-    const parsed = new URL(raw)
-    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.host !== ''
-  } catch {
-    return false
-  }
-}
-
 function validCleanPath(pathValue: string): boolean {
   const normalized = normalizePath(pathValue)
   const { path: expanded, ok } = expandPath(normalized)
@@ -201,8 +197,8 @@ function validateTracker(
   const siteUrl = normalizeTrackerUrl(tracker.siteUrl)
   if (siteUrl === '') {
     add('trackers', `${prefix}.siteUrl`, `${label} site URL is required when ${label} is enabled`)
-  } else if (!validHTTPURL(siteUrl)) {
-    add('trackers', `${prefix}.siteUrl`, `${label} site URL must be a valid http(s) URL`)
+  } else if (!isHTTPSURL(siteUrl)) {
+    add('trackers', `${prefix}.siteUrl`, `${label} site URL must use HTTPS`)
   }
 
   const announceUrl = normalizeTrackerUrl(tracker.announceUrl)
@@ -212,8 +208,8 @@ function validateTracker(
       `${prefix}.announceUrl`,
       `${label} announce URL is required when ${label} is enabled`
     )
-  } else if (!validHTTPURL(announceUrl)) {
-    add('trackers', `${prefix}.announceUrl`, `${label} announce URL must be a valid http(s) URL`)
+  } else if (!isHTTPSURL(announceUrl)) {
+    add('trackers', `${prefix}.announceUrl`, `${label} announce URL must use HTTPS`)
   }
 
   if (tracker.apiKey === '' && tracker.sessionCookie === '') {

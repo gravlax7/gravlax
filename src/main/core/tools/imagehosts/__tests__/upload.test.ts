@@ -161,6 +161,18 @@ describe('uploadCoverImage', () => {
     )
   })
 
+  it('rejects an HTTP redacted tracker before uploading credentials', async () => {
+    const c = cfg()
+    c.trackers.redacted.siteUrl = 'http://example.test'
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(uploadCoverImage(c, 'redacted', '/tmp/unused-cover.jpg')).rejects.toThrow(
+      'RED image host requires a tracker HTTPS URL.'
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('requires an API key instead of a session cookie for redacted', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-img-'))
     const file = path.join(dir, 'cover.jpg')

@@ -171,7 +171,7 @@ export function SettingsScreen(props: {
         setPaneId(first.section)
         props.onNotify({
           level: 'error',
-          message: `Save blocked: ${first.section}.${first.field} ${first.message}`
+          message: `Save blocked: ${first.message}`
         })
       }
       return false
@@ -314,9 +314,7 @@ export function SettingsScreen(props: {
                   <ul style={{ margin: '6px 0 0', padding: '0 0 0 18px' }}>
                     <For each={sectionIssues()}>
                       {(issue) => (
-                        <li style={{ 'font-size': 'var(--text-sm)' }}>
-                          {issue.field}: {issue.message}
-                        </li>
+                        <li style={{ 'font-size': 'var(--text-sm)' }}>{issue.message}</li>
                       )}
                     </For>
                   </ul>

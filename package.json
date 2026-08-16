@@ -18,7 +18,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "release-patch": "npm version patch && git push --follow-tags",
+    "install-electron": "node scripts/install-electron.cjs",
+    "postinstall": "node scripts/install-electron.cjs",
+    "release-patch": "bun run scripts/release-patch.ts",
     "dist": "bun run build && electron-builder",
     "dist:mac": "bun run build && electron-builder --mac",
     "dist:linux": "bun run build && electron-builder --linux",
@@ -30,20 +32,20 @@
     "junk": "^4.0.1",
     "node-html-parser": "^9.0.1",
     "node-id3": "^0.2.9",
-    "smol-toml": "^1.7.1",
-    "solid-js": "^1.9.5",
+    "smol-toml": "^1.8.0",
+    "solid-js": "^1.9.14",
     "ssh2": "^1.17.0",
-    "zod": "^3.24.2"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.13.3",
     "@types/ssh2": "^1.15.5",
-    "electron": "^40.0.0",
+    "electron": "^43.4.0",
     "electron-builder": "^25.1.8",
-    "electron-vite": "^3.0.0",
-    "typescript": "^5.8.2",
-    "vite": "^6.2.2",
-    "vite-plugin-solid": "^2.11.6",
-    "vitest": "^3.0.9"
+    "electron-vite": "^3.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.3",
+    "vite-plugin-solid": "^2.11.14",
+    "vitest": "^3.2.7"
   }
 }
