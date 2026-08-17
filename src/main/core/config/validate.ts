@@ -71,6 +71,13 @@ export function validate(cfg: Config): ValidationIssue[] {
   if (cfg.metadataProviders.requestTimeoutSeconds <= 0) {
     add('metadataProviders', 'requestTimeoutSeconds', 'request timeout must be positive')
   }
+  if (cfg.metadataProviders.discogs.enabled && cfg.metadataProviders.discogs.token.trim() === '') {
+    add(
+      'metadataProviders',
+      'discogs.token',
+      'Discogs token is required when Discogs is enabled'
+    )
+  }
 
   if (cfg.imageHosts.thesungod.enabled && cfg.imageHosts.thesungod.apiKey === '') {
     add('imageHosts', 'thesungod.apiKey', 'thesungod API key is required when thesungod is enabled')

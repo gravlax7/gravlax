@@ -59,6 +59,21 @@ describe('resolveMetadataUrl', () => {
     })
   })
 
+  it.each([
+    'https://www.discogs.com/release/432932',
+    'http://discogs.com/release/432932-Rounds/',
+    'https://www.discogs.com/fr/release/432932-Four-Tet-Rounds?utm_source=test#notes'
+  ])('resolves a Discogs release URL: %s', (url) => {
+    expect(resolveMetadataUrl(defaultConfig(), url)).toEqual({
+      ok: true,
+      selection: {
+        provider: 'Discogs',
+        releaseId: JSON.stringify('432932'),
+        url: 'https://www.discogs.com/release/432932'
+      }
+    })
+  })
+
   it('resolves a Bandcamp custom domain album URL', () => {
     expect(resolveMetadataUrl(defaultConfig(), 'https://music.example.com/album/foo')).toEqual({
       ok: true,
@@ -126,7 +141,12 @@ describe('resolveMetadataUrl', () => {
     'https://www.deezer.com/track/99',
     'https://www.deezer.com/playlist/99',
     'https://www.deezer.com/album/not-a-number',
-    'https://deezer.page.link/example'
+    'https://deezer.page.link/example',
+    'https://www.discogs.com/master/432932',
+    'https://www.discogs.com/release/not-a-number',
+    'https://www.discogs.com.evil.test/release/432932',
+    'https://user:pass@www.discogs.com/release/432932',
+    'https://www.discogs.com:444/release/432932'
   ])('rejects an unsupported URL: %s', (url) => {
     expect(resolveMetadataUrl(defaultConfig(), url)).toEqual({
       ok: false,

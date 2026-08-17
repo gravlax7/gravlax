@@ -90,6 +90,7 @@ function configInput() {
       musicBrainz: { enabled: true },
       deezer: { enabled: true },
       bandcamp: { enabled: true },
+      discogs: { enabled: false, token: '' },
       requestTimeoutSeconds: 10
     },
     imageHosts: {

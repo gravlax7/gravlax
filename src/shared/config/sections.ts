@@ -119,6 +119,14 @@ export function sections(): SectionMetadata[] {
         { name: 'musicBrainz.enabled', label: 'MusicBrainz enabled', type: 'bool' },
         { name: 'deezer.enabled', label: 'Deezer enabled', type: 'bool' },
         { name: 'bandcamp.enabled', label: 'Bandcamp enabled', type: 'bool' },
+        { name: 'discogs.enabled', label: 'Discogs enabled', type: 'bool' },
+        {
+          name: 'discogs.token',
+          label: 'Discogs token',
+          type: 'string',
+          sensitive: true,
+          description: 'Personal access token from your Discogs developer settings.'
+        },
         { name: 'requestTimeoutSeconds', label: 'Request timeout seconds', type: 'number' }
       ]
     },

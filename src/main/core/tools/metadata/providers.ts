@@ -2,6 +2,7 @@ import type { Config } from '@shared/types/config'
 import type { Provider } from './base'
 import { BANDCAMP_NAME, createBandcampProvider } from './bandcamp'
 import { createDeezerProvider, DEEZER_NAME } from './deezer'
+import { createDiscogsProvider, DISCOGS_NAME } from './discogs'
 import { timeoutMsFromConfig } from './http'
 import { createMusicBrainzProvider, MUSICBRAINZ_NAME } from './musicbrainz'
 
@@ -15,7 +16,8 @@ export function providerDefinitions(cfg: Config): ProviderDefinition[] {
   return [
     { name: MUSICBRAINZ_NAME, enabled: m.musicBrainz.enabled },
     { name: DEEZER_NAME, enabled: m.deezer.enabled },
-    { name: BANDCAMP_NAME, enabled: m.bandcamp.enabled }
+    { name: BANDCAMP_NAME, enabled: m.bandcamp.enabled },
+    { name: DISCOGS_NAME, enabled: m.discogs.enabled }
   ]
 }
 
@@ -24,6 +26,7 @@ export function createProviders(cfg: Config): Provider[] {
   return [
     createMusicBrainzProvider(timeoutMs),
     createDeezerProvider(timeoutMs),
-    createBandcampProvider(timeoutMs)
+    createBandcampProvider(timeoutMs),
+    createDiscogsProvider(cfg.metadataProviders.discogs.token, timeoutMs)
   ]
 }

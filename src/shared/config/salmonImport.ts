@@ -594,8 +594,23 @@ function mapMetadata(builder: PlanBuilder, toml: Record<string, unknown>): void 
   const metadata = table(toml, 'metadata')
   if (!metadata) return
 
+  const discogsToken = str(metadata, 'discogs_token')
+  if (discogsToken !== undefined) {
+    builder.add({
+      sourceKey: 'metadata.discogs_token',
+      section: 'metadataProviders',
+      field: 'discogs.token',
+      value: discogsToken
+    })
+    builder.add({
+      sourceKey: 'metadata.discogs_token',
+      section: 'metadataProviders',
+      field: 'discogs.enabled',
+      value: true
+    })
+  }
+
   const providers: Array<[string, boolean]> = [
-    ['metadata.discogs_token', str(metadata, 'discogs_token') !== undefined],
     ['metadata.tidal', str(table(metadata, 'tidal'), 'token') !== undefined],
     ['metadata.qobuz', str(table(metadata, 'qobuz'), 'app_id') !== undefined],
     ['metadata.beatport', str(table(metadata, 'beatport'), 'username') !== undefined],
@@ -603,7 +618,7 @@ function mapMetadata(builder: PlanBuilder, toml: Record<string, unknown>): void 
   ]
   for (const [key, present] of providers) {
     if (present) {
-      builder.skip(key, 'Gravlax fetches metadata from MusicBrainz, Deezer, and Bandcamp only.')
+      builder.skip(key, 'That metadata provider is not supported by Gravlax.')
     }
   }
 }

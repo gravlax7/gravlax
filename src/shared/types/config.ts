@@ -75,11 +75,16 @@ export interface MetadataProvidersConfig {
   musicBrainz: MetadataProviderConfig
   deezer: MetadataProviderConfig
   bandcamp: MetadataProviderConfig
+  discogs: DiscogsMetadataProviderConfig
   requestTimeoutSeconds: number
 }
 
 export interface MetadataProviderConfig {
   enabled: boolean
+}
+
+export interface DiscogsMetadataProviderConfig extends MetadataProviderConfig {
+  token: string
 }
 
 export interface ImageHostsConfig {

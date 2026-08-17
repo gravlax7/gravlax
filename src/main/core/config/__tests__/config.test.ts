@@ -30,6 +30,7 @@ describe('config', () => {
     expect(cfg.metadataProviders.musicBrainz.enabled).toBe(true)
     expect(cfg.metadataProviders.deezer.enabled).toBe(true)
     expect(cfg.metadataProviders.bandcamp.enabled).toBe(true)
+    expect(cfg.metadataProviders.discogs).toEqual({ enabled: false, token: '' })
     expect(cfg.imageHosts.catbox).toEqual({ enabled: true })
     expect(cfg.spectral.defaultSpectralIds).toBe('Random')
     expect(cfg.spectral.defaultSpectralIdsForLossyMasters).toBe('All')
@@ -290,7 +291,7 @@ describe('config', () => {
     })
   })
 
-  it('loads legacy metadata provider keys and ignores removed providers', () => {
+  it('loads legacy metadata provider keys and restores Discogs settings', () => {
     const cfg = mergeLoadedConfig({
       metadataProviders: {
         musicBrainzEnabled: true,
@@ -302,7 +303,22 @@ describe('config', () => {
     })
     expect(cfg.metadataProviders.musicBrainz.enabled).toBe(true)
     expect(cfg.metadataProviders.deezer.enabled).toBe(true)
-    expect(cfg.metadataProviders).not.toHaveProperty('discogs')
+    expect(cfg.metadataProviders.discogs).toEqual({ enabled: true, token: 'secret' })
+  })
+
+  it('reads, updates, and validates Discogs settings', () => {
+    let cfg = setFieldString(defaultConfig(), 'metadataProviders', 'discogs.token', 'secret')
+    cfg = setFieldBool(cfg, 'metadataProviders', 'discogs.enabled', true)
+    expect(fieldValue(cfg, 'metadataProviders', 'discogs.token')).toBe('secret')
+    expect(fieldBoolValue(cfg, 'metadataProviders', 'discogs.enabled')).toBe(true)
+    expect(validate(cfg).some((issue) => issue.field === 'discogs.token')).toBe(false)
+
+    cfg.metadataProviders.discogs.token = '  '
+    expect(validate(cfg)).toContainEqual({
+      section: 'metadataProviders',
+      field: 'discogs.token',
+      message: 'Discogs token is required when Discogs is enabled'
+    })
   })
 
   it('loads legacy flat trackers into nested shape', () => {

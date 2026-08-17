@@ -30,6 +30,7 @@ function defaultConfig(): Config {
       musicBrainz: { enabled: true },
       deezer: { enabled: true },
       bandcamp: { enabled: true },
+      discogs: { enabled: false, token: '' },
       requestTimeoutSeconds: 10
     },
     imageHosts: {
@@ -169,6 +170,16 @@ describe('buildSalmonImportPlan — directories and trackers', () => {
 
     expect(values(result)).toEqual({ 'directories.seeding': '.music' })
     expect(result.skipped.map((skip) => skip.sourceKey)).not.toContain('metadata.discogs_token')
+  })
+
+  it('imports a real Discogs token and enables the provider', () => {
+    const result = plan({ metadata: { discogs_token: 'real-discogs-token' } })
+
+    expect(values(result)).toMatchObject({
+      'metadataProviders.discogs.token': 'real-discogs-token',
+      'metadataProviders.discogs.enabled': true
+    })
+    expect(row(result, 'metadataProviders.discogs.token')?.sensitive).toBe(true)
   })
 
   it('drops rows whose value already matches the current config', () => {

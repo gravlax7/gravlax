@@ -89,6 +89,10 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return String(c.deezer.enabled)
         case 'bandcamp.enabled':
           return String(c.bandcamp.enabled)
+        case 'discogs.enabled':
+          return String(c.discogs.enabled)
+        case 'discogs.token':
+          return c.discogs.token
         case 'requestTimeoutSeconds':
           return String(c.requestTimeoutSeconds)
       }
@@ -246,6 +250,9 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       if (!canEnableRedactedImageHost(next)) next.imageHosts.redacted.enabled = false
       sanitizeCoverImageHosts(next)
       break
+    case 'metadataProviders':
+      if (field === 'discogs.token') next.metadataProviders.discogs.token = value
+      break
     case 'imageHosts':
       if (field === 'thesungod.apiKey') next.imageHosts.thesungod.apiKey = value
       if (field === 'imgbb.apiKey') next.imageHosts.imgbb.apiKey = value
@@ -321,6 +328,7 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
       if (field === 'musicBrainz.enabled') next.metadataProviders.musicBrainz.enabled = value
       if (field === 'deezer.enabled') next.metadataProviders.deezer.enabled = value
       if (field === 'bandcamp.enabled') next.metadataProviders.bandcamp.enabled = value
+      if (field === 'discogs.enabled') next.metadataProviders.discogs.enabled = value
       break
     case 'imageHosts':
       if (field === 'thesungod.enabled') next.imageHosts.thesungod.enabled = value

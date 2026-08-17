@@ -16,6 +16,12 @@ export function normalizeMetadataProviders(raw: unknown, base: Config['metadataP
   if (typeof obj.musicBrainzEnabled === 'boolean') {
     next.musicBrainz.enabled = obj.musicBrainzEnabled
   }
+  if (typeof obj.discogsEnabled === 'boolean') {
+    next.discogs.enabled = obj.discogsEnabled
+  }
+  if (typeof obj.discogsToken === 'string') {
+    next.discogs.token = obj.discogsToken
+  }
 
   if (obj.musicBrainz && typeof obj.musicBrainz === 'object') {
     next.musicBrainz = { ...next.musicBrainz, ...(obj.musicBrainz as object) }
@@ -25,6 +31,11 @@ export function normalizeMetadataProviders(raw: unknown, base: Config['metadataP
   }
   if (obj.bandcamp && typeof obj.bandcamp === 'object') {
     next.bandcamp = { ...next.bandcamp, ...(obj.bandcamp as object) }
+  }
+  if (obj.discogs && typeof obj.discogs === 'object') {
+    const discogs = obj.discogs as Record<string, unknown>
+    if (typeof discogs.enabled === 'boolean') next.discogs.enabled = discogs.enabled
+    if (typeof discogs.token === 'string') next.discogs.token = discogs.token
   }
   if (typeof obj.requestTimeoutSeconds === 'number') {
     next.requestTimeoutSeconds = obj.requestTimeoutSeconds
