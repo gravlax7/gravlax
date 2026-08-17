@@ -109,15 +109,14 @@ export function SettingsScreen(props: {
         : paneId() === 'updates'
           ? UPDATES_PANE.title
           : IMPORT_PANE.title)
-  const paneDescription = (): string | undefined =>
-    section()?.description ??
-    (paneId() === 'workspace'
-      ? WORKSPACE_PANE.description
-      : paneId() === 'statistics'
-        ? STATISTICS_PANE.description
-        : paneId() === 'updates'
-          ? UPDATES_PANE.description
-          : IMPORT_PANE.description)
+  const paneDescription = (): string | undefined => {
+    const current = section()
+    if (current) return current.description
+    if (paneId() === 'workspace') return WORKSPACE_PANE.description
+    if (paneId() === 'statistics') return STATISTICS_PANE.description
+    if (paneId() === 'updates') return UPDATES_PANE.description
+    return IMPORT_PANE.description
+  }
 
   const panes = createMemo(() => {
     const q = query().trim().toLowerCase()

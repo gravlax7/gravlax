@@ -22,18 +22,71 @@ const DISC_KEYS = new Set(['discNumber', 'discTotal'])
 const UNICODE_FORMAT_CHARACTERS = /\p{Cf}/gu
 const FOLDER_KEYS = new Set([
   'artists', 'albumArtist', 'title', 'year', 'groupYear', 'editionTitle', 'label',
-  'catNo', 'source', 'format', 'encoding', 'releaseType'
+  'catNo', 'upc', 'catNoOrUpc', 'source', 'format', 'encoding', 'releaseType'
 ])
+
+interface TemplatePart {
+  kind: 'field' | 'text'
+  value: string
+}
+
+function parseNamingTemplate(template: string): { parts: TemplatePart[]; unmatchedBrace: boolean } {
+  const parts: TemplatePart[] = []
+  let text = ''
+  let unmatchedBrace = false
+
+  const pushText = (): void => {
+    if (!text) return
+    parts.push({ kind: 'text', value: text })
+    text = ''
+  }
+
+  for (let index = 0; index < template.length;) {
+    const character = template[index]
+    const next = template[index + 1]
+
+    if (character === '{' && next === '{') {
+      text += '{'
+      index += 2
+      continue
+    }
+    if (character === '}' && next === '}') {
+      text += '}'
+      index += 2
+      continue
+    }
+    if (character === '{') {
+      const close = template.indexOf('}', index + 1)
+      const key = close === -1 ? '' : template.slice(index + 1, close)
+      if (close === -1 || !key || key.includes('{')) {
+        unmatchedBrace = true
+        text += character
+        index += 1
+        continue
+      }
+      pushText()
+      parts.push({ kind: 'field', value: key })
+      index = close + 1
+      continue
+    }
+    if (character === '}') unmatchedBrace = true
+    text += character
+    index += 1
+  }
+
+  pushText()
+  return { parts, unmatchedBrace }
+}
 
 export function validateNamingTemplate(template: string, allowed: ReadonlySet<string>): string[] {
   const errors: string[] = []
-  for (const match of template.matchAll(/\{([^{}]+)\}/g)) {
-    const key = match[1]
-    if (key && !allowed.has(key)) errors.push(`Unknown template field {${key}}.`)
+  const parsed = parseNamingTemplate(template)
+  for (const part of parsed.parts) {
+    if (part.kind === 'field' && !allowed.has(part.value)) {
+      errors.push(`Unknown template field {${part.value}}.`)
+    }
   }
-  if (template.includes('{') && !/^([^{}]|\{[^{}]+\})*$/.test(template)) {
-    errors.push('Template contains an unmatched brace.')
-  }
+  if (parsed.unmatchedBrace) errors.push('Template contains an unmatched brace.')
   return errors
 }
 
@@ -95,6 +148,8 @@ export function buildFilesRenamePlan(input: {
   }
 
   const year = release.year || release.groupYear || ''
+  const catNo = release.catNo ?? ''
+  const upc = release.upc ?? ''
   const generatedFolder = sanitize(renderTemplate(naming.releaseFolderTemplate, {
     artists: mainArtists(release.artists),
     albumArtist: release.albumArtist ?? '',
@@ -103,7 +158,9 @@ export function buildFilesRenamePlan(input: {
     groupYear: release.groupYear ?? '',
     editionTitle: release.editionTitle ?? '',
     label: release.label ?? '',
-    catNo: release.catNo ?? '',
+    catNo,
+    upc,
+    catNoOrUpc: catNo.trim() ? catNo : upc,
     source: input.sourceMedia,
     format: input.encoding === '24bit Lossless' ? '24bit FLAC' : 'FLAC',
     encoding: input.encoding ?? 'Lossless',
@@ -127,9 +184,15 @@ export function buildFilesRenamePlan(input: {
 }
 
 function renderTemplate(template: string, values: Record<string, string>): string {
-  let value = template.replace(/\{([^{}]+)\}/g, (_all, key: string) => values[key] ?? '')
+  let value = parseNamingTemplate(template).parts
+    .map((part) => part.kind === 'field' ? values[part.value] ?? '' : part.value)
+    .join('')
   value = value.replace(/\([^()]*\)/g, (part) => hasUsefulText(part.slice(1, -1)) ? part : '')
   value = value.replace(/\[[^\[\]]*\]/g, (part) => hasUsefulText(part.slice(1, -1)) ? part : '')
+  value = value.replace(/\{[^{}]*\}/g, (part) => {
+    const content = part.slice(1, -1).replace(/^[\s,;:/_-]+|[\s,;:/_-]+$/g, '')
+    return hasUsefulText(content) ? `{${content}}` : ''
+  })
   return value.replace(/\s+/g, ' ').replace(/^\s*[-–—]\s*|\s*[-–—]\s*$/g, '').trim()
 }
 

@@ -190,7 +190,7 @@ export function sections(): SectionMetadata[] {
           type: 'enum',
           options: []
         },
-        { name: 'releaseFolderTemplate', label: 'Release folder template', description: 'Fields: {artists}, {albumArtist}, {title}, {year}, {groupYear}, {editionTitle}, {label}, {catNo}, {source}, {format}, {encoding}, {releaseType}', type: 'string' },
+        { name: 'releaseFolderTemplate', label: 'Release folder template', description: 'Fields: {artists}, {albumArtist}, {title}, {year}, {groupYear}, {editionTitle}, {label}, {catNo}, {upc}, {catNoOrUpc}, {source}, {format}, {encoding}, {releaseType}. Use {{ and }} for literal braces, for example {{{label}, {catNoOrUpc}}}.', type: 'string' },
         { name: 'trackFileTemplate', label: 'Track file template', description: 'Fields: {trackNumber}, {discNumber}, {title}, {artist}', type: 'string' },
         { name: 'multiDiscFolderTemplate', label: 'Multi-disc folder template', description: 'Fields: {discNumber}, {discTotal}', type: 'string' }
       ]

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildFilesRenamePlan, isMultiDisc } from '../naming'
+import {
+  buildFilesRenamePlan,
+  isMultiDisc,
+  validateReleaseFolderTemplate,
+  validateTrackFileTemplate
+} from '../naming'
 
 const naming = {
   albumDescriptionTemplateId: 'x',
@@ -7,6 +12,51 @@ const naming = {
   trackFileTemplate: '{trackNumber}. {title}',
   multiDiscFolderTemplate: 'Disc {discNumber}'
 }
+
+function buildFolderPlan(
+  release: Parameters<typeof buildFilesRenamePlan>[0]['release'],
+  releaseFolderTemplate: string
+) {
+  return buildFilesRenamePlan({
+    release,
+    files: {
+      original: { captured: false, coverCaptured: false, folderName: 'old', files: [] },
+      apply: {
+        phase: 'idle',
+        onDiskModified: false,
+        stripEmbeddedCoverArt: true,
+        renameReleaseFolder: true,
+        currentFolderName: 'old',
+        files: []
+      }
+    },
+    naming: { ...naming, releaseFolderTemplate },
+    sourceMedia: 'WEB',
+    encoding: 'Lossless'
+  })
+}
+
+describe('naming template validation', () => {
+  it('accepts escaped literal braces around known fields', () => {
+    expect(validateReleaseFolderTemplate('{{{label}, {catNoOrUpc}}}')).toEqual([])
+    expect(validateTrackFileTemplate('{{{trackNumber}}}. {title}')).toEqual([])
+  })
+
+  it('reports unknown fields inside escaped braces', () => {
+    expect(validateReleaseFolderTemplate('{{{missing}}}')).toEqual([
+      'Unknown template field {missing}.'
+    ])
+  })
+
+  it.each(['{label', 'label}', '{}', '{{label}'])(
+    'reports unmatched braces in %s',
+    (template) => {
+      expect(validateReleaseFolderTemplate(template)).toContain(
+        'Template contains an unmatched brace.'
+      )
+    }
+  )
+})
 
 describe('buildFilesRenamePlan', () => {
   it('pads tracks and creates disc and release folders', () => {
@@ -82,6 +132,32 @@ describe('buildFilesRenamePlan', () => {
 
     expect(plan.folderName).toBe('Clean Folder')
     expect(plan.files[0]?.targetPath).toBe('02. Cosmos.flac')
+    expect(plan.errors).toEqual([])
+  })
+
+  it('renders raw UPC and prefers CatNo in the fallback field', () => {
+    const release = { title: 'Album', label: 'Label', catNo: 'CAT-001', upc: '123456789' }
+
+    expect(buildFolderPlan(release, '{title} [{upc}]').folderName).toBe(
+      'Album [123456789]'
+    )
+    expect(
+      buildFolderPlan(release, '{title} {{{label}, {catNoOrUpc}}}').folderName
+    ).toBe('Album {Label, CAT-001}')
+  })
+
+  it.each([
+    [{ label: 'Label', upc: '123456789' }, 'Album {Label, 123456789}'],
+    [{ label: 'Label' }, 'Album {Label}'],
+    [{ upc: '123456789' }, 'Album {123456789}'],
+    [{}, 'Album']
+  ])('cleans missing values from a literal brace group', (fields, expected) => {
+    const plan = buildFolderPlan(
+      { title: 'Album', ...fields },
+      '{title} {{{label}, {catNoOrUpc}}}'
+    )
+
+    expect(plan.folderName).toBe(expected)
     expect(plan.errors).toEqual([])
   })
 })
