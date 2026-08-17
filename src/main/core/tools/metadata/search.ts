@@ -11,8 +11,7 @@ import { createProviders, providerDefinitions } from './providers'
 
 const DEFAULT_SEARCH_LIMIT = 10
 
-const UNSUPPORTED_URL_ERROR =
-  'Enter a MusicBrainz release URL or a Deezer album URL.'
+const UNSUPPORTED_URL_ERROR = 'Enter a supported release URL.'
 
 export function resolveMetadataUrl(cfg: Config, rawURL: string): MetadataUrlResolution {
   const value = rawURL.trim()

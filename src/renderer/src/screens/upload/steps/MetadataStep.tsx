@@ -43,7 +43,7 @@ export function MetadataStep(props: {
   const loadReleaseUrl = async (): Promise<void> => {
     const url = releaseUrl().trim()
     if (!url) {
-      setUrlError('Enter a MusicBrainz release URL or a Deezer album URL.')
+      setUrlError('Enter a supported release URL.')
       return
     }
 
@@ -83,7 +83,7 @@ export function MetadataStep(props: {
             type="text"
             inputmode="url"
             value={releaseUrl()}
-            placeholder="MusicBrainz release or Deezer album URL"
+            placeholder="Release URL"
             autocomplete="off"
             spellcheck={false}
             onInput={(event) => {

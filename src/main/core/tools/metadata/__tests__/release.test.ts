@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import { formatArtists } from '@shared/tags/editor'
-import { normalizeProviderRelease } from '../release'
+import { createDeezerProvider } from '../deezer'
+import { createMusicBrainzProvider } from '../musicbrainz'
+import { finalizeNormalizedRelease } from '../normalization'
+
+const deezer = createDeezerProvider(5000)
+const musicBrainz = createMusicBrainzProvider(5000)
+
+function normalizeProviderRelease(
+  raw: Record<string, unknown>,
+  provider: string,
+  url: string
+) {
+  const mapped =
+    provider === 'MusicBrainz'
+      ? musicBrainz.mapRelease(raw, url)
+      : deezer.mapRelease(raw, url)
+  return finalizeNormalizedRelease(mapped)
+}
 
 describe('normalizeProviderRelease artists', () => {
   it('unwraps Deezer single artist objects and contributor roles', () => {
@@ -320,7 +337,7 @@ describe('normalizeProviderRelease artists', () => {
         title: 'Album',
         artists: [{ name: 'Four Tet' }, { name: 'Burial' }]
       },
-      'Manual',
+      'Deezer',
       ''
     )
 
@@ -330,45 +347,34 @@ describe('normalizeProviderRelease artists', () => {
     ])
   })
 
-  it('marks featured track artists as guest from joinphrases and credits', () => {
+  it('marks MusicBrainz featured track artists as guests from joinphrases', () => {
     const release = normalizeProviderRelease(
       {
         title: 'Album',
-        artists: [{ name: 'Four Tet' }],
-        tracklist: [
+        'artist-credit': [{ name: 'Four Tet', artist: { name: 'Four Tet' } }],
+        media: [
           {
-            title: 'Angel Echoes',
-            'artist-credit': [
-              { name: 'Four Tet', joinphrase: ' feat. ', artist: { name: 'Four Tet' } },
-              { name: 'Burial', artist: { name: 'Burial' } }
+            position: 1,
+            tracks: [
+              {
+                number: '1',
+                title: 'Angel Echoes',
+                'artist-credit': [
+                  { name: 'Four Tet', joinphrase: ' feat. ', artist: { name: 'Four Tet' } },
+                  { name: 'Burial', artist: { name: 'Burial' } }
+                ]
+              }
             ]
-          },
-          {
-            title: 'Love Cry',
-            artists: [{ name: 'Four Tet' }],
-            extraartists: [{ name: 'My Brightest Diamond', role: 'Featuring' }]
-          },
-          {
-            title: 'Sing',
-            artist: 'Four Tet feat. Dirty Projectors'
           }
         ]
       },
-      'Mixed',
+      'MusicBrainz',
       ''
     )
 
     expect(release.tracks?.[0]?.artists).toEqual([
       { name: 'Four Tet', role: 'main' },
       { name: 'Burial', role: 'guest' }
-    ])
-    expect(release.tracks?.[1]?.artists).toEqual([
-      { name: 'Four Tet', role: 'main' },
-      { name: 'My Brightest Diamond', role: 'guest' }
-    ])
-    expect(release.tracks?.[2]?.artists).toEqual([
-      { name: 'Four Tet', role: 'main' },
-      { name: 'Dirty Projectors', role: 'guest' }
     ])
   })
 
@@ -384,7 +390,7 @@ describe('normalizeProviderRelease artists', () => {
           }
         ]
       },
-      'Manual',
+      'Deezer',
       ''
     )
 
@@ -414,7 +420,7 @@ describe('normalizeProviderRelease artists', () => {
           }
         ]
       },
-      'Manual',
+      'Deezer',
       ''
     )
 
@@ -519,7 +525,7 @@ describe('normalizeProviderRelease artists', () => {
           { title: 'Two', artist: { name: 'Artist B' } }
         ]
       },
-      'Manual',
+      'Deezer',
       ''
     )
 
@@ -538,7 +544,7 @@ describe('normalizeProviderRelease artists', () => {
           { title: 'Two', artist: { name: 'Artist B' } }
         ]
       },
-      'Manual',
+      'Deezer',
       ''
     )
 
@@ -566,7 +572,7 @@ describe('normalizeProviderRelease artists', () => {
           }
         ]
       },
-      'Manual',
+      'Deezer',
       ''
     )
 

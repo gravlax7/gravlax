@@ -94,7 +94,7 @@ describe('resolveMetadataUrl', () => {
   ])('rejects an unsupported URL: %s', (url) => {
     expect(resolveMetadataUrl(defaultConfig(), url)).toEqual({
       ok: false,
-      error: 'Enter a MusicBrainz release URL or a Deezer album URL.'
+      error: 'Enter a supported release URL.'
     })
   })
 })

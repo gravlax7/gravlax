@@ -1,3 +1,5 @@
+import type { Release } from '@shared/types'
+
 export const ERR_FETCH_NOT_IMPLEMENTED = new Error('fetch data is not implemented for this provider')
 
 export interface IdentData {
@@ -20,6 +22,7 @@ export interface Provider {
   searchReleases(search: string, limit: number, signal?: AbortSignal): Promise<ReleaseResult[]>
   releaseIDFromURL(url: URL): unknown | null
   fetchData(releaseURL: string, releaseID: unknown, signal?: AbortSignal): Promise<Record<string, unknown>>
+  mapRelease(raw: Record<string, unknown>, releaseURL: string): Release
   formatURL(releaseID: unknown, releaseName: string, rawURL: string): string
 }
 

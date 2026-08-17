@@ -53,6 +53,9 @@ function mockProvider(
     async fetchData() {
       return {}
     },
+    mapRelease() {
+      return {}
+    },
     formatURL(releaseID) {
       return `https://example.test/${name}/${String(releaseID)}`
     }
