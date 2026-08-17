@@ -16,8 +16,20 @@ export function validate(cfg: Config): ValidationIssue[] {
     issues.push({ section, field, message })
   }
 
-  if (!oneOf(cfg.appearance.theme, 'system', 'dark', 'light')) {
-    add('appearance', 'theme', 'theme must be system, dark, or light')
+  if (
+    !oneOf(
+      cfg.appearance.theme,
+      'system',
+      'dark',
+      'midnight',
+      'fjord',
+      'ember',
+      'phosphor',
+      'light',
+      'inkwell'
+    )
+  ) {
+    add('appearance', 'theme', 'theme is not supported')
   }
 
   validateTracker(cfg.trackers.redacted, 'redacted', 'Redacted', add)

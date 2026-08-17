@@ -119,6 +119,221 @@
   --toggle-thumb: #ffffff;
 }
 
+[data-theme='midnight'] {
+  --accent: #8ab5f9;
+  --accent-hover: #b6d1fc;
+  --accent-dim: #8ab5f926;
+  --accent-border: #8ab5f966;
+  --accent-fg: #0f1324;
+
+  --info: #8dd6e7;
+  --progress: #bda7f1;
+  --warning: #f0bf75;
+  --error: #ef8096;
+  --success: #92d9ac;
+
+  --diff-removed: #ee96a7;
+  --diff-added: #9ad6b0;
+  --meta-label: #f9b79a;
+
+  --bg-base: #0c0e15;
+  --bg-surface: #13151e;
+  --bg-raised: #1b1d27;
+  --bg-hover: #262936;
+  --bg-overlay: rgba(5, 7, 16, 0.72);
+
+  --fg-primary: #d7dcea;
+  --fg-secondary: #a3abc2;
+  --fg-muted: #7b839d;
+  --fg-faint: #585c6f;
+
+  --border: #292c38;
+  --border-strong: #424557;
+  --border-focus: var(--accent);
+  --focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.72);
+
+  --toggle-track: #424557;
+  --toggle-track-hover: #50556d;
+  --toggle-thumb: #d7dcea;
+}
+
+/* Cold Nordic sea: deep teal-black water, warm salmon accent. */
+[data-theme='fjord'] {
+  --accent: #f28469;
+  --accent-hover: #f69c84;
+  --accent-dim: #f2846926;
+  --accent-border: #f2846966;
+  --accent-fg: #0f1c24;
+
+  --info: #79c3d8;
+  --progress: #b89ce8;
+  --warning: #f5b85c;
+  --error: #eb6067;
+  --success: #6ac8a6;
+
+  --diff-removed: #e6949a;
+  --diff-added: #8eccad;
+  --meta-label: #e77ea1;
+
+  --bg-base: #11181c;
+  --bg-surface: #182025;
+  --bg-raised: #20292f;
+  --bg-hover: #2e383e;
+  --bg-overlay: rgba(6, 14, 18, 0.7);
+
+  --fg-primary: #e3ebed;
+  --fg-secondary: #a8b7bd;
+  --fg-muted: #809199;
+  --fg-faint: #5c6970;
+
+  --border: #2b353b;
+  --border-strong: #425057;
+  --border-focus: var(--accent);
+  --focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.72);
+
+  --toggle-track: #425057;
+  --toggle-track-hover: #51636c;
+  --toggle-thumb: #e3ebed;
+
+  --bg-elevated: var(--bg-surface);
+}
+
+[data-theme='ember'] {
+  --accent: #ff884d;
+  --accent-hover: #ffa070;
+  --accent-dim: #ff884d26;
+  --accent-border: #ff884d66;
+  --accent-fg: #261408;
+
+  --info: #91cfed;
+  --progress: #d1aae4;
+  --warning: #f2c65f;
+  --error: #e67078;
+  --success: #a2cb90;
+
+  --diff-removed: #e28d92;
+  --diff-added: #a9cb9a;
+  --meta-label: #efa9ba;
+
+  --bg-base: #14100e;
+  --bg-surface: #1c1714;
+  --bg-raised: #26201c;
+  --bg-hover: #342d27;
+  --bg-overlay: rgba(12, 8, 6, 0.72);
+
+  --fg-primary: #e9e3dd;
+  --fg-secondary: #bcb2a9;
+  --fg-muted: #988b81;
+  --fg-faint: #6c625a;
+
+  --border: #362f2b;
+  --border-strong: #554b44;
+  --border-focus: var(--accent);
+  --focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.48);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.58);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.7);
+
+  --toggle-track: #554b44;
+  --toggle-track-hover: #6a5c53;
+  --toggle-thumb: #e9e3dd;
+}
+
+/* Green-phosphor CRT terminal: monochrome green glow on near-black. */
+[data-theme='phosphor'] {
+  --accent: #4ce077;
+  --accent-hover: #7bec9d;
+  --accent-dim: #4ce07726;
+  --accent-border: #4ce07766;
+  --accent-fg: #061207;
+
+  --info: #63c7d8;
+  --progress: #e8c464;
+  --warning: #f28c4d;
+  --error: #f26d6d;
+  --success: #5ce08a;
+
+  --diff-removed: #e8837c;
+  --diff-added: #84d99b;
+  --meta-label: #9fe6b8;
+
+  --bg-base: #070a07;
+  --bg-surface: #0c110c;
+  --bg-raised: #121912;
+  --bg-hover: #1c261c;
+  --bg-overlay: rgba(3, 6, 3, 0.72);
+
+  --fg-primary: #d4ecd8;
+  --fg-secondary: #9dbfa4;
+  --fg-muted: #6f9377;
+  --fg-faint: #48604d;
+
+  --border: #1e2c1f;
+  --border-strong: #324933;
+  --border-focus: var(--accent);
+  --focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.72);
+
+  --toggle-track: #324933;
+  --toggle-track-hover: #3f5c41;
+  --toggle-thumb: #d4ecd8;
+}
+
+/* Fountain pen on cool white paper: crisp ink text, indigo accent. */
+[data-theme='inkwell'] {
+  --accent: #2e3ecd;
+  --accent-hover: #232fa8;
+  --accent-dim: #2e3ecd1f;
+  --accent-border: #2e3ecd66;
+  --accent-fg: #ffffff;
+
+  --info: #0b6fa4;
+  --progress: #7c3fc8;
+  --warning: #9a6200;
+  --error: #c22e2e;
+  --success: #177a4c;
+
+  --diff-removed: #b33640;
+  --diff-added: #20774a;
+  --meta-label: #9c3670;
+
+  --bg-base: #f4f5f8;
+  --bg-surface: #ffffff;
+  --bg-raised: #ffffff;
+  --bg-hover: #e8eaf1;
+  --bg-overlay: rgba(18, 20, 32, 0.4);
+
+  --fg-primary: #14161f;
+  --fg-secondary: #4a4e5c;
+  --fg-muted: #787d8c;
+  --fg-faint: #a8acb8;
+
+  --border: #dcdfe6;
+  --border-strong: #c0c4cf;
+  --border-focus: var(--accent);
+  --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+
+  --shadow-sm: 0 1px 2px rgba(25, 30, 55, 0.08);
+  --shadow-md: 0 8px 24px rgba(25, 30, 55, 0.12);
+  --shadow-lg: 0 16px 48px rgba(25, 30, 55, 0.16);
+
+  --toggle-track: #c0c4cf;
+  --toggle-track-hover: #a8acb8;
+  --toggle-thumb: #ffffff;
+}
+
 *,
 *::before,
 *::after {

@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { sanitizeCoverImageHosts, supportsSpectralUpload } from '@shared/config/imageHosts'
+import { isThemePreference } from '@shared/theme'
 import type { Config } from '@shared/types/config'
 import { defaultConfig } from './defaults'
 import { normalizePath } from './paths'
@@ -241,6 +242,9 @@ export function mergeLoadedConfig(raw: unknown): Config {
   }
   if (cfg.spectral.imageHost !== '' && !supportsSpectralUpload(cfg.spectral.imageHost)) {
     cfg.spectral.imageHost = ''
+  }
+  if (!isThemePreference(cfg.appearance.theme)) {
+    cfg.appearance.theme = defaultConfig().appearance.theme
   }
   sanitizeCoverImageHosts(cfg)
   return cfg

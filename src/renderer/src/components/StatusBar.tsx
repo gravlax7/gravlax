@@ -1,5 +1,5 @@
 import type { HealthResult, UploadFlowStateJSON } from '@shared/types'
-import type { ResolvedTheme } from '@shared/theme'
+import { isLightTheme, type ResolvedTheme } from '@shared/theme'
 import { UPLOAD_STEPS } from '@shared/upload/stepGating'
 import { Icon, IconButton, type IconName } from '../ui'
 
@@ -111,8 +111,8 @@ export function StatusBar(props: {
       </span>
 
       <IconButton
-        icon={props.theme === 'dark' ? 'moon' : 'sun'}
-        label={props.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        icon={isLightTheme(props.theme) ? 'sun' : 'moon'}
+        label={isLightTheme(props.theme) ? 'Switch to dark theme' : 'Switch to light theme'}
         size="sm"
         onClick={props.onToggleTheme}
       />

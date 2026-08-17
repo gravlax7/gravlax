@@ -57,6 +57,11 @@ describe('config', () => {
     expect(resetSection(loaded, 'tools').tools).toEqual(defaultConfig().tools)
   })
 
+  it.each(['aurora', 'plum'])('replaces retired %s theme settings', (theme) => {
+    const cfg = mergeLoadedConfig({ appearance: { theme } })
+    expect(cfg.appearance.theme).toBe('system')
+  })
+
   it('adds the enabled catbox default when loading an older config', () => {
     const cfg = mergeLoadedConfig({
       imageHosts: { imgbb: { enabled: true, apiKey: 'key' } }

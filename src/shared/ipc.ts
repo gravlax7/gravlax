@@ -126,7 +126,9 @@ const trackerConfig = z.object({
   coverImageHost: z.string()
 })
 const configInput: z.ZodType<Config> = z.object({
-  appearance: z.object({ theme: z.enum(['system', 'dark', 'light']) }),
+  appearance: z.object({
+    theme: z.enum(['system', 'dark', 'midnight', 'fjord', 'ember', 'phosphor', 'light', 'inkwell'])
+  }),
   directories: z.object({ source: z.string(), torrents: z.string(), seeding: z.string() }),
   tools: z.object({
     sox: z.string(),

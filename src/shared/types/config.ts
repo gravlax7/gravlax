@@ -12,7 +12,15 @@ export type SectionID =
   | 'cleanup'
   | 'workflow'
 
-export type ThemePreference = 'system' | 'dark' | 'light'
+export type ThemePreference =
+  | 'system'
+  | 'dark'
+  | 'midnight'
+  | 'fjord'
+  | 'ember'
+  | 'phosphor'
+  | 'light'
+  | 'inkwell'
 
 export type FieldType = 'bool' | 'string' | 'number' | 'enum' | 'path' | 'file' | 'url' | 'separator'
 

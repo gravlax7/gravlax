@@ -755,7 +755,12 @@ function FieldRow(props: {
     if (props.field.name === 'theme') {
       if (value === 'system') return 'System'
       if (value === 'dark') return 'Dark'
+      if (value === 'midnight') return 'Midnight'
+      if (value === 'fjord') return 'Fjord'
+      if (value === 'ember') return 'Ember'
+      if (value === 'phosphor') return 'Phosphor'
       if (value === 'light') return 'Light'
+      if (value === 'inkwell') return 'Inkwell'
     }
     if (props.field.name === 'albumDescriptionTemplateId') {
       return descriptionTemplateName(value)

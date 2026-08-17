@@ -12,6 +12,7 @@ import { totalUploads } from '@shared/types'
 import type { Config } from '@shared/types/config'
 import type { UploadStats } from '@shared/types/stats'
 import { activeBackgroundTasks, UPLOAD_STEPS } from '@shared/upload/stepGating'
+import { isLightTheme } from '@shared/theme'
 import { StatusBar, summarizeHealth } from './components/StatusBar'
 import { TaskWidget } from './components/TaskWidget'
 import { ToastStack, type ToastItem } from './components/Toast'
@@ -92,7 +93,7 @@ export default function App() {
   const toggleTheme = async (): Promise<void> => {
     const cfg = config()
     if (!cfg) return
-    const nextTheme = theme() === 'dark' ? 'light' : 'dark'
+    const nextTheme = isLightTheme(theme()) ? 'dark' : 'light'
     const next: Config = {
       ...cfg,
       appearance: { ...cfg.appearance, theme: nextTheme }

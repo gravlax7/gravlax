@@ -10,9 +10,9 @@ export function sections(): SectionMetadata[] {
         {
           name: 'theme',
           label: 'Theme',
-          description: 'Use system appearance, or force dark or light.',
+          description: 'Follow the system or choose a color theme.',
           type: 'enum',
-          options: ['system', 'dark', 'light']
+          options: ['system', 'dark', 'midnight', 'fjord', 'ember', 'phosphor', 'light', 'inkwell']
         }
       ]
     },
