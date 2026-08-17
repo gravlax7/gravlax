@@ -11,12 +11,14 @@ import { automaticToolResolver } from '@main/core/tools/binaries'
 
 let userDataPath = ''
 let sourceRoot = ''
+const trashItem = vi.fn(async (_path: string): Promise<void> => undefined)
 
 function newSession(config = defaultConfig()): UploadSession {
   return new UploadSession({
     appVersion: 'test',
     userDataPath,
     getConfig: () => config,
+    trashItem,
     tools: automaticToolResolver,
     send: () => {}
   })
@@ -40,6 +42,8 @@ async function workspaceDirs(): Promise<string[]> {
 }
 
 beforeEach(async () => {
+  trashItem.mockReset()
+  trashItem.mockResolvedValue(undefined)
   userDataPath = await mkdtemp(join(tmpdir(), 'gravlax-userdata-'))
   sourceRoot = await mkdtemp(join(tmpdir(), 'gravlax-source-'))
 })
@@ -180,6 +184,7 @@ describe('finishing an upload', () => {
     const entries = await session.listStartEntries()
     expect(entries.uploadedEntries).toHaveLength(1)
     expect(entries.uploadedEntries[0]?.artists).toEqual(['Main Artist'])
+    expect(trashItem).not.toHaveBeenCalled()
   })
 
   it('keeps a resumable workspace when cleanup is disabled', async () => {
@@ -197,6 +202,94 @@ describe('finishing an upload', () => {
     const entries = await session.listStartEntries()
     expect(entries.resumeEntries).toHaveLength(0)
     expect(entries.uploadedEntries).toHaveLength(1)
+  })
+
+  it('moves the original source folder to Trash when enabled', async () => {
+    const config = defaultConfig()
+    config.cleanup.deleteOriginalFolder = true
+    const { session } = await settledSession(config, 'done')
+    const sourcePath = session.getState().draft.sourcePath
+
+    await expect(session.finish()).resolves.toEqual({ ok: true })
+
+    expect(trashItem).toHaveBeenCalledOnce()
+    expect(trashItem).toHaveBeenCalledWith(sourcePath)
+  })
+
+  it('still finishes when the original folder cannot be moved to Trash', async () => {
+    const config = defaultConfig()
+    config.cleanup.deleteOriginalFolder = true
+    trashItem.mockRejectedValueOnce(new Error('Trash is unavailable'))
+    const { session } = await settledSession(config, 'done')
+
+    await expect(session.finish()).resolves.toEqual({ ok: true })
+
+    expect(session.getState()).toEqual(newState())
+    expect(trashItem).toHaveBeenCalledOnce()
+  })
+
+  it('archives the FLAC folder and transcodes but leaves spectrals in the workspace', async () => {
+    const config = defaultConfig()
+    const archiveRoot = join(sourceRoot, 'archive')
+    config.cleanup.archiveDirectory = archiveRoot
+    const { session, workspacePath } = await settledSession(config, 'done')
+    const workspaceRootPath = uploadWorkspaceRootForPath(workspacePath)
+    const transcodePath = join(workspaceRootPath, 'Finished Album [MP3 V0]')
+    const spectralsPath = join(workspaceRootPath, 'Spectrals')
+    await mkdir(transcodePath)
+    await writeFile(join(transcodePath, '01.mp3'), 'not really an mp3')
+    await mkdir(spectralsPath, { recursive: true })
+    await writeFile(join(spectralsPath, '01.png'), 'spectral image')
+
+    const state = session.getState() as State
+    state.transcode.jobs = [
+      { optionId: 'transcode-V0', status: 'succeeded', outputPath: transcodePath },
+      {
+        optionId: 'transcode-320',
+        status: 'succeeded',
+        outputPath: join(workspaceRootPath, 'Missing MP3 320')
+      }
+    ]
+    setState(session, state)
+
+    await expect(session.finish()).resolves.toEqual({ ok: true })
+
+    await expect(readFile(join(archiveRoot, 'finished-album', '01.flac'), 'utf8')).resolves.toBe(
+      'not really a flac'
+    )
+    await expect(
+      readFile(join(archiveRoot, 'Finished Album [MP3 V0]', '01.mp3'), 'utf8')
+    ).resolves.toBe('not really an mp3')
+    await expect(readFile(join(spectralsPath, '01.png'), 'utf8')).resolves.toBe('spectral image')
+    expect((await readdir(archiveRoot)).sort()).toEqual([
+      'Finished Album [MP3 V0]',
+      'finished-album'
+    ])
+    await expect(readdir(workspacePath)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('keeps the upload open when an archive folder name already exists', async () => {
+    const config = defaultConfig()
+    const archiveRoot = join(sourceRoot, 'archive')
+    config.cleanup.archiveDirectory = archiveRoot
+    await mkdir(join(archiveRoot, 'finished-album'), { recursive: true })
+    await writeFile(join(archiveRoot, 'finished-album', 'keep.txt'), 'existing archive')
+    const { session, workspacePath } = await settledSession(config, 'done')
+
+    const result = await session.finish()
+
+    expect(result).toEqual({
+      ok: false,
+      error:
+        'Could not archive music folders: A folder named "finished-album" already exists in the archive.'
+    })
+    expect(session.getState().draft.workspacePath).toBe(workspacePath)
+    await expect(readFile(join(workspacePath, '01.flac'), 'utf8')).resolves.toBe(
+      'not really a flac'
+    )
+    await expect(
+      readFile(join(archiveRoot, 'finished-album', 'keep.txt'), 'utf8')
+    ).resolves.toBe('existing archive')
   })
 
   it('keeps manual torrent files that exist only in the workspace', async () => {
@@ -284,13 +377,18 @@ describe('finishing an upload', () => {
   })
 
   it('keeps the session open when history cannot be written', async () => {
-    const { session, workspacePath } = await settledSession(defaultConfig(), 'done')
+    const config = defaultConfig()
+    config.cleanup.archiveDirectory = join(sourceRoot, 'archive')
+    const { session, workspacePath } = await settledSession(config, 'done')
     await mkdir(join(userDataPath, 'upload-history.json'))
 
     const result = await session.finish()
 
     expect(result.ok).toBe(false)
     expect(session.getState().draft.workspacePath).toBe(workspacePath)
+    await expect(readFile(join(workspacePath, '01.flac'), 'utf8')).resolves.toBe(
+      'not really a flac'
+    )
     await expect(readFile(join(uploadWorkspaceRootForPath(workspacePath), 'upload-flow.json'))).resolves.toBeTruthy()
   })
 

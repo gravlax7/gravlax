@@ -67,7 +67,12 @@ function defaultConfig(): Config {
       defaultSpectralIds: 'Random',
       defaultSpectralIdsForLossyMasters: 'All'
     },
-    cleanup: { deleteTemporaryFiles: true, deleteSpectralsAfterUpload: false },
+    cleanup: {
+      archiveDirectory: '',
+      deleteOriginalFolder: false,
+      deleteTemporaryFiles: true,
+      deleteSpectralsAfterUpload: false
+    },
     workflow: { confirmBeforeWrites: true, useUpcAsCatNo: true }
   }
 }

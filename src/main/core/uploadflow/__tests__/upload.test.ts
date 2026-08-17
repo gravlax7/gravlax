@@ -500,6 +500,30 @@ describe('resumeSubmit', () => {
     expect(next.upload.orpheusSplit).toBe(true)
   })
 
+  it('keeps an empty tracker selection when the report rebuilds', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-no-trackers-'))
+    let state = newState()
+    state.draft.workspacePath = dir
+    state.draft.sourceMedia = 'WEB'
+    state.tags.proposed = {
+      title: 'Album',
+      artists: [{ name: 'A', role: 'main' }],
+      groupYear: '2020',
+      genres: ['electronic']
+    }
+    const cfg = cfgWithTrackers(['redacted', 'orpheus'])
+    state = await ensureUploadReport(state, cfg, TEST_VERSION)
+    state = updateUploadReport(state, { selectedTrackerIds: [] })
+
+    // Returning from an earlier step can rebuild the report after upstream
+    // state changes. An empty list is still a user choice, not a request to
+    // restore every enabled tracker.
+    state.tags.proposed = { ...state.tags.proposed, title: 'Album II' }
+    const next = await ensureUploadReport(state, cfg, TEST_VERSION)
+
+    expect(next.upload.selectedTrackerIds).toEqual([])
+  })
+
   it('keeps the record of what already uploaded when a failed report rebuilds', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-partial-'))
     let state = newState()

@@ -183,6 +183,10 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
     case 'cleanup': {
       const c = cfg.cleanup
       switch (field) {
+        case 'archiveDirectory':
+          return c.archiveDirectory
+        case 'deleteOriginalFolder':
+          return String(c.deleteOriginalFolder)
         case 'deleteTemporaryFiles':
           return String(c.deleteTemporaryFiles)
         case 'deleteSpectralsAfterUpload':
@@ -271,6 +275,9 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       if (field === 'defaultSpectralIds') next.spectral.defaultSpectralIds = value
       if (field === 'defaultSpectralIdsForLossy') next.spectral.defaultSpectralIdsForLossyMasters = value
       break
+    case 'cleanup':
+      if (field === 'archiveDirectory') next.cleanup.archiveDirectory = value
+      break
   }
   return next
 }
@@ -286,6 +293,8 @@ function isPathField(section: SectionID, field: string): boolean {
   switch (section) {
     case 'directories':
       return field === 'source' || field === 'torrents' || field === 'seeding'
+    case 'cleanup':
+      return field === 'archiveDirectory'
     // torrentClient.savePath is deliberately absent: it is a path on whichever
     // machine runs qBittorrent, so local normalization (and the local folder
     // picker) would be wrong whenever a seedbox is in use.
@@ -329,6 +338,7 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
       if (field === 'enabled') next.transfer.enabled = value
       break
     case 'cleanup':
+      if (field === 'deleteOriginalFolder') next.cleanup.deleteOriginalFolder = value
       if (field === 'deleteTemporaryFiles') next.cleanup.deleteTemporaryFiles = value
       if (field === 'deleteSpectralsAfterUpload') next.cleanup.deleteSpectralsAfterUpload = value
       break

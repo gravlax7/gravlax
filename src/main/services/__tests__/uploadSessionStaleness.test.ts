@@ -9,6 +9,7 @@ function newSession(): UploadSession {
     appVersion: 'test',
     userDataPath: '/userdata',
     getConfig: () => ({}) as Config,
+    trashItem: async () => undefined,
     tools: automaticToolResolver,
     send: () => {}
   })

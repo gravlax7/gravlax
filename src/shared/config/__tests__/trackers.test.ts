@@ -62,6 +62,8 @@ function cfgWithRedacted(tracker: TrackerConfig): Config {
       defaultSpectralIdsForLossyMasters: 'All'
     },
     cleanup: {
+      archiveDirectory: '',
+      deleteOriginalFolder: false,
       deleteTemporaryFiles: true,
       deleteSpectralsAfterUpload: false
     },

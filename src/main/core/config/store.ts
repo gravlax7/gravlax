@@ -120,6 +120,12 @@ export function normalizeCleanup(raw: unknown, base: Config['cleanup']): Config[
   if (!raw || typeof raw !== 'object') return base
   const obj = raw as Record<string, unknown>
   const next = structuredClone(base)
+  if (typeof obj.archiveDirectory === 'string') {
+    next.archiveDirectory = normalizePath(obj.archiveDirectory)
+  }
+  if (typeof obj.deleteOriginalFolder === 'boolean') {
+    next.deleteOriginalFolder = obj.deleteOriginalFolder
+  }
   if (typeof obj.deleteTemporaryFiles === 'boolean') {
     next.deleteTemporaryFiles = obj.deleteTemporaryFiles
   }

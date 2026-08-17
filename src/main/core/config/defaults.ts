@@ -65,6 +65,8 @@ export function defaultConfig(): Config {
       defaultSpectralIdsForLossyMasters: 'All'
     },
     cleanup: {
+      archiveDirectory: '',
+      deleteOriginalFolder: false,
       deleteTemporaryFiles: false,
       deleteSpectralsAfterUpload: false
     },

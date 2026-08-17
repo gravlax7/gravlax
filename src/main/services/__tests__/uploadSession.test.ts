@@ -10,6 +10,7 @@ describe('UploadSession', () => {
       appVersion: '9.8.7',
       userDataPath: '',
       getConfig: defaultConfig,
+      trashItem: async () => undefined,
       tools: automaticToolResolver,
       send: () => undefined
     })
@@ -35,6 +36,7 @@ describe('UploadSession', () => {
       appVersion: '9.8.7',
       userDataPath: '',
       getConfig: defaultConfig,
+      trashItem: async () => undefined,
       tools: automaticToolResolver,
       send: () => undefined
     })

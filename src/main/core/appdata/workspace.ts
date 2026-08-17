@@ -1,5 +1,6 @@
 import {
   copyFile,
+  cp,
   mkdir,
   mkdtemp,
   readFile,
@@ -11,7 +12,7 @@ import {
   symlink,
   writeFile
 } from 'node:fs/promises'
-import { basename, dirname, join, relative, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { UploadFlowSnapshot } from '@shared/types'
 
 const WORKSPACE_DIR_NAME = 'workspace'
@@ -148,6 +149,82 @@ export function uploadWorkspaceBelongsToUserData(userDataPath: string, workspace
 export async function removeUploadWorkspace(path: string): Promise<void> {
   if (!path) return
   await rm(path, { recursive: true, force: true })
+}
+
+/** Moves finished music folders out of the workspace without touching its other files. */
+export async function archiveMusicFolders(
+  destinationRoot: string,
+  sourceFolders: string[]
+): Promise<string[]> {
+  const root = resolve(destinationRoot)
+  const sources = [...new Set(sourceFolders.map((folder) => resolve(folder)))]
+  const destinations = sources.map((source) => join(root, basename(source)))
+
+  for (const source of sources) {
+    const fromSource = relative(source, root)
+    if (
+      fromSource === '' ||
+      (!isAbsolute(fromSource) && fromSource !== '..' && !fromSource.startsWith(`..${sep}`))
+    ) {
+      throw new Error('The archive folder cannot be inside a music folder.')
+    }
+    const info = await stat(source)
+    if (!info.isDirectory()) throw new Error(`Music folder is not a directory: ${source}`)
+  }
+
+  if (new Set(destinations).size !== destinations.length) {
+    throw new Error('Two music folders have the same name and cannot share one archive folder.')
+  }
+
+  await mkdir(root, { recursive: true, mode: 0o755 })
+  for (const destination of destinations) {
+    if (await pathExists(destination)) {
+      throw new Error(`A folder named "${basename(destination)}" already exists in the archive.`)
+    }
+  }
+
+  const moved: Array<{ source: string; destination: string }> = []
+  try {
+    for (let index = 0; index < sources.length; index++) {
+      const source = sources[index]!
+      const destination = destinations[index]!
+      await moveDirectory(source, destination)
+      moved.push({ source, destination })
+    }
+  } catch (err) {
+    for (const item of moved.reverse()) {
+      await moveDirectory(item.destination, item.source).catch(() => undefined)
+    }
+    throw err
+  }
+  return destinations
+}
+
+async function moveDirectory(source: string, destination: string): Promise<void> {
+  try {
+    await rename(source, destination)
+    return
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err
+  }
+
+  try {
+    await cp(source, destination, { recursive: true, errorOnExist: true, force: false })
+    await rm(source, { recursive: true })
+  } catch (err) {
+    await rm(destination, { recursive: true, force: true }).catch(() => undefined)
+    throw err
+  }
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path)
+    return true
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false
+    throw err
+  }
 }
 
 export function uploadWorkspaceRootForPath(path: string): string {

@@ -168,6 +168,13 @@ export function validate(cfg: Config): ValidationIssue[] {
     )
   }
 
+  if (
+    cfg.cleanup.archiveDirectory !== '' &&
+    !validAbsoluteCleanPath(cfg.cleanup.archiveDirectory)
+  ) {
+    add('cleanup', 'archiveDirectory', 'archive folder must be an absolute, clean path')
+  }
+
   return issues
 }
 
@@ -175,6 +182,13 @@ function validCleanPath(pathValue: string): boolean {
   const normalized = normalizePath(pathValue)
   const { path: expanded, ok } = expandPath(normalized)
   if (!ok || expanded === '') return false
+  return path.normalize(expanded) === expanded
+}
+
+function validAbsoluteCleanPath(pathValue: string): boolean {
+  const normalized = normalizePath(pathValue)
+  const { path: expanded, ok } = expandPath(normalized)
+  if (!ok || expanded === '' || !path.isAbsolute(expanded)) return false
   return path.normalize(expanded) === expanded
 }
 

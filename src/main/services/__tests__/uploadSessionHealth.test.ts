@@ -64,6 +64,7 @@ describe('UploadSession tracker health gate', () => {
       appVersion: 'test',
       userDataPath: '',
       getConfig: () => cfg,
+      trashItem: async () => undefined,
       tools: automaticToolResolver,
       send: () => undefined
     })

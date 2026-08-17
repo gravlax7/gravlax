@@ -22,8 +22,8 @@ export function sections(): SectionMetadata[] {
       description:
         'Select the directories Gravlax will use.',
       fields: [
-        { name: 'source', label: 'Source', description: 'Folder where you place releases before uploading.', type: 'path' },
-        { name: 'torrents', label: 'Torrents', description: 'Optional folder to store torrent files.', type: 'path' },
+        { name: 'source', label: 'Source', description: 'Folder where you place releases before uploading. Acts as a source for new uploads so you don\'t have to import folders manually.', type: 'path' },
+        { name: 'torrents', label: 'Torrents', description: 'Optional folder to store torrent files after uploading.', type: 'path' },
         {
           name: 'seeding',
           label: 'Seeding',
@@ -199,6 +199,21 @@ export function sections(): SectionMetadata[] {
       id: 'cleanup',
       title: 'Cleanup Rules',
       fields: [
+        {
+          name: 'archiveDirectory',
+          label: 'Archive music folders',
+          description:
+            'Optional. When you finish an upload, move music folders here. Useful to keep a local archive if you seed from a seedbox.',
+          placeholder: 'Not set — keep music in the workspace',
+          type: 'path'
+        },
+        {
+          name: 'deleteOriginalFolder',
+          label: 'Delete original folder',
+          description:
+            'Send the original source folder to the system Trash when you finish an upload. Archived folders, seeding copies, and the workspace are not affected.',
+          type: 'bool'
+        },
         {
           name: 'deleteTemporaryFiles',
           label: 'Delete workspace after seeding',

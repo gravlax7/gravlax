@@ -1,5 +1,5 @@
 import { access, rm } from 'node:fs/promises'
-import { basename, isAbsolute, join, relative, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { Config } from '@shared/types/config'
 import type {
   MetadataSelection,
@@ -97,11 +97,13 @@ import {
   readUploadFlow,
   readUploadWorkspaceSource,
   removeUploadWorkspace,
+  archiveMusicFolders,
   uploadWorkspaceBelongsToUserData,
   uploadWorkspaceRootForPath,
   clearWorkspace,
   workspaceSize
 } from '@main/core/appdata/workspace'
+import { expandPath } from '@main/core/config/paths'
 import { saveUploadedRelease } from '@main/core/appdata/uploadHistory'
 import { generateSpectrals, listSpectralPairs } from '@main/core/tools/spectrals/generate'
 import { spectralIdsForRelease } from '@shared/upload/spectralIds'
@@ -140,6 +142,7 @@ function pathIsInside(parent: string, candidate: string): boolean {
 export interface UploadSessionDeps extends UploadSessionRuntimeDeps {
   appVersion: string
   recordUploadStatistic?: (record: UploadStatsRecord) => Promise<void>
+  trashItem: (path: string) => Promise<void>
   tools: ToolResolver
 }
 
@@ -607,17 +610,118 @@ export class UploadSession {
     }
     try {
       await this.persistNow()
-      await saveUploadedRelease(this.deps.userDataPath, record)
     } catch (err) {
       const error = `Could not save upload history: ${String(err)}`
       this.notify('error', error)
       return { ok: false, error }
     }
 
+    const cfg = this.deps.getConfig()
+    const archive = await this.archiveAfterFinish(cfg)
+    if (!archive.ok) {
+      this.notify('error', archive.error)
+      return archive
+    }
+
+    try {
+      await saveUploadedRelease(this.deps.userDataPath, record)
+    } catch (err) {
+      if (archive.destinations.length > 0) {
+        const workspaceRoot = uploadWorkspaceRootForPath(this.state.draft.workspacePath)
+        await archiveMusicFolders(workspaceRoot, archive.destinations).catch(() => undefined)
+      }
+      const error = `Could not save upload history: ${String(err)}`
+      this.notify('error', error)
+      return { ok: false, error }
+    }
+
+    if (archive.destinations.length > 0) {
+      this.notify(
+        'success',
+        `Archived ${archive.destinations.length} music folder${archive.destinations.length === 1 ? '' : 's'}.`
+      )
+    }
+
+    await this.trashOriginalAfterFinish(cfg)
+
     this.cancelAll()
-    await this.cleanupAfterSeed(this.deps.getConfig(), seed)
+    await this.cleanupAfterSeed(cfg, seed)
     this.apply(newState())
     return { ok: true }
+  }
+
+  private async trashOriginalAfterFinish(cfg: Config): Promise<void> {
+    if (!cfg.cleanup.deleteOriginalFolder) return
+
+    const sourcePath = this.state.draft.sourcePath
+    const resolved = resolve(sourcePath)
+    if (!sourcePath || !isAbsolute(sourcePath) || dirname(resolved) === resolved) {
+      this.notify('warning', 'Original folder kept — its path is not safe to trash.')
+      return
+    }
+
+    try {
+      await this.deps.trashItem(resolved)
+      this.notify('info', 'Original folder moved to Trash.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      this.notify('warning', `Original folder kept — could not move it to Trash: ${message}`)
+    }
+  }
+
+  private async archiveAfterFinish(
+    cfg: Config
+  ): Promise<{ ok: true; destinations: string[] } | { ok: false; error: string }> {
+    const configuredRoot = cfg.cleanup.archiveDirectory.trim()
+    if (!configuredRoot) return { ok: true, destinations: [] }
+
+    const workspacePath = this.state.draft.workspacePath
+    if (!workspacePath) {
+      return {
+        ok: false,
+        error: 'Could not archive music folders: the workspace path is missing.'
+      }
+    }
+    const expanded = expandPath(configuredRoot)
+    if (!expanded.ok || !expanded.path) {
+      return { ok: false, error: 'Could not archive music folders: the archive path is invalid.' }
+    }
+
+    try {
+      const workspaceRoot = resolve(uploadWorkspaceRootForPath(workspacePath))
+      const archiveRoot = resolve(expanded.path)
+      if (pathIsInside(workspaceRoot, archiveRoot)) {
+        return {
+          ok: false,
+          error: 'Could not archive music folders: choose a folder outside the workspace.'
+        }
+      }
+      const transcodes: string[] = []
+      for (const job of this.state.transcode.jobs ?? []) {
+        if (job.status !== 'succeeded' || !job.outputPath) continue
+        const outputPath = resolve(job.outputPath)
+        if (dirname(outputPath) !== workspaceRoot || basename(outputPath) === 'Spectrals') continue
+        try {
+          await access(outputPath)
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue
+          throw err
+        }
+        transcodes.push(outputPath)
+      }
+
+      const destinations = await archiveMusicFolders(archiveRoot, [workspacePath, ...transcodes])
+      return { ok: true, destinations }
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        return {
+          ok: false,
+          error: 'Could not archive music folders: the FLAC folder no longer exists.'
+        }
+      }
+      const message = err instanceof Error ? err.message : String(err)
+      return { ok: false, error: `Could not archive music folders: ${message}` }
+    }
   }
 
   /**

@@ -134,6 +134,8 @@ export interface SpectralConfig {
 }
 
 export interface CleanupConfig {
+  archiveDirectory: string
+  deleteOriginalFolder: boolean
   deleteTemporaryFiles: boolean
   deleteSpectralsAfterUpload: boolean
 }
@@ -153,6 +155,7 @@ export interface FieldMetadata {
   name: string
   label: string
   description?: string
+  placeholder?: string
   type: FieldType
   sensitive?: boolean
   options?: string[]

@@ -851,6 +851,7 @@ function FieldRow(props: {
             class="mono"
             style={{ flex: 1 }}
             value={props.value}
+            placeholder={props.field.placeholder}
             disabled={props.disabled}
             onInput={(e) => props.onChange(e.currentTarget.value)}
           />

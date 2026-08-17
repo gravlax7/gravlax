@@ -311,6 +311,7 @@ export async function buildUploadSnapshot(
 // carry them across so adding a format does not reset the destinations.
 function carryUserSelections(next: UploadSnapshot, previous: UploadSnapshot): UploadSnapshot {
   const selectedTrackerIds = previous.selectedTrackerIds ?? []
+  const hasPreviousReport = previous.phase !== 'idle'
   // Submissions are not derived either: they are the record of which torrents
   // are already on the tracker. Dropping them on a rebuild would let the retry
   // after a partial failure upload the formats that landed a second time.
@@ -319,7 +320,7 @@ function carryUserSelections(next: UploadSnapshot, previous: UploadSnapshot): Up
   return {
     ...next,
     selectedTrackerIds:
-      selectedTrackerIds.length > 0 ? [...selectedTrackerIds] : next.selectedTrackerIds,
+      hasPreviousReport ? [...selectedTrackerIds] : next.selectedTrackerIds,
     groupIds: { ...(previous.groupIds ?? emptyGroupIds()) },
     image: previous.image ?? next.image,
     scene: previous.scene ?? next.scene,

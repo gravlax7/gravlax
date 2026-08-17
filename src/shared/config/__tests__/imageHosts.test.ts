@@ -74,6 +74,8 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
       defaultSpectralIdsForLossyMasters: 'All'
     },
     cleanup: {
+      archiveDirectory: '',
+      deleteOriginalFolder: false,
       deleteTemporaryFiles: true,
       deleteSpectralsAfterUpload: false
     },

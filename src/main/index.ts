@@ -113,6 +113,7 @@ app.whenReady().then(async () => {
     appVersion: app.getVersion(),
     userDataPath: app.getPath('userData'),
     getConfig: () => configService.get(),
+    trashItem: (path) => shell.trashItem(path),
     tools: toolResolver,
     send,
     recordUploadStatistic: async (record) => {

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   defaultConfig,
   fieldBoolValue,
+  fieldValue,
   resetSection,
   setFieldBool,
+  setFieldString,
   validate
 } from '@main/core/config'
 import { mergeLoadedConfig } from '@main/core/config/store'
@@ -30,7 +32,10 @@ describe('config', () => {
     expect(cfg.imageHosts.catbox).toEqual({ enabled: true })
     expect(cfg.spectral.defaultSpectralIds).toBe('Random')
     expect(cfg.spectral.defaultSpectralIdsForLossyMasters).toBe('All')
+    expect(cfg.cleanup.deleteOriginalFolder).toBe(false)
     expect(cfg.cleanup.deleteTemporaryFiles).toBe(false)
+    expect(cfg.cleanup.deleteSpectralsAfterUpload).toBe(false)
+    expect(cfg.cleanup.archiveDirectory).toBe('')
   })
 
   it('resetSection restores defaults for one section', () => {
@@ -108,6 +113,30 @@ describe('config', () => {
   it('keeps an existing workspace cleanup choice after the default changes', () => {
     const cfg = mergeLoadedConfig({ cleanup: { deleteTemporaryFiles: true } })
     expect(cfg.cleanup.deleteTemporaryFiles).toBe(true)
+    expect(cfg.cleanup.deleteOriginalFolder).toBe(false)
+  })
+
+  it('reads and updates the original-folder delete toggle', () => {
+    const cfg = setFieldBool(defaultConfig(), 'cleanup', 'deleteOriginalFolder', true)
+    expect(fieldBoolValue(cfg, 'cleanup', 'deleteOriginalFolder')).toBe(true)
+  })
+
+  it('loads and updates the archive folder as a local path', () => {
+    const loaded = mergeLoadedConfig({ cleanup: { archiveDirectory: '  /Music/Archive/  ' } })
+    expect(loaded.cleanup.archiveDirectory).toBe('/Music/Archive')
+
+    const next = setFieldString(defaultConfig(), 'cleanup', 'archiveDirectory', '/Other/Archive/')
+    expect(fieldValue(next, 'cleanup', 'archiveDirectory')).toBe('/Other/Archive')
+  })
+
+  it('requires the archive folder to be an absolute clean path', () => {
+    const cfg = defaultConfig()
+    cfg.cleanup.archiveDirectory = 'relative/archive'
+    expect(validate(cfg)).toContainEqual({
+      section: 'cleanup',
+      field: 'archiveDirectory',
+      message: 'archive folder must be an absolute, clean path'
+    })
   })
 
   it('drops the retired spectral compression setting when loading config', () => {
