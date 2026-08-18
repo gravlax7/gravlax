@@ -1,5 +1,20 @@
 import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 
+export class HTTPStatusError extends Error {
+  constructor(
+    readonly status: number,
+    body: string
+  ) {
+    const trimmed = body.trim()
+    super(
+      trimmed
+        ? `request failed with status ${status}: ${trimmed}`
+        : `request failed with status ${status}`
+    )
+    this.name = 'HTTPStatusError'
+  }
+}
+
 export async function fetchText(
   url: string,
   options: {
@@ -29,12 +44,7 @@ export async function fetchText(
 
   const body = await response.text()
   if (response.status < 200 || response.status >= 300) {
-    const trimmed = body.trim()
-    throw new Error(
-      trimmed
-        ? `request failed with status ${response.status}: ${trimmed}`
-        : `request failed with status ${response.status}`
-    )
+    throw new HTTPStatusError(response.status, body)
   }
   return body
 }

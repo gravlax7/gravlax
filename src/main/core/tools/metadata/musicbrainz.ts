@@ -1,5 +1,6 @@
 import type { Provider } from './base'
 import type { Artist, Release } from '@shared/types'
+import packageJSON from '../../../../../package.json'
 import {
   applyFeaturedArtistsFromTitle,
   joinphraseIndicatesFeatured,
@@ -16,32 +17,65 @@ import {
   sliceValue,
   toString
 } from './base'
-import { fetchJSON } from './http'
+import { fetchJSON, HTTPStatusError } from './http'
 import { mapReleaseTypeToken } from './normalization'
+import {
+  type MusicBrainzRateLimiter,
+  sharedMusicBrainzRateLimiter
+} from './musicbrainzRateLimit'
 
 const MUSICBRAINZ_RELEASE_PATH =
   /^\/release\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i
 
 export const MUSICBRAINZ_NAME = 'MusicBrainz'
+export const MUSICBRAINZ_USER_AGENT =
+  `gravlax/${packageJSON.version} ( gravlax.unfreeze415@passfwd.com )`
 
-export function createMusicBrainzProvider(timeoutMs: number): Provider {
+const MUSICBRAINZ_HEADERS: Record<string, string> = {
+  Accept: 'application/json',
+  'User-Agent': MUSICBRAINZ_USER_AGENT
+}
+
+export function createMusicBrainzProvider(
+  timeoutMs: number,
+  rateLimiter: MusicBrainzRateLimiter = sharedMusicBrainzRateLimiter
+): Provider {
   const searchURL = 'https://musicbrainz.org/ws/2/release'
   const siteURL = 'https://musicbrainz.org'
+  const request = <T = unknown>(
+    url: string,
+    options: Parameters<typeof fetchJSON>[1]
+  ): Promise<T> =>
+    rateLimiter.schedule(
+      async () => {
+        try {
+          return await fetchJSON<T>(url, {
+            ...options,
+            headers: { ...options?.headers, ...MUSICBRAINZ_HEADERS }
+          })
+        } catch (err) {
+          if (err instanceof HTTPStatusError && (err.status === 429 || err.status === 503)) {
+            rateLimiter.backOff()
+          }
+          throw err
+        }
+      },
+      options?.signal
+    )
+
   return {
     name: MUSICBRAINZ_NAME,
     releaseIDFromURL: musicBrainzReleaseIDFromURL,
     async healthcheck(signal) {
-      await fetchJSON(searchURL, {
+      await request(searchURL, {
         query: { query: 'test', limit: '1', fmt: 'json' },
-        headers: { Accept: 'application/json' },
         signal,
         timeoutMs
       })
     },
     async searchReleases(search, limit, signal) {
-      const response = await fetchJSON<{ releases?: unknown[] }>(searchURL, {
+      const response = await request<{ releases?: unknown[] }>(searchURL, {
         query: { query: search, limit: String(limit), fmt: 'json' },
-        headers: { Accept: 'application/json' },
         signal,
         timeoutMs
       })
@@ -84,12 +118,11 @@ export function createMusicBrainzProvider(timeoutMs: number): Provider {
       const id =
         toString(releaseID) || releaseIDFromRawURL(releaseURL, musicBrainzReleaseIDFromURL)
       if (!id) throw new Error('invalid MusicBrainz URL')
-      return fetchJSON(`${siteURL}/ws/2/release/${id}`, {
+      return request(`${siteURL}/ws/2/release/${id}`, {
         query: {
           fmt: 'json',
           inc: 'artists+labels+recordings+release-groups+media+artist-credits+artist-rels+recording-level-rels'
         },
-        headers: { Accept: 'application/json' },
         signal,
         timeoutMs
       })

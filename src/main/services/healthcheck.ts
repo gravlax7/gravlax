@@ -87,7 +87,12 @@ export async function runHealthcheck(
         return
       }
       try {
-        await withTimeout(provider.healthcheck(), 3000)
+        const controller = new AbortController()
+        try {
+          await withTimeout(provider.healthcheck(controller.signal), 3000)
+        } finally {
+          controller.abort()
+        }
         row.status = 'available'
         row.detail = 'Available'
       } catch (err) {

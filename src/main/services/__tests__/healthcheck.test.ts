@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defaultConfig } from '@main/core/config/defaults'
 import type { ToolId, ToolResolver, ToolResolution } from '@main/core/tools/binaries'
+import type { Provider } from '@main/core/tools/metadata/base'
 
 const mocks = vi.hoisted(() => ({
   healthcheckTrackers: vi.fn(),
@@ -107,6 +108,60 @@ describe('binary healthchecks', () => {
       status: 'missing',
       detail: 'Configured executable is not a runnable file: /bad/sox'
     })
+  })
+})
+
+describe('provider healthchecks', () => {
+  it('aborts a provider request when its healthcheck times out', async () => {
+    vi.useFakeTimers()
+    try {
+      let requestSignal: AbortSignal | undefined
+      const provider: Provider = {
+        name: 'MusicBrainz',
+        healthcheck: vi.fn(async (signal) => {
+          requestSignal = signal
+          await new Promise<void>((_resolve, reject) => {
+            signal?.addEventListener(
+              'abort',
+              () => reject(new DOMException('The operation was aborted', 'AbortError')),
+              { once: true }
+            )
+          })
+        }),
+        async searchReleases() {
+          return []
+        },
+        releaseIDFromURL() {
+          return null
+        },
+        async fetchData() {
+          return {}
+        },
+        mapRelease() {
+          return {}
+        },
+        formatURL() {
+          return ''
+        }
+      }
+      mocks.providerDefinitions.mockReturnValue([{ name: provider.name, enabled: true }])
+      mocks.createProviders.mockReturnValue([provider])
+
+      const pending = runHealthcheck(
+        defaultConfig(),
+        fakeResolver((id) => ({ status: 'available', path: `/tools/${id}`, source: 'path' }))
+      )
+      await vi.runAllTimersAsync()
+      const result = await pending
+
+      expect(requestSignal?.aborted).toBe(true)
+      expect(result.rows.find((row) => row.id === 'meta:MusicBrainz')).toMatchObject({
+        status: 'failing',
+        detail: 'Error: timeout'
+      })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 
