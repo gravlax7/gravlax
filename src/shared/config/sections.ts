@@ -39,11 +39,10 @@ export function sections(): SectionMetadata[] {
       description:
         'Optional executable paths. Leave a field empty to search the system and common install locations.',
       fields: [
-        { name: 'sox', label: 'SoX', description: 'Used for spectrals and FLAC downconversion.', type: 'file' },
-        { name: 'flac', label: 'FLAC', description: 'Used to verify and decode FLAC files.', type: 'file' },
-        { name: 'metaflac', label: 'metaflac', description: 'Used to read and write FLAC metadata.', type: 'file' },
-        { name: 'mp3val', label: 'mp3val', description: 'Used to validate MP3 files.', type: 'file' },
-        { name: 'lame', label: 'LAME', description: 'Used to encode MP3 files.', type: 'file' }
+        { name: 'sox', label: 'SoX', description: 'Version 14.4.2 or newer. Used for spectrals and FLAC downconversion.', type: 'file' },
+        { name: 'flac', label: 'FLAC', description: 'Version 1.5.0 or newer. Used to verify and decode FLAC files.', type: 'file' },
+        { name: 'metaflac', label: 'metaflac', description: 'Version 1.5.0 or newer. Used to read and write FLAC metadata.', type: 'file' },
+        { name: 'lame', label: 'LAME', description: 'Version 3.100 or newer. Used to encode MP3 files.', type: 'file' }
       ]
     },
     {

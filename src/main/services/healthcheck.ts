@@ -5,6 +5,7 @@ import {
   type ToolId,
   type ToolResolver
 } from '@main/core/tools/binaries'
+import { compareToolVersions, probeToolVersion } from '@main/core/tools/versions'
 import { providerDefinitions, createProviders } from '@main/core/tools/metadata/providers'
 import { healthcheckImageHosts } from '@main/core/tools/imagehosts/health'
 import { healthcheckTrackers, trackerHealthRowsReady } from '@main/core/tools/trackers/health'
@@ -16,36 +17,35 @@ const BINARY_CHECKS: Array<{
   name: string
   installURL: string
   instructions: string
+  minimumVersion?: string
 }> = [
   {
     id: 'sox',
-    name: 'Sox',
+    name: 'SoX',
     installURL: 'https://sourceforge.net/projects/sox/',
-    instructions: 'Install SoX and ensure it is available on PATH OR select the binary in the tools section of settings.'
+    instructions: 'Install SoX 14.4.2 or newer and ensure it is available on PATH, or select the binary in Settings → Tools.',
+    minimumVersion: '14.4.2'
   },
   {
     id: 'flac',
-    name: 'flac',
+    name: 'FLAC',
     installURL: 'https://xiph.org/flac/',
-    instructions: 'Install flac and ensure it is available on PATH OR select the binary in the tools section of settings.'
+    instructions: 'Install FLAC 1.5.0 or newer and ensure it is available on PATH, or select the binary in Settings → Tools.',
+    minimumVersion: '1.5.0'
   },
   {
     id: 'metaflac',
     name: 'metaflac',
     installURL: 'https://xiph.org/flac/',
-    instructions: 'Install FLAC tools and ensure metaflac is available on PATH OR select the binary in the tools section of settings.'
-  },
-  {
-    id: 'mp3val',
-    name: 'mp3val',
-    installURL: 'http://mp3val.sourceforge.net/',
-    instructions: 'Install mp3val and ensure it is available on PATH OR select the binary in the tools section of settings.'
+    instructions: 'Install FLAC 1.5.0 or newer and ensure metaflac is available on PATH, or select the binary in Settings → Tools.',
+    minimumVersion: '1.5.0'
   },
   {
     id: 'lame',
-    name: 'lame',
+    name: 'LAME',
     installURL: 'https://lame.sourceforge.io/',
-    instructions: 'Install lame and ensure it is available on PATH OR select the binary in the tools section of settings.'
+    instructions: 'Install LAME 3.100 or newer and ensure it is available on PATH, or select the binary in Settings → Tools.',
+    minimumVersion: '3.100'
   }
 ]
 
@@ -102,28 +102,66 @@ export async function runHealthcheck(
 
   for (const binary of BINARY_CHECKS) {
     const resolution = await tools.resolve(binary.id, { refresh: true })
-    const found = resolution.status === 'available'
-    rows.push({
-      id: `bin:${binary.id}`,
-      name: binary.name,
-      status: found ? 'available' : 'missing',
-      detail: found
-        ? `Available · ${resolution.path}`
-        : resolution.configuredPath
-          ? resolution.reason
-          : 'Missing',
-      installURL: binary.installURL,
-      installInstructions: binary.instructions
-    })
+    if (resolution.status === 'missing') {
+      rows.push({
+        id: `bin:${binary.id}`,
+        name: binary.name,
+        group: 'Tools',
+        status: 'missing',
+        detail: resolution.configuredPath ? resolution.reason : 'Missing',
+        installURL: binary.installURL,
+        installInstructions: binary.instructions
+      })
+      continue
+    }
+
+    try {
+      const detected = await probeToolVersion(binary.id, resolution.path)
+      const versionLabel = `${detected.product} ${detected.version}`
+      if (
+        binary.minimumVersion &&
+        compareToolVersions(detected.version, binary.minimumVersion) < 0
+      ) {
+        rows.push({
+          id: `bin:${binary.id}`,
+          name: binary.name,
+          group: 'Tools',
+          status: 'failing',
+          detail: `${versionLabel} is unsupported; version ${binary.minimumVersion} or newer is required · ${resolution.path}`,
+          installURL: binary.installURL,
+          installInstructions: binary.instructions
+        })
+        continue
+      }
+      rows.push({
+        id: `bin:${binary.id}`,
+        name: binary.name,
+        group: 'Tools',
+        status: 'available',
+        detail: `${versionLabel} · ${resolution.path}`,
+        installURL: binary.installURL,
+        installInstructions: binary.instructions
+      })
+    } catch (err) {
+      rows.push({
+        id: `bin:${binary.id}`,
+        name: binary.name,
+        group: 'Tools',
+        status: 'failing',
+        detail: `${err instanceof Error ? err.message : String(err)} · ${resolution.path}`,
+        installURL: binary.installURL,
+        installInstructions: binary.instructions
+      })
+    }
   }
 
   const trackerReady = trackerHealthRowsReady(trackerRows)
   const imageReady = imageHostRows.some((r) => r.status === 'available')
-  const binaryMissing = rows.some(
-    (r) => requiredBinaryIds.has(r.id) && r.status === 'missing'
+  const binaryUnavailable = rows.some(
+    (r) => requiredBinaryIds.has(r.id) && (r.status === 'missing' || r.status === 'failing')
   )
   const overview =
-    trackerReady && imageReady && !binaryMissing
+    trackerReady && imageReady && !binaryUnavailable
       ? 'Ready to upload.'
       : 'Not ready to upload.'
 

@@ -65,7 +65,7 @@ function configInput() {
   return {
     appearance: { theme: 'system' as const },
     directories: { source: '', torrents: '', seeding: '' },
-    tools: { sox: '', flac: '', metaflac: '', mp3val: '', lame: '' },
+    tools: { sox: '', flac: '', metaflac: '', lame: '' },
     trackers: { redacted: { ...tracker }, orpheus: { ...tracker } },
     metadataProviders: {
       musicBrainz: { enabled: true },

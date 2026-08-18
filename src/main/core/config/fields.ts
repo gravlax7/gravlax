@@ -45,8 +45,6 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return c.flac
         case 'metaflac':
           return c.metaflac
-        case 'mp3val':
-          return c.mp3val
         case 'lame':
           return c.lame
       }
@@ -228,7 +226,6 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       if (field === 'sox') next.tools.sox = value
       if (field === 'flac') next.tools.flac = value
       if (field === 'metaflac') next.tools.metaflac = value
-      if (field === 'mp3val') next.tools.mp3val = value
       if (field === 'lame') next.tools.lame = value
       break
     case 'trackers':

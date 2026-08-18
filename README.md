@@ -47,15 +47,21 @@ setting.
 
 Install these tools and make sure Gravlax can find them:
 
-| Tool | Used for |
-| --- | --- |
-| SoX | Spectrals and FLAC downconversion |
-| FLAC tools (`flac` and `metaflac`, usually installed together) | FLAC checks, decoding, and tags |
-| mp3val | MP3 checks |
-| LAME | MP3 encoding |
+| Tool | Supported version | Used for |
+| --- | --- | --- |
+| SoX | SoX 14.4.2 or a current SoX_ng release | Spectrals and FLAC downconversion |
+| FLAC tools (`flac` and `metaflac`, installed together) | 1.5.0 or newer | FLAC checks, decoding, and tags |
+| LAME | 3.100 or newer | MP3 encoding |
+
+Gravlax requires FLAC 1.5.0 because its safe tag and cover-art workflow uses
+`metaflac` features added in that release. FLAC 1.3.1 is not supported. Other
+older SoX and LAME releases may work, but they are not part of the supported
+set.
 
 Leave a tool path blank in **Settings → Tools** to let Gravlax search your
-`PATH` and common install locations.
+`PATH` and common install locations. Healthcheck shows the executable path and
+version it found. If a tool is too old, update it or select a newer executable
+in **Settings → Tools**.
 
 ### Windows
 
@@ -66,12 +72,6 @@ Windows. Open a regular PowerShell window and run:
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
 scoop install sox flac lame
-```
-
-Install MP3val with [winget](https://learn.microsoft.com/windows/package-manager/winget/):
-
-```powershell
-winget install -e ring0.MP3val.WF
 ```
 
 Restart Gravlax after installing the tools. If it cannot find a tool, check
@@ -87,13 +87,32 @@ Homebrew is not installed, open Terminal and run its installer:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-Then install all four tools:
+Then install the tools:
 
 ```sh
-brew install sox flac mp3val lame
+brew install sox flac lame
 ```
 
 You might need to restart Gravlax. If needed, set the tool paths in **Settings → Tools**.
+
+### Linux
+
+On Debian or Ubuntu, install the tools with:
+
+```sh
+sudo apt update
+sudo apt install sox libsox-fmt-all flac lame
+```
+
+On Arch Linux, use:
+
+```sh
+sudo pacman -S sox flac lame
+```
+
+Some older Linux releases package FLAC 1.4 or earlier. Run `flac --version`
+after installation. If it reports a version below 1.5.0, install a current
+package from your distribution or from the [FLAC project](https://xiph.org/flac/download.html).
 
 ## Important settings
 

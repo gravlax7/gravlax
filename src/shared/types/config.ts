@@ -54,7 +54,6 @@ export interface ToolsConfig {
   sox: string
   flac: string
   metaflac: string
-  mp3val: string
   lame: string
 }
 

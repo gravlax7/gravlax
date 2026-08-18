@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
   trackerHealthRowsReady: vi.fn(),
   healthcheckImageHosts: vi.fn(),
   providerDefinitions: vi.fn(),
-  createProviders: vi.fn()
+  createProviders: vi.fn(),
+  probeToolVersion: vi.fn()
 }))
 
 vi.mock('@main/core/tools/trackers/health', () => ({
@@ -24,6 +25,11 @@ vi.mock('@main/core/tools/metadata/providers', () => ({
   createProviders: mocks.createProviders
 }))
 
+vi.mock('@main/core/tools/versions', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@main/core/tools/versions')>()
+  return { ...original, probeToolVersion: mocks.probeToolVersion }
+})
+
 import { runHealthcheck } from '../healthcheck'
 
 beforeEach(() => {
@@ -37,6 +43,10 @@ beforeEach(() => {
   ])
   mocks.providerDefinitions.mockReturnValue([])
   mocks.createProviders.mockReturnValue([])
+  mocks.probeToolVersion.mockImplementation(async (id: ToolId) => ({
+    product: id === 'sox' ? 'SoX' : id === 'lame' ? 'LAME' : id === 'flac' ? 'FLAC' : 'metaflac',
+    version: id === 'sox' ? '14.4.2' : id === 'lame' ? '3.100' : '1.5.0'
+  }))
 })
 
 describe('binary healthchecks', () => {
@@ -51,9 +61,32 @@ describe('binary healthchecks', () => {
 
     expect(result.rows.find((row) => row.id === 'bin:sox')).toMatchObject({
       status: 'available',
-      detail: 'Available · /tools/sox'
+      detail: 'SoX 14.4.2 · /tools/sox'
     })
     expect(tools.resolve).toHaveBeenCalledWith('sox', { refresh: true })
+  })
+
+  it('rejects FLAC tools older than 1.5.0', async () => {
+    mocks.probeToolVersion.mockImplementation(async (id: ToolId) => ({
+      product: id === 'metaflac' ? 'metaflac' : id === 'flac' ? 'FLAC' : id === 'lame' ? 'LAME' : 'SoX',
+      version: id === 'flac' || id === 'metaflac' ? '1.3.1' : id === 'lame' ? '3.100' : '14.4.2'
+    }))
+    const tools = fakeResolver((id) => ({
+      status: 'available',
+      path: `/tools/${id}`,
+      source: 'standard'
+    }))
+
+    const result = await runHealthcheck(defaultConfig(), tools)
+
+    expect(result.rows.find((row) => row.id === 'bin:flac')).toMatchObject({
+      status: 'failing',
+      detail: 'FLAC 1.3.1 is unsupported; version 1.5.0 or newer is required · /tools/flac'
+    })
+    expect(result.rows.find((row) => row.id === 'bin:metaflac')).toMatchObject({
+      status: 'failing'
+    })
+    expect(result.overview).toBe('Not ready to upload.')
   })
 
   it('reports an invalid override', async () => {

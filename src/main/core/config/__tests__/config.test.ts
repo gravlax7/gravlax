@@ -20,7 +20,6 @@ describe('config', () => {
       sox: '',
       flac: '',
       metaflac: '',
-      mp3val: '',
       lame: ''
     })
     expect(cfg.appearance.theme).toBe('system')
@@ -49,8 +48,11 @@ describe('config', () => {
     const old = mergeLoadedConfig({ directories: { source: '/music' } })
     expect(old.tools).toEqual(defaultConfig().tools)
 
-    const loaded = mergeLoadedConfig({ tools: { sox: '  /opt/tools/sox  ', unknown: '/bad' } })
+    const loaded = mergeLoadedConfig({
+      tools: { sox: '  /opt/tools/sox  ', mp3val: '/old/mp3val', unknown: '/bad' }
+    })
     expect(loaded.tools.sox).toBe('/opt/tools/sox')
+    expect(loaded.tools).not.toHaveProperty('mp3val')
     expect(loaded.tools).not.toHaveProperty('unknown')
 
     loaded.tools.sox = '/custom/sox'

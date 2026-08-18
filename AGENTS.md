@@ -28,7 +28,7 @@ Run a single test file or case:
 npx vitest run src/main/core/uploadflow/__tests__/upload.test.ts -t 'maps artist roles'
 ```
 
-Runtime depends on external binaries on `PATH`: `sox`, `flac`, `mp3val`, and `lame`. They are probed in `src/main/services/healthcheck.ts` and surfaced in the Healthcheck screen.
+Runtime depends on external binaries on `PATH`: `sox`, `flac`, `metaflac`, and `lame`. The FLAC tools must be version 1.5.0 or newer. They are probed in `src/main/services/healthcheck.ts` and surfaced in the Healthcheck screen.
 
 ## Rules
 If you ever take control of the app to test something, be sure to NEVER hit the submit button.

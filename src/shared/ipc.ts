@@ -134,7 +134,6 @@ const configInput: z.ZodType<Config> = z.object({
     sox: z.string(),
     flac: z.string(),
     metaflac: z.string(),
-    mp3val: z.string(),
     lame: z.string()
   }),
   trackers: z.object({ redacted: trackerConfig, orpheus: trackerConfig }),
