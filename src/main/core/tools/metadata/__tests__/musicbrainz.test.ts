@@ -49,6 +49,25 @@ describe('MusicBrainz provider', () => {
     expect(starts[2]! - starts[1]!).toBeGreaterThan(1000)
   })
 
+  it('asks MusicBrainz for genres when fetching a release', async () => {
+    const urls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url)
+        return new Response(JSON.stringify({}))
+      })
+    )
+
+    const provider = createMusicBrainzProvider(5000, new MusicBrainzRateLimiter())
+    const request = provider.fetchData('', '88e95ea5-b609-4f8b-b0cb-69896eef2f47')
+    await vi.advanceTimersByTimeAsync(MUSICBRAINZ_REQUEST_INTERVAL_MS)
+    await request
+
+    expect(urls).toHaveLength(1)
+    expect(new URL(urls[0]!).searchParams.get('inc')).toContain('genres')
+  })
+
   it('drops an aborted queued request before it reaches MusicBrainz', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ releases: [] })))
     vi.stubGlobal('fetch', fetchMock)

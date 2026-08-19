@@ -46,6 +46,22 @@ describe('validateUploadReport', () => {
     expect(validateUploadReport({ ...validUpload(), year: 0 })).toBe('Year is required.')
     expect(validateUploadReport({ ...validUpload(), media: '' })).toBe('Media is required.')
     expect(validateUploadReport({ ...validUpload(), tags: '' })).toBe('Tags are required.')
+    expect(
+      validateUploadReport({
+        ...validUpload(),
+        tags: '',
+        selectedTrackerIds: ['redacted', 'orpheus'],
+        groupIds: { redacted: 12, orpheus: 34 }
+      })
+    ).toBeNull()
+    expect(
+      validateUploadReport({
+        ...validUpload(),
+        tags: '',
+        selectedTrackerIds: ['redacted', 'orpheus'],
+        groupIds: { redacted: 12 }
+      })
+    ).toBe('Tags are required.')
     expect(validateUploadReport({ ...validUpload(), formats: [] })).toBe(
       'No upload formats are prepared.'
     )

@@ -513,8 +513,18 @@ export function UploadStep(props: {
           </div>
 
           <div class="upload-report-field">
-            <span>Tags</span>
-            <div class="mono upload-report-readonly">{displayOrEmpty(upload().tags)}</div>
+            <span>
+              Tags
+              <Show when={anySelectedTrackerHasGroupId(upload())}>
+                <Badge tone="warning">Ignored for destinations with a group ID</Badge>
+              </Show>
+            </span>
+            <input
+              class="mono"
+              value={upload().tags ?? ''}
+              placeholder="electronic, ambient"
+              onInput={(e) => patch({ tags: e.currentTarget.value })}
+            />
           </div>
 
           <CoverImageField

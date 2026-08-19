@@ -199,6 +199,23 @@ describe('normalizeProviderRelease artists', () => {
     expect(release.groupYear).toBe('2019')
   })
 
+  it('reads MusicBrainz genres from the release and release group', () => {
+    const release = normalizeProviderRelease(
+      {
+        title: 'Album',
+        genres: [{ name: 'Electronic' }],
+        'release-group': {
+          'primary-type': 'Album',
+          genres: [{ name: 'Ambient' }, { name: 'Electronic' }]
+        }
+      },
+      'MusicBrainz',
+      ''
+    )
+
+    expect(release.genres).toEqual(['Ambient', 'Electronic'])
+  })
+
   it('drops none catalog numbers and catnos that duplicate upc', () => {
     expect(
       normalizeProviderRelease(

@@ -319,24 +319,32 @@ function sharedList(
   ...keys: string[]
 ): string[] {
   let found = false
-  let consistent: string[] = []
+  let first: string[] = []
   let isMixedFlag = false
+  const union: string[] = []
+  const seen = new Set<string>()
   for (const tagSet of tagSets) {
     const current = split(tagValues(tagSet, ...keys))
     if (current.length === 0) continue
+    for (const item of current) {
+      const key = item.trim().toLowerCase()
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      union.push(item)
+    }
     if (!found) {
       found = true
-      consistent = current
+      first = current
       continue
     }
-    if (!equalFoldSlices(consistent, current)) {
+    if (!equalFoldSlices(first, current)) {
       isMixedFlag = true
     }
   }
   if (mixed && isMixedFlag) {
     mixed[field] = true
   }
-  return [...consistent]
+  return [...union]
 }
 
 function firstTagValue(tagSet: FlacTags, ...keys: string[]): string {

@@ -7,6 +7,7 @@ import type {
   UploadTrackerId
 } from '@shared/types'
 import { isNamedMainArtist } from './artists'
+import { allSelectedTrackersHaveGroupId } from './groupIds'
 import { effectiveReleaseType, releaseTypeId } from './releaseTypes'
 
 export function validateUploadReport(upload: UploadSnapshot): string | null {
@@ -19,7 +20,9 @@ export function validateUploadReport(upload: UploadSnapshot): string | null {
   }
   if (!upload.year || upload.year <= 0) return 'Year is required.'
   if (!(upload.media ?? '').trim()) return 'Media is required.'
-  if (!(upload.tags ?? '').trim()) return 'Tags are required.'
+  if (!allSelectedTrackersHaveGroupId(upload) && !(upload.tags ?? '').trim()) {
+    return 'Tags are required.'
+  }
   if ((upload.formats ?? []).length === 0) return 'No upload formats are prepared.'
   return null
 }

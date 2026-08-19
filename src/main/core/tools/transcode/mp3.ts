@@ -5,6 +5,7 @@ import type { Bitrate } from '@shared/types'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { readFLACStreamInfo } from '@main/core/tools/diagnostics/mqa'
+import { SOURCE_TORRENT_PLACEHOLDER } from '@main/core/tools/upload/descriptions'
 import { SKIP_EXTENSIONS } from './audioInfo'
 import { copyExtraFiles } from './extras'
 import { buildMp3OutputPath } from './naming'
@@ -83,14 +84,10 @@ export async function transcodeFolder(
   return { outputPath: newPath }
 }
 
-export function generateTranscodeDescription(
-  url: string,
-  bitrate: Bitrate,
-  version: string
-): string {
+export function generateTranscodeDescription(bitrate: Bitrate, version: string): string {
   const lameCommand = LAME_COMMAND_MAP[bitrate].join(' ')
   return (
-    `[b]Source:[/b] ${url}\n` +
+    `[b]Source:[/b] ${SOURCE_TORRENT_PLACEHOLDER}\n` +
     `[b]Transcode process:[/b] ` +
     `[code]flac -Vdsc -- input.flac | lame -S ${lameCommand} --ignore-tag-errors - output.mp3[/code]\n` +
     `[hr]Uploaded with [b]gravlax[/b] v${version}`

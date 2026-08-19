@@ -233,6 +233,15 @@ describe('uploadflow', () => {
     expect(proposed.tracks).toEqual(current.tracks)
   })
 
+  it('seedTagsProposed copies mixed local genres when metadata has none', () => {
+    const current: Release = {
+      genres: ['Electronic', 'Ambient'],
+      mixed: { genres: true }
+    }
+    const proposed = seedTagsProposed(current, {})
+    expect(proposed.genres).toEqual(['Electronic', 'Ambient'])
+  })
+
   it('seedTagsProposed merges empty track fields from current', () => {
     const current: Release = {
       tracks: [

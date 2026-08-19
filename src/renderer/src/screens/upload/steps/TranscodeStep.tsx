@@ -63,7 +63,7 @@ export function TranscodeStep(props: { state: UploadFlowStateJSON }) {
           <>
             <Card class="transcode-inspection">
               <div>
-                <strong>Source:</strong> {inspection().encoding}
+                <strong>More info:</strong> {inspection().encoding}
                 <Show when={inspection().sampleRate > 0}>
                   {` (${(inspection().sampleRate / 1000).toFixed(1)} kHz)`}
                 </Show>

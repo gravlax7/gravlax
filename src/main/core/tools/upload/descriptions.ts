@@ -132,6 +132,13 @@ export function substituteSpectralBbcode(description: string, bbcode: string): s
   return description.replace(SPECTRAL_PLACEHOLDER, bbcode)
 }
 
+export const SOURCE_TORRENT_PLACEHOLDER = 'FLAC torrent URL will be inserted at submit.'
+
+export function substituteSourceTorrentUrl(description: string, url: string): string {
+  if (!description.includes(SOURCE_TORRENT_PLACEHOLDER)) return description
+  return description.replace(SOURCE_TORRENT_PLACEHOLDER, url)
+}
+
 export interface LossyMasterCommentInput {
   comment?: string
   spectralBbcode?: string
@@ -288,9 +295,9 @@ export function generateReleaseDescription(input: ReleaseDescInput): string {
   if (!input.hybrid) {
     const sampleRate = (input.sampleRate ?? 0) / 1000
     if (input.bitDepth && sampleRate > 0) {
-      description += `Encode Specifics: [b]${input.bitDepth} bit [color=#2E86C1]${sampleRate.toFixed(1)}[/color] kHz[/b]\n`
+      description += `[b]${input.bitDepth} bit [color=#2E86C1]${sampleRate.toFixed(1)}[/color] kHz[/b]\n`
     } else if (sampleRate > 0) {
-      description += `Encode Specifics: ${sampleRate.toFixed(1)} kHz\n`
+      description += `${sampleRate.toFixed(1)} kHz\n`
     }
   }
 
@@ -312,7 +319,7 @@ export function generateReleaseDescription(input: ReleaseDescInput): string {
 
   if (input.sourceUrl) {
     const label = providerLabelForUrl(input.sourceUrl)
-    description += `[b]Source:[/b] [url=${input.sourceUrl}]${label}[/url]\n`
+    description += `[b]More info:[/b] [url=${input.sourceUrl}]${label}[/url]\n`
   }
 
   const moreInfo = generateSourceLinks(input.metadataUrls, input.sourceUrl)

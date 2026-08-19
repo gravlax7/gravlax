@@ -57,7 +57,7 @@ export function defaultConfig(): Config {
       albumDescriptionTemplateId: 'peachfuzz',
       releaseFolderTemplate: '{artists} - {title} ({year}) [{source} {format}]',
       trackFileTemplate: '{trackNumber}. {title}',
-      multiDiscFolderTemplate: 'Disc {discNumber}'
+      multiDiscFolderTemplate: 'CD {discNumber}'
     },
     spectral: {
       imageHost: '',

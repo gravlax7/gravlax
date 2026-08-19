@@ -3,6 +3,7 @@ import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
 import type { BitDepth } from '@shared/types'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
+import { SOURCE_TORRENT_PLACEHOLDER } from '@main/core/tools/upload/descriptions'
 import { gatherTrackAudioInfo } from './audioInfo'
 import { copyExtraFiles } from './extras'
 import { buildDownconvertOutputPath } from './naming'
@@ -87,7 +88,6 @@ export async function convertFolder(
 }
 
 export function generateConversionDescription(
-  url: string,
   sampleRate: number | null,
   bitDepth: BitDepth = 16,
   version: string
@@ -96,8 +96,8 @@ export function generateConversionDescription(
   const depthArgs = SOX_DEPTH_ARGS[bitDepth].join(' ')
   const soxCmd = `sox input.flac ${depthArgs} output.flac rate -v -L ${sampleRate} dither`
   return (
-    `Encode Specifics: ${bitDepth} bit ${(sampleRate / 1000).toFixed(2)} kHz\n` +
-    `[b]Source:[/b] ${url}\n` +
+    `${bitDepth} bit ${(sampleRate / 1000).toFixed(2)} kHz\n` +
+    `[b]Source:[/b] ${SOURCE_TORRENT_PLACEHOLDER}\n` +
     `[b]Transcode process:[/b] [code]${soxCmd}[/code]\n` +
     `[hr]Uploaded with [b]gravlax[/b] v${version}`
   )

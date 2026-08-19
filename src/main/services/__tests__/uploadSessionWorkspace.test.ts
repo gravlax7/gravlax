@@ -5,7 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Config } from '@shared/types/config'
 import { defaultConfig } from '@main/core/config/defaults'
 import { newState, type State } from '@main/core/uploadflow'
-import { uploadWorkspaceRootForPath, workspaceRoot } from '@main/core/appdata/workspace'
+import {
+  copyFolderToUploadWorkspace,
+  uploadWorkspaceRootForPath,
+  workspaceRoot
+} from '@main/core/appdata/workspace'
 import { UploadSession } from '@main/services/uploadSession'
 import { automaticToolResolver } from '@main/core/tools/binaries'
 
@@ -105,7 +109,7 @@ describe('workspace lifecycle', () => {
     expect(await workspaceDirs()).toEqual(expect.arrayContaining(albumWorkspaces))
   })
 
-  it('starting again creates another workspace without removing saved work', async () => {
+  it('starting again replaces the previous workspace for that source', async () => {
     const album = await makeSource('album')
     const other = await makeSource('other')
 
@@ -114,11 +118,39 @@ describe('workspace lifecycle', () => {
 
     const session = newSession()
     await session.startNew(other)
+    expect(await workspaceDirs()).toHaveLength(2)
+
     await session.startNew(album)
 
     const after = await workspaceDirs()
-    expect(after).toHaveLength(3)
-    expect(after).toEqual(expect.arrayContaining(albumWorkspaces))
+    expect(after).toHaveLength(2)
+    expect(after).not.toEqual(expect.arrayContaining(albumWorkspaces))
+    const entries = await session.listStartEntries()
+    expect(entries.resumeEntries.some((entry) => entry.sourcePath === album)).toBe(true)
+    expect(entries.resumeEntries.some((entry) => entry.sourcePath === other)).toBe(true)
+  })
+
+  it('starting the same source again removes the previous working copy', async () => {
+    const album = await makeSource('album')
+    const session = newSession()
+    await session.startNew(album)
+    const first = await workspaceDirs()
+    expect(first).toHaveLength(1)
+
+    await session.startNew(album)
+    const after = await workspaceDirs()
+    expect(after).toHaveLength(1)
+    expect(after).not.toEqual(first)
+  })
+
+  it('clears leftover workspaces for the same source on a fresh start', async () => {
+    const album = await makeSource('album')
+    await copyFolderToUploadWorkspace(userDataPath, album)
+    await copyFolderToUploadWorkspace(userDataPath, album)
+    expect(await workspaceDirs()).toHaveLength(2)
+
+    await newSession().startNew(album)
+    expect(await workspaceDirs()).toHaveLength(1)
   })
 
   it('keeps the current workspace when copying a new source fails', async () => {

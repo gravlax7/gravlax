@@ -12,7 +12,7 @@ import {
   symlink,
   writeFile
 } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path'
 import type { UploadFlowSnapshot } from '@shared/types'
 
 const WORKSPACE_DIR_NAME = 'workspace'
@@ -149,6 +149,26 @@ export function uploadWorkspaceBelongsToUserData(userDataPath: string, workspace
 export async function removeUploadWorkspace(path: string): Promise<void> {
   if (!path) return
   await rm(path, { recursive: true, force: true })
+}
+
+export async function removeOtherUploadWorkspacesForSource(
+  userDataPath: string,
+  sourcePath: string,
+  keepWorkspacePath: string
+): Promise<void> {
+  const keepRoot = uploadWorkspaceRootForPath(keepWorkspacePath)
+  const sourceKey = pathKey(sourcePath)
+  const workspaces = await listUploadWorkspaces(userDataPath)
+  for (const workspace of workspaces) {
+    if (pathKey(workspace.workspaceRootPath) === pathKey(keepRoot)) continue
+    if (pathKey(workspace.sourcePath) !== sourceKey) continue
+    await removeUploadWorkspace(workspace.workspaceRootPath)
+  }
+}
+
+function pathKey(path: string): string {
+  const key = normalize(resolve(path))
+  return process.platform === 'win32' ? key.toLowerCase() : key
 }
 
 /** Moves finished music folders out of the workspace without touching its other files. */

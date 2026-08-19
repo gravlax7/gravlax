@@ -17,7 +17,9 @@ import {
 } from '@main/core/tools/torrent/createTorrent'
 import { buildTrackerUploadData, collectLogFiles } from '@main/core/tools/upload/payload'
 import {
+  SOURCE_TORRENT_PLACEHOLDER,
   buildLossyMasterComment,
+  substituteSourceTorrentUrl,
   wrapTranscodeLossyComment
 } from '@main/core/tools/upload/descriptions'
 
@@ -77,10 +79,17 @@ export async function runSubmissions(options: RunSubmissionsOptions): Promise<vo
   const trackers = new Map(createTrackers(cfg).map((t) => [t.id as UploadTrackerId, t]))
   const formats = new Map((upload.formats ?? []).map((f) => [f.id, f]))
   const groupIds = new Map<UploadTrackerId, number>()
+  const sourceUrls = new Map<UploadTrackerId, string>()
 
   for (const [trackerId, existing] of Object.entries(upload.groupIds ?? {})) {
     if (typeof existing === 'number' && Number.isFinite(existing)) {
       groupIds.set(trackerId as UploadTrackerId, existing)
+    }
+  }
+
+  for (const sub of submissions) {
+    if (sub.formatId === 'source' && sub.status === 'done' && sub.url) {
+      sourceUrls.set(sub.trackerId, sub.url)
     }
   }
 
@@ -125,11 +134,15 @@ export async function runSubmissions(options: RunSubmissionsOptions): Promise<vo
           trackerId,
           format,
           submission,
-          groupId
+          groupId,
+          sourceTorrentUrl: sourceUrls.get(trackerId)
         })
         if (!fresh()) return
 
         onPatch(submission.id, result.patch)
+        if (format.id === 'source' && result.patch.url) {
+          sourceUrls.set(trackerId, result.patch.url)
+        }
         if (result.groupId) {
           groupIds.set(trackerId, result.groupId)
           onGroupId(trackerId, result.groupId)
@@ -159,6 +172,7 @@ interface UploadOneOptions extends RunSubmissionsOptions {
   format: UploadFormatPayload
   submission: UploadSubmission
   groupId?: number
+  sourceTorrentUrl?: string
 }
 
 async function uploadOneFormat(
@@ -185,7 +199,12 @@ async function uploadOneFormat(
 
   options.onPatch(submission.id, { torrentPath, infoHash: torrent.infoHash })
 
-  const data = buildTrackerUploadData({ upload, format, trackerId, groupId })
+  const data = buildTrackerUploadData({
+    upload,
+    format: formatForTrackerUpload(format, options.sourceTorrentUrl),
+    trackerId,
+    groupId
+  })
   const logFiles = await collectLogFiles(format.folderPath, format.logfileNames ?? [])
   const result = await tracker.upload(data, { torrentData: torrent.data, logFiles }, signal)
 
@@ -220,7 +239,10 @@ async function reportLossyIfNeeded(
     spectralBbcode: options.spectralBbcode
   })
   const comment = isTranscode
-    ? wrapTranscodeLossyComment(options.sourceUrl || options.format.folderPath, base)
+    ? wrapTranscodeLossyComment(
+        options.sourceTorrentUrl || options.sourceUrl || options.format.folderPath,
+        base
+      )
     : base
 
   try {
@@ -249,6 +271,21 @@ async function rewriteTorrentComment(
   } catch {
     // Cosmetic: the torrent on disk is already valid and identical bar the
     // comment, and the upload has landed.
+  }
+}
+
+function formatForTrackerUpload(
+  format: UploadFormatPayload,
+  sourceTorrentUrl: string | undefined
+): UploadFormatPayload {
+  if (format.id === 'source') return format
+  if (!format.releaseDesc.includes(SOURCE_TORRENT_PLACEHOLDER)) return format
+  if (!sourceTorrentUrl) {
+    throw new Error('Source FLAC torrent URL is missing.')
+  }
+  return {
+    ...format,
+    releaseDesc: substituteSourceTorrentUrl(format.releaseDesc, sourceTorrentUrl)
   }
 }
 

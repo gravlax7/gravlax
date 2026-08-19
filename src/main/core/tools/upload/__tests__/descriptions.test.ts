@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   SPECTRAL_PLACEHOLDER,
+  SOURCE_TORRENT_PLACEHOLDER,
   buildLossyMasterComment,
   formatDuration,
   generateAlbumDescription,
@@ -10,6 +11,7 @@ import {
   makeSpectralBbcode,
   providerLabelForUrl,
   spectralsPlaceholderBbcode,
+  substituteSourceTorrentUrl,
   substituteSpectralBbcode,
   wrapTranscodeLossyComment
 } from '../descriptions'
@@ -176,7 +178,7 @@ describe('generateAlbumDescription', () => {
 })
 
 describe('generateReleaseDescription', () => {
-  it('includes spectrals placeholder, encode specifics, and footer', () => {
+  it('includes spectrals placeholder, bit depth, sample rate, and footer', () => {
     const desc = generateReleaseDescription({
       bitDepth: 16,
       sampleRate: 44100,
@@ -185,9 +187,8 @@ describe('generateReleaseDescription', () => {
       version: '0.1.0'
     })
     expect(desc.startsWith(spectralsPlaceholderBbcode())).toBe(true)
-    expect(desc).toContain('Encode Specifics:')
-    expect(desc).toContain('16 bit')
-    expect(desc).toContain('[b]Source:[/b] [url=https://www.discogs.com/release/1]Discogs[/url]')
+    expect(desc).toContain('[b]16 bit [color=#2E86C1]44.1[/color] kHz[/b]')
+    expect(desc).toContain('[b]More info:[/b] [url=https://www.discogs.com/release/1]Discogs[/url]')
     expect(desc).toContain('[b]More info:[/b] [url=https://musicbrainz.org/release/abc]MusicBrainz[/url]')
     expect(desc).toContain('[hr]Uploaded with [b]gravlax[/b] v0.1.0')
   })
@@ -246,17 +247,19 @@ describe('substituteSpectralBbcode', () => {
   const bbcode = '[hide=Spectrals][b]x[/b][/hide]\n'
 
   it('replaces the placeholder', () => {
-    const desc = `${SPECTRAL_PLACEHOLDER}Encode Specifics: 16 bit\n`
-    expect(substituteSpectralBbcode(desc, bbcode)).toBe(`${bbcode}Encode Specifics: 16 bit\n`)
+    const desc = `${SPECTRAL_PLACEHOLDER}[b]16 bit [color=#2E86C1]44.1[/color] kHz[/b]\n`
+    expect(substituteSpectralBbcode(desc, bbcode)).toBe(
+      `${bbcode}[b]16 bit [color=#2E86C1]44.1[/color] kHz[/b]\n`
+    )
   })
 
   it('removes the placeholder when nothing was hosted', () => {
-    const desc = `${SPECTRAL_PLACEHOLDER}Encode Specifics: 16 bit\n`
-    expect(substituteSpectralBbcode(desc, '')).toBe('Encode Specifics: 16 bit\n')
+    const desc = `${SPECTRAL_PLACEHOLDER}[b]16 bit [color=#2E86C1]44.1[/color] kHz[/b]\n`
+    expect(substituteSpectralBbcode(desc, '')).toBe('[b]16 bit [color=#2E86C1]44.1[/color] kHz[/b]\n')
   })
 
   it('leaves a description the user stripped the placeholder from alone', () => {
-    const desc = 'Encode Specifics: 16 bit\n'
+    const desc = '[b]16 bit [color=#2E86C1]44.1[/color] kHz[/b]\n'
     expect(substituteSpectralBbcode(desc, bbcode)).toBe(desc)
   })
 
@@ -267,6 +270,27 @@ describe('substituteSpectralBbcode', () => {
       version: '0.1.0'
     })
     expect(substituteSpectralBbcode(desc, bbcode).startsWith(bbcode)).toBe(true)
+  })
+})
+
+describe('substituteSourceTorrentUrl', () => {
+  const desc = `[b]Source:[/b] ${SOURCE_TORRENT_PLACEHOLDER}\n[b]Transcode process:[/b] [code]x[/code]\n`
+
+  it('replaces the placeholder', () => {
+    expect(substituteSourceTorrentUrl(desc, 'https://red/torrents.php?torrentid=7')).toBe(
+      '[b]Source:[/b] https://red/torrents.php?torrentid=7\n[b]Transcode process:[/b] [code]x[/code]\n'
+    )
+  })
+
+  it('removes the placeholder when nothing was hosted', () => {
+    expect(substituteSourceTorrentUrl(desc, '')).toBe(
+      '[b]Source:[/b] \n[b]Transcode process:[/b] [code]x[/code]\n'
+    )
+  })
+
+  it('leaves a description the user stripped the placeholder from alone', () => {
+    const edited = '[b]Source:[/b] https://example/manual\n'
+    expect(substituteSourceTorrentUrl(edited, 'https://red/torrents.php?torrentid=7')).toBe(edited)
   })
 })
 

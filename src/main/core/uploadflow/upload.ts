@@ -99,6 +99,12 @@ export function genresToTags(genres: string[] | undefined): string {
     .join(', ')
 }
 
+export function resolveUploadTags(s: State): string {
+  const proposed = genresToTags(s.tags.proposed?.genres)
+  if (proposed) return proposed
+  return genresToTags(s.tags.current?.genres)
+}
+
 export function parseYear(value: string | undefined): number | undefined {
   if (!value) return undefined
   const n = Number.parseInt(value.trim(), 10)
@@ -240,11 +246,7 @@ export async function buildUploadSnapshot(
         bitrate: trackerEncoding(option.bitrate),
         otherBitrate: '',
         vbr: option.bitrate === 'V0',
-        releaseDesc: generateTranscodeDescription(
-          sourceUrl ?? '',
-          option.bitrate as Bitrate,
-          options.version
-        ),
+        releaseDesc: generateTranscodeDescription(option.bitrate as Bitrate, options.version),
         logfileNames: []
       })
       continue
@@ -261,12 +263,7 @@ export async function buildUploadSnapshot(
         bitrate: targetDepth === 24 ? '24bit Lossless' : 'Lossless',
         otherBitrate: '',
         vbr: false,
-        releaseDesc: generateConversionDescription(
-          sourceUrl ?? '',
-          targetRate,
-          targetDepth,
-          options.version
-        ),
+        releaseDesc: generateConversionDescription(targetRate, targetDepth, options.version),
         logfileNames: []
       })
     }
@@ -294,7 +291,7 @@ export async function buildUploadSnapshot(
     remasterCatalogueNumber: resolveCatalogueNumber(proposed, cfg),
     scene: false,
     media: s.draft.sourceMedia || '',
-    tags: genresToTags(proposed.genres),
+    tags: resolveUploadTags(s),
     image: cover.image,
     coverPath: cover.coverPath,
     albumDesc,
@@ -327,6 +324,7 @@ function carryUserSelections(next: UploadSnapshot, previous: UploadSnapshot): Up
     unknown: previous.unknown ?? next.unknown,
     orpheusSplit: previous.orpheusSplit ?? next.orpheusSplit,
     groupSearch: previous.groupSearch ?? emptyGroupSearch(),
+    tags: (previous.tags ?? '').trim() ? previous.tags : next.tags,
     submissions: submissions.map((sub) => ({ ...sub })),
     // A failed submit stays failed while any of its rows survive, so the user
     // keeps the retry affordance and the reason it stopped. A failure with no
@@ -345,16 +343,34 @@ export async function ensureUploadReport(s: State, cfg: Config, version: string)
   // The same holds mid-submit, where a rebuild would swap the descriptions out
   // from under the formats still queued to upload.
   if (current.phase === 'done' || current.phase === 'submitting') {
-    return backfillCoverIfNeeded(s)
+    return backfillUploadFieldsIfNeeded(s)
   }
   if (current.seededFrom === fingerprint && current.phase === 'ready') {
-    return backfillCoverIfNeeded(s)
+    return backfillUploadFieldsIfNeeded(s)
   }
   const next = await buildUploadSnapshot(s, cfg, {
     version,
     previousImage: current.image
   })
   return setUpload(s, carryUserSelections(next, current))
+}
+
+async function backfillUploadFieldsIfNeeded(s: State): Promise<State> {
+  let next = backfillTagsIfNeeded(s)
+  return backfillCoverIfNeeded(next)
+}
+
+function backfillTagsIfNeeded(s: State): State {
+  if ((s.upload.tags ?? '').trim()) return s
+  const tags = resolveUploadTags(s)
+  if (!tags) return s
+  return {
+    ...s,
+    upload: {
+      ...s.upload,
+      tags
+    }
+  }
 }
 
 async function backfillCoverIfNeeded(s: State): Promise<State> {

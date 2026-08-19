@@ -121,7 +121,7 @@ export function createMusicBrainzProvider(
       return request(`${siteURL}/ws/2/release/${id}`, {
         query: {
           fmt: 'json',
-          inc: 'artists+labels+recordings+release-groups+media+artist-credits+artist-rels+recording-level-rels'
+          inc: 'artists+labels+recordings+release-groups+media+artist-credits+artist-rels+recording-level-rels+genres'
         },
         signal,
         timeoutMs
@@ -160,7 +160,10 @@ function mapMusicBrainzRelease(raw: Record<string, unknown>, url: string): Relea
     label,
     catNo,
     upc,
-    genres: musicBrainzStrings(raw.genres),
+    genres: [
+      ...musicBrainzStrings(raw.genres),
+      ...musicBrainzStrings(releaseGroup.genres)
+    ],
     releaseType: musicBrainzReleaseType(releaseGroup) || undefined,
     cover: cover || undefined,
     urls: url ? [url] : undefined,

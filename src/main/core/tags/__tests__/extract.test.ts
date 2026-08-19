@@ -28,18 +28,38 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
     expect(result.release.title).toBe('With Art')
     expect(result.embeddedCoverArtCount).toBe(3)
   })
+
+  it('unions mixed genres across a multi-disc album', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'gravlax-tags-'))
+    temporaryPaths.push(directory)
+    await writeFlac(join(directory, 'cd1.flac'), ['ALBUM=Box', 'DISCNUMBER=1', 'GENRE=Electronic'])
+    await writeFlac(join(directory, 'cd2.flac'), ['ALBUM=Box', 'DISCNUMBER=2', 'GENRE=Ambient'])
+
+    const result = await extractAlbumReleaseWithEmbeddedCoverArt(directory)
+
+    expect(result.release.genres).toEqual(['Electronic', 'Ambient'])
+    expect(result.release.mixed?.genres).toBe(true)
+  })
 })
 
 async function writeTestFlac(comments: string[], pictureCount: number): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'gravlax-tags-'))
   temporaryPaths.push(directory)
   const path = join(directory, 'track.flac')
+  await writeFlac(path, comments, pictureCount)
+  return path
+}
+
+async function writeFlac(
+  path: string,
+  comments: string[],
+  pictureCount = 0
+): Promise<void> {
   const blocks = [metadataBlock(4, vorbisComments(comments), pictureCount === 0)]
   for (let index = 0; index < pictureCount; index++) {
     blocks.push(metadataBlock(6, Buffer.from([index]), index === pictureCount - 1))
   }
   await writeFile(path, Buffer.concat([Buffer.from('fLaC'), ...blocks]))
-  return path
 }
 
 function metadataBlock(type: number, payload: Buffer, last: boolean): Buffer {

@@ -5,7 +5,6 @@ import {
   FIELD_CAT_NO,
   FIELD_COMMENT,
   FIELD_EDITION_TITLE,
-  FIELD_GENRES,
   FIELD_GROUP_YEAR,
   FIELD_LABEL,
   FIELD_RELEASE_TYPE,
@@ -212,7 +211,7 @@ export function seedTagsProposed(current: Release, selected: Release): Release {
   if (!proposed.upc && !isMixed(current, FIELD_UPC) && current.upc) {
     proposed.upc = current.upc
   }
-  if ((!proposed.genres || proposed.genres.length === 0) && !isMixed(current, FIELD_GENRES) && current.genres && current.genres.length > 0) {
+  if ((!proposed.genres || proposed.genres.length === 0) && current.genres && current.genres.length > 0) {
     proposed.genres = [...current.genres]
   }
   if (!proposed.releaseType && !isMixed(current, FIELD_RELEASE_TYPE) && current.releaseType) {

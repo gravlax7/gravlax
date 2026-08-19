@@ -97,6 +97,7 @@ import {
   readUploadFlow,
   readUploadWorkspaceSource,
   removeUploadWorkspace,
+  removeOtherUploadWorkspacesForSource,
   archiveMusicFolders,
   uploadWorkspaceBelongsToUserData,
   uploadWorkspaceRootForPath,
@@ -841,6 +842,15 @@ export class UploadSession {
       return
     }
     this.apply(setWorkspacePath(this.state, workspacePath))
+    try {
+      await removeOtherUploadWorkspacesForSource(
+        this.deps.userDataPath,
+        sourcePath,
+        workspacePath
+      )
+    } catch {
+      this.notify('warning', 'Could not remove the previous working copy.')
+    }
     const stillOnWorkspace = (): boolean => this.stillOnWorkspace(generation, workspacePath)
     try {
       await this.maybeAutoDetectSourceMedia(workspacePath, stillOnWorkspace)

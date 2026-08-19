@@ -19,6 +19,7 @@ import {
   patchSubmission,
   resolveCatalogueNumber,
   resolveCoverImage,
+  resolveUploadTags,
   resumeGroupSearch,
   resumeSubmit,
   setGroupSearch,
@@ -26,7 +27,7 @@ import {
   updateUploadReport,
   uploadArtistsFromRelease
 } from '../upload'
-import { SPECTRAL_PLACEHOLDER } from '@main/core/tools/upload/descriptions'
+import { SPECTRAL_PLACEHOLDER, SOURCE_TORRENT_PLACEHOLDER } from '@main/core/tools/upload/descriptions'
 import type { UploadSubmission } from '@shared/types'
 import { emptyGroupSearch } from '../groupSearch'
 import { newState } from '../state'
@@ -66,6 +67,18 @@ describe('upload helpers', () => {
 
   it('formats genres as tags', () => {
     expect(genresToTags(['Electronic', ' Ambient '])).toBe('electronic, ambient')
+  })
+
+  it('falls back to current file genres when proposed has none', () => {
+    expect(
+      resolveUploadTags({
+        ...newState(),
+        tags: {
+          current: { genres: ['Rock', 'Indie'] },
+          proposed: { title: 'Album' }
+        }
+      })
+    ).toBe('rock, indie')
   })
 
   it('parses years', () => {
@@ -262,6 +275,15 @@ describe('multi-format upload', () => {
       })
 
       expect(snapshot.formats).toHaveLength(3)
+      expect(snapshot.formats![0]!.releaseDesc).not.toContain(SOURCE_TORRENT_PLACEHOLDER)
+      expect(snapshot.formats![1]!.releaseDesc).toContain(
+        `[b]Source:[/b] ${SOURCE_TORRENT_PLACEHOLDER}`
+      )
+      expect(snapshot.formats![1]!.releaseDesc).not.toContain('More info')
+      expect(snapshot.formats![2]!.releaseDesc).toContain(
+        `[b]Source:[/b] ${SOURCE_TORRENT_PLACEHOLDER}`
+      )
+      expect(snapshot.formats![2]!.releaseDesc).not.toContain('More info')
       for (const format of snapshot.formats ?? []) {
         expect(format.releaseDesc).toContain('[hr]Uploaded with [b]gravlax[/b] v9.8.7')
       }
@@ -384,17 +406,19 @@ describe('setSpectralBbcode', () => {
   it('substitutes into the format holding the placeholder and leaves transcodes alone', () => {
     let state = updateUploadReport(newState(), {
       formats: [
-        format('source', `${SPECTRAL_PLACEHOLDER}Encode Specifics: 16 bit\n`),
-        format('mp3', '[b]Source:[/b] https://red/1\n')
+        format('source', `${SPECTRAL_PLACEHOLDER}[b]16 bit [color=#2E86C1]44.1[/color] kHz[/b]\n`),
+        format('mp3', `[b]Source:[/b] ${SOURCE_TORRENT_PLACEHOLDER}\n`)
       ]
     })
     state = setSpectralBbcode(state, '[hide=Spectrals]x[/hide]\n')
 
     expect(state.upload.spectralBbcode).toBe('[hide=Spectrals]x[/hide]\n')
     expect(state.upload.formats![0]!.releaseDesc).toBe(
-      '[hide=Spectrals]x[/hide]\nEncode Specifics: 16 bit\n'
+      '[hide=Spectrals]x[/hide]\n[b]16 bit [color=#2E86C1]44.1[/color] kHz[/b]\n'
     )
-    expect(state.upload.formats![1]!.releaseDesc).toBe('[b]Source:[/b] https://red/1\n')
+    expect(state.upload.formats![1]!.releaseDesc).toBe(
+      `[b]Source:[/b] ${SOURCE_TORRENT_PLACEHOLDER}\n`
+    )
   })
 
   it('drops the placeholder when nothing was hosted', () => {
@@ -747,6 +771,48 @@ describe('cover image resolution', () => {
 
     state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     expect(state.upload.coverPath).toBe(coverPath)
+  })
+
+  it('backfills empty tags on cached upload reports from file genres', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-tags-'))
+    let state = newState()
+    state.draft.workspacePath = dir
+    state.draft.sourceMedia = 'WEB'
+    state.tags.current = { genres: ['Electronic', 'Ambient'], mixed: { genres: true } }
+    state.tags.proposed = {
+      title: 'Album',
+      artists: [{ name: 'A', role: 'main' }],
+      groupYear: '2020'
+    }
+    state.upload = {
+      ...emptyUpload(),
+      phase: 'ready',
+      tags: '',
+      seededFrom: fingerprintUploadInputs(state, cfgWithTrackers(['redacted']), TEST_VERSION)
+    }
+
+    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
+    expect(state.upload.tags).toBe('electronic, ambient')
+  })
+
+  it('keeps typed tags when the report rebuilds', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-tags-keep-'))
+    let state = newState()
+    state.draft.workspacePath = dir
+    state.draft.sourceMedia = 'WEB'
+    state.tags.proposed = {
+      title: 'Album',
+      artists: [{ name: 'A', role: 'main' }],
+      groupYear: '2020',
+      genres: ['electronic']
+    }
+    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
+    state = updateUploadReport(state, { tags: 'hip.hop, boom.bap' })
+    state.tags.proposed = { ...state.tags.proposed, title: 'Album II' }
+
+    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
+    expect(next.upload.title).toBe('Album II')
+    expect(next.upload.tags).toBe('hip.hop, boom.bap')
   })
 
   it('preserves a previous image URL on rebuild without uploading', async () => {
