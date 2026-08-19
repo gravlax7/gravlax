@@ -78,7 +78,7 @@ describe('UploadSession tracker health gate', () => {
       ok: false,
       error: 'Tracker health checks must pass before uploading: Redacted Session: expired session.'
     })
-    expect(mocks.healthcheckTrackers).toHaveBeenCalledWith(cfg, ['redacted'])
+    expect(mocks.healthcheckTrackers).toHaveBeenCalledWith(cfg, ['redacted'], 'upload')
     expect(hostImages).not.toHaveBeenCalled()
     expect(session.getState().upload.phase).toBe('failed')
   })

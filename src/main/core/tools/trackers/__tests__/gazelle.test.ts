@@ -160,6 +160,28 @@ describe('GazelleClient', () => {
     await expect(c.authenticate()).rejects.toBeInstanceOf(TrackerLoginError)
   })
 
+  it('throws TrackerLoginError on a failed session envelope', async () => {
+    stubFetch(async () => ({
+      status: 200,
+      text: JSON.stringify({ status: 'failure', error: 'expired session' })
+    }))
+    const c = client({ apiKey: '', sessionCookie: 'stale' })
+    await expect(c.checkAuthentication('session')).rejects.toMatchObject({
+      name: 'TrackerLoginError',
+      message: 'expired session'
+    })
+  })
+
+  it('throws TrackerLoginError when the tracker returns a login page', async () => {
+    stubFetch(async () => ({
+      status: 200,
+      text: '<html><form id="login"><input name="username"><input type="password"></form></html>',
+      headers: { 'content-type': 'text/html' }
+    }))
+    const c = client({ apiKey: '', sessionCookie: 'stale' })
+    await expect(c.checkAuthentication('session')).rejects.toBeInstanceOf(TrackerLoginError)
+  })
+
   it('resolves torrent group id from redirected URL', async () => {
     stubFetch(async (input) => {
       if (input.includes('action=index')) {
@@ -309,6 +331,19 @@ describe('rate limits', () => {
     expect(ORPHEUS_RATE_LIMITS.apiKey).toEqual({ maxRequests: 5, windowMs: 10_000 })
     expect(usesApiKeyAuth('key', true)).toBe(true)
     expect(usesApiKeyAuth('key', false)).toBe(false)
+  })
+
+  it('RateLimiter acquire aborts when the signal fires', async () => {
+    vi.useFakeTimers()
+    try {
+      const limiter = new RateLimiter(1, 10_000)
+      await limiter.acquire()
+      const pending = limiter.acquire(AbortSignal.timeout(50))
+      await vi.advanceTimersByTimeAsync(50)
+      await expect(pending).rejects.toMatchObject({ name: 'TimeoutError' })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('RateLimiter blocks once the burst window is full', async () => {

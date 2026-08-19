@@ -1,14 +1,37 @@
 import type { Config } from '@shared/types/config'
 import type { HealthRow } from '@shared/types'
+import type { ImageHostProvider } from './provider'
 import { imageHostProviders } from './providers'
 
 const PROBE_TIMEOUT_MS = 3000
 
-export async function healthcheckImageHosts(cfg: Config): Promise<HealthRow[]> {
-  const rows: HealthRow[] = []
-  await Promise.all(
-    imageHostProviders.map(async (provider) => {
-      const host = provider.healthTarget(cfg)
+function providersWithHealthcheck(providers: readonly ImageHostProvider[]) {
+  return providers.flatMap((provider) => {
+    const healthTarget = provider.healthTarget
+    return healthTarget ? [{ provider, healthTarget }] : []
+  })
+}
+
+export async function healthcheckImageHosts(
+  cfg: Config,
+  onRow?: (row: HealthRow) => void
+): Promise<HealthRow[]> {
+  const providers = providersWithHealthcheck(imageHostProviders)
+
+  for (const { healthTarget } of providers) {
+    const host = healthTarget(cfg)
+    onRow?.({
+      id: `img:${host.id}`,
+      name: host.name,
+      group: 'Image Hosts',
+      status: host.enabled ? 'checking' : 'disabled',
+      detail: host.enabled ? 'Checking…' : 'Disabled'
+    })
+  }
+
+  return Promise.all(
+    providers.map(async ({ provider, healthTarget }) => {
+      const host = healthTarget(cfg)
       const row: HealthRow = {
         id: `img:${host.id}`,
         name: host.name,
@@ -16,42 +39,33 @@ export async function healthcheckImageHosts(cfg: Config): Promise<HealthRow[]> {
         status: 'checking'
       }
       if (!host.enabled) {
-        row.status = 'disabled'
-        row.detail = 'Disabled'
-        rows.push(row)
-        return
-      }
-      if (host.blockedReason) {
-        row.status = 'failing'
-        row.detail = host.blockedReason
-        rows.push(row)
-        return
+        const disabled = { ...row, status: 'disabled' as const, detail: 'Disabled' }
+        onRow?.(disabled)
+        return disabled
       }
       if (host.requiresApiKey && !host.apiKey) {
-        row.status = 'failing'
-        row.detail = 'Missing API key'
-        rows.push(row)
-        return
+        const missing = { ...row, status: 'failing' as const, detail: 'Missing API key' }
+        onRow?.(missing)
+        return missing
       }
       if (await isReachable(host.url, host.headers)) {
         const apiKeyError = provider.validateApiKey
           ? await provider.validateApiKey(cfg)
           : null
         if (apiKeyError) {
-          row.status = 'failing'
-          row.detail = apiKeyError
-        } else {
-          row.status = 'available'
-          row.detail = 'Available'
+          const failing = { ...row, status: 'failing' as const, detail: apiKeyError }
+          onRow?.(failing)
+          return failing
         }
-      } else {
-        row.status = 'failing'
-        row.detail = 'Unreachable'
+        const available = { ...row, status: 'available' as const, detail: 'Available' }
+        onRow?.(available)
+        return available
       }
-      rows.push(row)
+      const unreachable = { ...row, status: 'failing' as const, detail: 'Unreachable' }
+      onRow?.(unreachable)
+      return unreachable
     })
   )
-  return rows
 }
 
 /**

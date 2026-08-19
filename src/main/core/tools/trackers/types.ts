@@ -26,6 +26,7 @@ export interface TrackerRateLimits {
 }
 
 export interface GazelleClientOptions {
+  trackerId?: TrackerId
   siteUrl: string
   announceUrl: string
   apiKey: string

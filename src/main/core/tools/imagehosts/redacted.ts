@@ -12,28 +12,6 @@ function uploadUrl(siteUrl: string): string {
 export const redactedProvider: ImageHostProvider = {
   id: 'redacted',
 
-  healthTarget(cfg) {
-    const tracker = cfg.trackers.redacted
-    const trackerReady =
-      tracker.enabled && tracker.siteUrl.trim() !== '' && tracker.announceUrl.trim() !== ''
-    const apiKey = tracker.apiKey.trim()
-    const secureSiteUrl = isHTTPSURL(tracker.siteUrl.trim())
-    return {
-      id: 'redacted',
-      name: 'Redacted Image Host',
-      enabled: cfg.imageHosts.redacted.enabled,
-      requiresApiKey: true,
-      apiKey,
-      url: uploadUrl(tracker.siteUrl),
-      headers: apiKey ? { Authorization: apiKey } : undefined,
-      blockedReason: !trackerReady
-        ? 'Requires Redacted tracker'
-        : secureSiteUrl
-          ? undefined
-          : 'Redacted tracker site URL must use HTTPS'
-    }
-  },
-
   async upload(cfg, filePath) {
     const tracker = cfg.trackers.redacted
     const siteUrl = normalizeTrackerUrl(tracker.siteUrl)

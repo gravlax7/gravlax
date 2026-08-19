@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import type { IpcInvokeArgs, IpcInvokeChannel, IpcInvokeResult } from '@shared/ipc'
+import type { IpcEventChannel, IpcEventMap, IpcInvokeArgs, IpcInvokeChannel, IpcInvokeResult } from '@shared/ipc'
 import { parseIpcArguments } from '@shared/ipc'
 import type { ConfigService } from './services/configService'
 import type { UploadSession } from './services/uploadSession'
@@ -21,7 +21,10 @@ export interface IpcDeps {
   openPath: (path: string) => Promise<void>
   openExternal: (url: string) => Promise<void>
   writeClipboardText: (text: string) => void
+  diagnosticReport: () => string
+  revealDiagnosticLog: () => Promise<void>
   checkForUpdates: () => Promise<IpcInvokeResult<'updates:check'>>
+  send: <C extends IpcEventChannel>(channel: C, payload: IpcEventMap[C]) => void
 }
 
 type IpcHandler<C extends IpcInvokeChannel> = (
@@ -95,6 +98,12 @@ export function registerIpc(deps: IpcDeps): void {
   handle('shell:openExternal', (url) => deps.openExternal(url))
   handle('clipboard:writeText', (text) => deps.writeClipboardText(text))
 
-  handle('health:refresh', () => runHealthcheck(config.get(), deps.toolResolver))
+  handle('health:refresh', (source) =>
+    runHealthcheck(config.get(), deps.toolResolver, source ?? 'manual', (result) => {
+      deps.send('health:updated', result)
+    })
+  )
+  handle('diagnostics:report', () => deps.diagnosticReport())
+  handle('diagnostics:revealLogs', () => deps.revealDiagnosticLog())
   handle('updates:check', () => deps.checkForUpdates())
 }

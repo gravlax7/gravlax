@@ -23,6 +23,13 @@ describe('IPC argument contract', () => {
     expect(parseIpcArguments('updates:check', [])).toEqual([])
   })
 
+  it('accepts safe diagnostic commands and known health check sources', () => {
+    expect(parseIpcArguments('diagnostics:report', [])).toEqual([])
+    expect(parseIpcArguments('diagnostics:revealLogs', [])).toEqual([])
+    expect(parseIpcArguments('health:refresh', ['settings-save'])).toEqual(['settings-save'])
+    expect(() => parseIpcArguments('health:refresh', ['other'])).toThrow()
+  })
+
   it('accepts torrent save commands and rejects an empty submission id', () => {
     expect(parseIpcArguments('upload:saveTorrent', ['redacted:flac'])).toEqual([
       'redacted:flac'

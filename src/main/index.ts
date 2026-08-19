@@ -9,6 +9,11 @@ import { workspaceRoot } from './core/appdata/workspace'
 import { SystemToolResolver } from './core/tools/binaries'
 import { checkForUpdate } from './services/updateCheck'
 import { TorrentExportService } from './services/torrentExportService'
+import {
+  configureDiagnosticLog,
+  diagnosticLogPath,
+  trackerDiagnosticReport
+} from './core/diagnosticLog'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -68,6 +73,13 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  configureDiagnosticLog({
+    directory: app.getPath('logs'),
+    appVersion: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch
+  })
+
   protocol.handle('gravlax-spectral', async (request) => {
     try {
       const url = new URL(request.url)
@@ -149,6 +161,7 @@ app.whenReady().then(async () => {
     uploadStatsService,
     uploadSession,
     toolResolver,
+    send,
     saveTorrent: (submissionId) => torrentExportService.saveOne(submissionId),
     saveTorrents: () => torrentExportService.saveAll(),
     pickDirectory: async () => {
@@ -183,6 +196,8 @@ app.whenReady().then(async () => {
       await shell.openExternal(parsed.toString())
     },
     writeClipboardText: (text) => clipboard.writeText(text),
+    diagnosticReport: () => trackerDiagnosticReport(),
+    revealDiagnosticLog: async () => shell.showItemInFolder(await diagnosticLogPath()),
     checkForUpdates: () => {
       const currentVersion = app.getVersion()
       if (!app.isPackaged) return Promise.resolve({ status: 'disabled', currentVersion })

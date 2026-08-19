@@ -7,7 +7,6 @@ import type { Config } from '@shared/types/config'
 import { defaultConfig } from '@main/core/config/defaults'
 import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 import { healthcheckImageHosts } from '../health'
-import { redactedProvider } from '../redacted'
 import { selectCoverImageHost, uploadCoverImage } from '../upload'
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46])
@@ -211,26 +210,12 @@ describe('uploadCoverImage', () => {
     )
   })
 
-  it('reports the tracker API key in redacted health checks', () => {
+  it('does not healthcheck the redacted image host', async () => {
     const c = cfg()
-    const target = redactedProvider.healthTarget(c)
-    expect(target.requiresApiKey).toBe(true)
-    expect(target.apiKey).toBe('red-key')
-    expect(target.headers).toEqual({ Authorization: 'red-key' })
-  })
-
-  it('reports a missing API key when redacted only has a session cookie', async () => {
-    const c = cfg()
-    c.imageHosts.imgbb.enabled = false
-    c.imageHosts.thesungod.enabled = false
-    c.trackers.redacted.apiKey = ''
-    c.trackers.redacted.sessionCookie = 'session-cookie'
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('method not allowed', { status: 405 })))
 
     const rows = await healthcheckImageHosts(c)
-    expect(rows.find((row) => row.id === 'img:redacted')).toMatchObject({
-      status: 'failing',
-      detail: 'Missing API key'
-    })
+    expect(rows.find((row) => row.id === 'img:redacted')).toBeUndefined()
   })
 
   it('reports an invalid Ra API key without uploading an image', async () => {

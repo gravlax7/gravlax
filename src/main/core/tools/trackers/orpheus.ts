@@ -29,6 +29,7 @@ export class OrpheusClient extends GazelleClient {
 
 export function createOrpheusTracker(cfg: TrackerConfig, timeoutMs = 10_000) {
   const client = new OrpheusClient({
+    trackerId: 'orpheus',
     siteUrl: cfg.siteUrl,
     announceUrl: cfg.announceUrl,
     apiKey: cfg.apiKey,

@@ -11,7 +11,7 @@ const VERSION_ARGS: Record<ToolId, string[]> = {
 const VERSION_PATTERNS: Record<ToolId, RegExp> = {
   sox: /\b(SoX(?:_ng)?)\s+v?(\d+(?:\.\d+){1,3})\b/i,
   flac: /\b(flac)\s+v?(\d+(?:\.\d+){1,3})\b/i,
-  metaflac: /\b(metaflac)\s+v?(\d+(?:\.\d+){1,3})\b/i,
+  metaflac: /\b(metaflac)\b(?:\s+v?|\s+[^\r\n]*?\bversion\s+v?)(\d+(?:\.\d+){1,3})\b/i,
   lame: /\b(LAME)\b.*?\bversion\s+v?(\d+(?:\.\d+){1,3})\b/i
 }
 
@@ -20,9 +20,14 @@ export interface ToolVersion {
   version: string
 }
 
-export async function probeToolVersion(id: ToolId, executable: string): Promise<ToolVersion> {
-  const output = await execute(executable, VERSION_ARGS[id])
-  const parsed = parseToolVersion(id, output)
+type VersionExecutor = (executable: string, args: string[]) => Promise<string>
+
+export async function probeToolVersion(id: ToolId, executable: string, run: VersionExecutor = execute): Promise<ToolVersion> {
+  const output = await run(executable, VERSION_ARGS[id])
+  let parsed = parseToolVersion(id, output)
+  if (!parsed && id === 'metaflac') {
+    parsed = parseToolVersion(id, await run(executable, ['--help']))
+  }
   if (!parsed) throw new Error(`Could not read ${id} version.`)
   return parsed
 }

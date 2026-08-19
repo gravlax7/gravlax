@@ -80,7 +80,12 @@ export interface IpcInvokeMap {
   'shell:openPath': { args: [string]; result: void }
   'shell:openExternal': { args: [string]; result: void }
   'clipboard:writeText': { args: [string]; result: void }
-  'health:refresh': { args: []; result: HealthResult }
+  'health:refresh': {
+    args: [('startup' | 'settings-save' | 'manual')?]
+    result: HealthResult
+  }
+  'diagnostics:report': { args: []; result: string }
+  'diagnostics:revealLogs': { args: []; result: void }
   'updates:check': { args: []; result: UpdateCheckResult }
 }
 
@@ -88,6 +93,7 @@ export interface IpcEventMap {
   'upload:state': UploadFlowStateJSON
   'upload:notify': NotifyPayload
   'stats:changed': UploadStats
+  'health:updated': HealthResult
 }
 
 export type IpcInvokeChannel = keyof IpcInvokeMap
@@ -247,7 +253,9 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'shell:openPath': z.tuple([z.string().min(1)]),
   'shell:openExternal': z.tuple([z.string().url()]),
   'clipboard:writeText': z.tuple([z.string().min(1)]),
-  'health:refresh': noArgs,
+  'health:refresh': optionalOneArgument(z.enum(['startup', 'settings-save', 'manual'])),
+  'diagnostics:report': noArgs,
+  'diagnostics:revealLogs': noArgs,
   'updates:check': noArgs
 }
 

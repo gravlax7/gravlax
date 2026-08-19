@@ -1,5 +1,6 @@
 import type { Config } from '@shared/types/config'
 import type { HealthResult, HealthRow } from '@shared/types'
+import { trackerHealthRowId } from '@shared/upload/validation'
 import {
   automaticToolResolver,
   type ToolId,
@@ -11,6 +12,8 @@ import { healthcheckImageHosts } from '@main/core/tools/imagehosts/health'
 import { healthcheckTrackers, trackerHealthRowsReady } from '@main/core/tools/trackers/health'
 import { createQBittorrentClient } from '@main/core/tools/torrentClient'
 import { testSftpConnection } from '@main/core/tools/transfer'
+
+export type HealthRowReporter = (row: HealthRow) => void
 
 const BINARY_CHECKS: Array<{
   id: ToolId
@@ -49,23 +52,76 @@ const BINARY_CHECKS: Array<{
   }
 ]
 
+let nextHealthcheckRunId = 0
+
 export async function runHealthcheck(
   cfg: Config,
-  tools: ToolResolver = automaticToolResolver
+  tools: ToolResolver = automaticToolResolver,
+  source: 'startup' | 'settings-save' | 'manual' = 'manual',
+  onUpdate?: (result: HealthResult) => void
 ): Promise<HealthResult> {
-  const rows: HealthRow[] = []
+  const runId = ++nextHealthcheckRunId
+  const rows = new Map<string, HealthRow>()
+  const order: string[] = []
+  let publishing = false
 
-  const trackerRows = await healthcheckTrackers(cfg)
-  rows.push(...trackerRows)
-  rows.push(...(await healthcheckSeed(cfg)))
+  const snapshot = (): HealthResult => ({
+    runId,
+    overview: overviewFor(cfg, order.map((id) => rows.get(id)!)),
+    rows: order.map((id) => ({ ...rows.get(id)! }))
+  })
 
-  const imageHostRows = await healthcheckImageHosts(cfg)
-  rows.push(...imageHostRows)
+  const report: HealthRowReporter = (row) => {
+    if (!rows.has(row.id)) order.push(row.id)
+    rows.set(row.id, row)
+    if (publishing) onUpdate?.(snapshot())
+  }
 
+  const tasks = [
+    healthcheckTrackers(cfg, undefined, source, report),
+    healthcheckSeed(cfg, report),
+    healthcheckImageHosts(cfg, report),
+    healthcheckMetadata(cfg, report),
+    healthcheckTools(tools, report)
+  ]
+  publishing = true
+  onUpdate?.(snapshot())
+  const groups = await Promise.all(tasks)
+  for (const row of groups.flat()) report(row)
+  return snapshot()
+}
+
+function overviewFor(cfg: Config, rows: HealthRow[]): string {
+  if (rows.some((row) => row.status === 'checking')) return 'Checking dependencies…'
+  const trackerReady = trackerHealthRowsReady(rows.filter((row) => row.group === 'Trackers'))
+  const imageReady =
+    rows.some((row) => row.group === 'Image Hosts' && row.status === 'available') ||
+    (cfg.imageHosts.redacted.enabled &&
+      rows.some(
+        (row) => row.id === trackerHealthRowId('redacted', 'api') && row.status === 'available'
+      ))
+  const binaryUnavailable = rows.some(
+    (row) => row.id.startsWith('bin:') && (row.status === 'missing' || row.status === 'failing')
+  )
+  return trackerReady && imageReady && !binaryUnavailable
+    ? 'Ready to upload.'
+    : 'Not ready to upload.'
+}
+
+async function healthcheckMetadata(cfg: Config, onRow?: HealthRowReporter): Promise<HealthRow[]> {
   const definitions = providerDefinitions(cfg)
   const providers = createProviders(cfg)
   const byName = new Map(providers.map((p) => [p.name, p]))
-  await Promise.all(
+  for (const definition of definitions) {
+    onRow?.({
+      id: `meta:${definition.name}`,
+      name: definition.name,
+      group: 'Metadata Providers',
+      status: definition.enabled ? 'checking' : 'disabled',
+      detail: definition.enabled ? 'Checking…' : 'Disabled'
+    })
+  }
+  return Promise.all(
     definitions.map(async (definition) => {
       const row: HealthRow = {
         id: `meta:${definition.name}`,
@@ -74,17 +130,15 @@ export async function runHealthcheck(
         status: 'checking'
       }
       if (!definition.enabled) {
-        row.status = 'disabled'
-        row.detail = 'Disabled'
-        rows.push(row)
-        return
+        const disabled = { ...row, status: 'disabled' as const, detail: 'Disabled' }
+        onRow?.(disabled)
+        return disabled
       }
       const provider = byName.get(definition.name)
       if (!provider) {
-        row.status = 'failing'
-        row.detail = 'Provider unavailable'
-        rows.push(row)
-        return
+        const missing = { ...row, status: 'failing' as const, detail: 'Provider unavailable' }
+        onRow?.(missing)
+        return missing
       }
       try {
         const controller = new AbortController()
@@ -93,22 +147,36 @@ export async function runHealthcheck(
         } finally {
           controller.abort()
         }
-        row.status = 'available'
-        row.detail = 'Available'
+        const available = { ...row, status: 'available' as const, detail: 'Available' }
+        onRow?.(available)
+        return available
       } catch (err) {
-        row.status = 'failing'
-        row.detail = String(err)
+        const failing = { ...row, status: 'failing' as const, detail: String(err) }
+        onRow?.(failing)
+        return failing
       }
-      rows.push(row)
     })
   )
+}
 
-  const requiredBinaryIds = new Set(BINARY_CHECKS.map((b) => `bin:${b.id}`))
+async function healthcheckTools(tools: ToolResolver, onRow?: HealthRowReporter): Promise<HealthRow[]> {
+  for (const binary of BINARY_CHECKS) {
+    onRow?.({
+      id: `bin:${binary.id}`,
+      name: binary.name,
+      group: 'Tools',
+      status: 'checking',
+      detail: 'Checking…',
+      installURL: binary.installURL,
+      installInstructions: binary.instructions
+    })
+  }
 
+  const rows: HealthRow[] = []
   for (const binary of BINARY_CHECKS) {
     const resolution = await tools.resolve(binary.id, { refresh: true })
     if (resolution.status === 'missing') {
-      rows.push({
+      const row: HealthRow = {
         id: `bin:${binary.id}`,
         name: binary.name,
         group: 'Tools',
@@ -116,7 +184,9 @@ export async function runHealthcheck(
         detail: resolution.configuredPath ? resolution.reason : 'Missing',
         installURL: binary.installURL,
         installInstructions: binary.instructions
-      })
+      }
+      onRow?.(row)
+      rows.push(row)
       continue
     }
 
@@ -127,7 +197,7 @@ export async function runHealthcheck(
         binary.minimumVersion &&
         compareToolVersions(detected.version, binary.minimumVersion) < 0
       ) {
-        rows.push({
+        const row: HealthRow = {
           id: `bin:${binary.id}`,
           name: binary.name,
           group: 'Tools',
@@ -135,10 +205,12 @@ export async function runHealthcheck(
           detail: `${versionLabel} is unsupported; version ${binary.minimumVersion} or newer is required · ${resolution.path}`,
           installURL: binary.installURL,
           installInstructions: binary.instructions
-        })
+        }
+        onRow?.(row)
+        rows.push(row)
         continue
       }
-      rows.push({
+      const row: HealthRow = {
         id: `bin:${binary.id}`,
         name: binary.name,
         group: 'Tools',
@@ -146,9 +218,11 @@ export async function runHealthcheck(
         detail: `${versionLabel} · ${resolution.path}`,
         installURL: binary.installURL,
         installInstructions: binary.instructions
-      })
+      }
+      onRow?.(row)
+      rows.push(row)
     } catch (err) {
-      rows.push({
+      const row: HealthRow = {
         id: `bin:${binary.id}`,
         name: binary.name,
         group: 'Tools',
@@ -156,36 +230,33 @@ export async function runHealthcheck(
         detail: `${err instanceof Error ? err.message : String(err)} · ${resolution.path}`,
         installURL: binary.installURL,
         installInstructions: binary.instructions
-      })
+      }
+      onRow?.(row)
+      rows.push(row)
     }
   }
-
-  const trackerReady = trackerHealthRowsReady(trackerRows)
-  const imageReady = imageHostRows.some((r) => r.status === 'available')
-  const binaryUnavailable = rows.some(
-    (r) => requiredBinaryIds.has(r.id) && (r.status === 'missing' || r.status === 'failing')
-  )
-  const overview =
-    trackerReady && imageReady && !binaryUnavailable
-      ? 'Ready to upload.'
-      : 'Not ready to upload.'
-
-  return { overview, rows }
+  return rows
 }
 
-async function healthcheckSeed(cfg: Config): Promise<HealthRow[]> {
-  const rows: HealthRow[] = []
-
+async function healthcheckSeed(cfg: Config, onRow?: HealthRowReporter): Promise<HealthRow[]> {
   const seedbox: HealthRow = {
     id: 'seedbox',
     name: 'Seedbox',
     group: 'Seeding',
-    status: 'checking'
+    status: cfg.transfer.enabled ? 'checking' : 'disabled',
+    detail: cfg.transfer.enabled ? 'Checking…' : 'Disabled (local seeding)'
   }
-  if (!cfg.transfer.enabled) {
-    seedbox.status = 'disabled'
-    seedbox.detail = 'Disabled (local seeding)'
-  } else {
+  const torrentClient: HealthRow = {
+    id: 'torrentClient',
+    name: 'Torrent Client',
+    group: 'Seeding',
+    status: cfg.torrentClient.enabled ? 'checking' : 'disabled',
+    detail: cfg.torrentClient.enabled ? 'Checking…' : 'Disabled'
+  }
+  onRow?.(seedbox)
+  onRow?.(torrentClient)
+
+  if (cfg.transfer.enabled) {
     try {
       await withTimeout(testSftpConnection(cfg.transfer), 5000)
       seedbox.status = 'available'
@@ -195,18 +266,9 @@ async function healthcheckSeed(cfg: Config): Promise<HealthRow[]> {
       seedbox.detail = err instanceof Error ? err.message : String(err)
     }
   }
-  rows.push(seedbox)
+  onRow?.(seedbox)
 
-  const torrentClient: HealthRow = {
-    id: 'torrentClient',
-    name: 'Torrent Client',
-    group: 'Seeding',
-    status: 'checking'
-  }
-  if (!cfg.torrentClient.enabled) {
-    torrentClient.status = 'disabled'
-    torrentClient.detail = 'Disabled'
-  } else {
+  if (cfg.torrentClient.enabled) {
     try {
       const client = createQBittorrentClient(cfg.torrentClient)
       const version = await withTimeout(client.version(), 5000)
@@ -217,9 +279,9 @@ async function healthcheckSeed(cfg: Config): Promise<HealthRow[]> {
       torrentClient.detail = err instanceof Error ? err.message : String(err)
     }
   }
-  rows.push(torrentClient)
+  onRow?.(torrentClient)
 
-  return rows
+  return [seedbox, torrentClient]
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

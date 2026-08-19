@@ -386,7 +386,7 @@ export class UploadSession {
 
     await this.submit.run(
       async (task) => {
-        const trackerRows = await healthcheckTrackers(cfg, pendingTrackerIds)
+        const trackerRows = await healthcheckTrackers(cfg, pendingTrackerIds, 'upload')
         if (!task.fresh()) return
         const trackerHealthError = validateTrackerHealth(trackerRows, pendingTrackerIds)
         if (trackerHealthError) {

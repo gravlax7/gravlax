@@ -45,6 +45,9 @@ export default function App() {
   const [updateChecking, setUpdateChecking] = createSignal(false)
   let toastTimers = new Map<number, number>()
   let toastSeq = 0
+  let healthRequestSeq = 0
+  let appliedHealthRunId = 0
+  let waitingForNewHealthRun = false
 
   const theme = useTheme(() => config()?.appearance.theme ?? 'system')
 
@@ -65,12 +68,36 @@ export default function App() {
     void loadStartEntries()
   }
 
-  const refreshHealth = async (): Promise<void> => {
+  const applyHealth = (result: HealthResult): boolean => {
+    if (waitingForNewHealthRun && result.runId <= appliedHealthRunId) return false
+    if (result.runId < appliedHealthRunId) return false
+    waitingForNewHealthRun = false
+    appliedHealthRunId = result.runId
+    setHealth(result)
+    return true
+  }
+
+  const refreshHealth = async (
+    source: 'startup' | 'settings-save' | 'manual' = 'manual'
+  ): Promise<void> => {
+    const requestSeq = ++healthRequestSeq
+    waitingForNewHealthRun = true
     setHealthLoading(true)
+    setHealth((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        overview: 'Checking dependencies…',
+        rows: prev.rows.map((row) =>
+          row.status === 'disabled' ? row : { ...row, status: 'checking', detail: 'Checking…' }
+        )
+      }
+    })
     try {
-      setHealth(await window.gravlax.health.refresh())
+      const next = await window.gravlax.health.refresh(source)
+      if (requestSeq === healthRequestSeq) applyHealth(next)
     } finally {
-      setHealthLoading(false)
+      if (requestSeq === healthRequestSeq) setHealthLoading(false)
     }
   }
 
@@ -107,8 +134,7 @@ export default function App() {
     setConfig(next)
     if (uploadView().kind === 'menu') void loadStartEntries()
     if (trackersChanged) {
-      setHealth(null)
-      void refreshHealth()
+      void refreshHealth('settings-save')
     }
   }
 
@@ -133,16 +159,20 @@ export default function App() {
   }
 
   onMount(async () => {
+    const offHealth = window.gravlax.health.onUpdate((result) => {
+      applyHealth(result)
+    })
     setConfig(await window.gravlax.config.load())
     setStats(await window.gravlax.stats.load())
     setState(await window.gravlax.upload.getState())
     await loadStartEntries()
-    void refreshHealth()
+    void refreshHealth('startup')
     void checkForUpdates(true)
     const offState = window.gravlax.upload.onState(setState)
     const offNotify = window.gravlax.upload.onNotify(showToast)
     const offStats = window.gravlax.stats.onChange(setStats)
     onCleanup(() => {
+      offHealth()
       offState()
       offNotify()
       offStats()
@@ -360,7 +390,7 @@ export default function App() {
             <HealthcheckScreen
               result={health()}
               loading={healthLoading()}
-              onRefresh={() => void refreshHealth()}
+              onRefresh={() => void refreshHealth('manual')}
             />
           </Show>
         </main>

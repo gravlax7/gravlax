@@ -110,7 +110,12 @@ const api = {
     writeText: (text: string) => invoke('clipboard:writeText', text)
   },
   health: {
-    refresh: () => invoke('health:refresh')
+    refresh: (source?: IpcInvokeArgs<'health:refresh'>[0]) => invoke('health:refresh', source),
+    onUpdate: (callback: (result: IpcEventMap['health:updated']) => void) => on('health:updated', callback)
+  },
+  diagnostics: {
+    report: () => invoke('diagnostics:report'),
+    revealLogs: () => invoke('diagnostics:revealLogs')
   },
   updates: {
     check: () => invoke('updates:check')

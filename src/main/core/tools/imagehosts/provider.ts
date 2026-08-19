@@ -17,12 +17,11 @@ export interface ImageHostHealthTarget {
   apiKey: string
   url: string
   headers?: Record<string, string>
-  blockedReason?: string
 }
 
 export interface ImageHostProvider {
   id: CoverImageHostId
-  healthTarget: (cfg: Config) => ImageHostHealthTarget
+  healthTarget?: (cfg: Config) => ImageHostHealthTarget
   /** Returns a message when the configured API key is rejected. */
   validateApiKey?: (cfg: Config) => Promise<string | null>
   upload: (cfg: Config, filePath: string) => Promise<string | null>

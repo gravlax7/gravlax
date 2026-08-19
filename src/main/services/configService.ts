@@ -8,11 +8,13 @@ import {
   saveConfig,
   validate
 } from '@main/core/config'
+import { diagnosticError, logDiagnostic } from '@main/core/diagnosticLog'
 
 export class ConfigService {
   private cfg: Config = defaultConfig()
   private readonly path: string
   private loaded = false
+  private revision = 0
 
   constructor(private readonly userDataPath: string) {
     this.path = gravlaxConfigPath(userDataPath)
@@ -40,10 +42,18 @@ export class ConfigService {
     normalized.tools = normalizeTools(cfg.tools, cfg.tools)
     const issues = validate(normalized)
     if (issues.length > 0) {
+      logDiagnostic('config_save_rejected', { issueCount: issues.length })
       return { ok: false, issues }
     }
+    try {
+      await saveConfig(this.path, normalized)
+    } catch (error) {
+      logDiagnostic('config_save_failed', diagnosticError(error))
+      throw error
+    }
     this.cfg = normalized
-    await saveConfig(this.path, this.cfg)
+    this.revision += 1
+    logDiagnostic('config_save_complete', { configRevision: this.revision })
     return { ok: true }
   }
 

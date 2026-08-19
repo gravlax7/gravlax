@@ -1,4 +1,10 @@
 import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
+import {
+  diagnosticError,
+  jsonEnvelopeFields,
+  logDiagnostic,
+  responseKind
+} from '@main/core/diagnosticLog'
 import { isHTTPSURL } from '@shared/config/network'
 import {
   extractHtmlErrorMessage,
@@ -39,8 +45,8 @@ export class TrackerRequestError extends Error {
 }
 
 class RetryableError extends Error {
-  constructor(message: string) {
-    super(message)
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options)
     this.name = 'RetryableError'
   }
 }
@@ -99,8 +105,9 @@ export class RateLimiter {
     private readonly windowMs: number
   ) {}
 
-  async acquire(): Promise<void> {
+  async acquire(signal?: AbortSignal): Promise<void> {
     for (;;) {
+      if (signal?.aborted) throw abortReason(signal)
       const now = Date.now()
       this.timestamps = this.timestamps.filter((t) => now - t < this.windowMs)
       if (this.timestamps.length < this.maxRequests) {
@@ -108,7 +115,7 @@ export class RateLimiter {
         return
       }
       const waitMs = this.windowMs - (now - this.timestamps[0]!) + 1
-      await sleep(Math.max(1, waitMs))
+      await sleep(Math.max(1, waitMs), signal)
     }
   }
 
@@ -163,6 +170,7 @@ export class GazelleClient {
   private readonly sessionCookie: string
   private readonly timeoutMs: number
   private readonly userAgent: string
+  private readonly trackerId: string
   private readonly rateLimiters: SiteRateLimiters
   private authkey: string | null = null
   private passkey: string | null = null
@@ -178,6 +186,7 @@ export class GazelleClient {
     this.releaseTypes = options.releaseTypes
     this.timeoutMs = options.timeoutMs ?? 10_000
     this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT
+    this.trackerId = options.trackerId ?? 'unknown'
     this.rateLimiters = rateLimitersForSite(this.siteUrl, options.rateLimits)
   }
 
@@ -210,7 +219,7 @@ export class GazelleClient {
     if (mode === 'session' && !this.sessionCookie) {
       throw new TrackerRequestError('Missing session cookie')
     }
-    await this.index(mode === 'api', signal)
+    await this.index(mode === 'api', signal, 1, 30_000)
   }
 
   async ensureAuthenticated(signal?: AbortSignal): Promise<void> {
@@ -243,14 +252,17 @@ export class GazelleClient {
 
   private async index(
     preferApiKey: boolean,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    maxAttempts?: number,
+    timeoutMs = Math.min(this.timeoutMs, 10_000)
   ): Promise<GazelleIndexResponse> {
     const resp = await this.request('GET', `${this.siteUrl}/ajax.php`, {
       query: { action: 'index' },
       preferApiKey,
-      timeoutMs: Math.min(this.timeoutMs, 5000),
+      timeoutMs,
       signal,
-      skipAuth: true
+      skipAuth: true,
+      maxAttempts
     })
     return parseEnvelope<GazelleIndexResponse>(resp.text)
   }
@@ -529,19 +541,27 @@ export class GazelleClient {
       timeoutMs: number
       signal?: AbortSignal
       skipAuth?: boolean
+      maxAttempts?: number
     }
   ): Promise<HttpResult> {
     if (!options.skipAuth) {
       await this.ensureAuthenticated(options.signal)
     }
 
+    const requestStarted = Date.now()
+    const maxAttempts = options.maxAttempts ?? MAX_ATTEMPTS
     let lastError: Error | undefined
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        return await this.requestOnce(method, url, options)
+        return await this.requestOnce(method, url, options, {
+          attempt: attempt + 1,
+          maxAttempts,
+          requestStarted
+        })
       } catch (err) {
         if (!(err instanceof RetryableError)) throw err
         lastError = err
+        if (attempt + 1 >= maxAttempts) break
         await sleep(RETRY_WAIT_MS)
       }
     }
@@ -557,17 +577,20 @@ export class GazelleClient {
       preferApiKey: boolean
       timeoutMs: number
       signal?: AbortSignal
-    }
+    },
+    trace: { attempt: number; maxAttempts: number; requestStarted: number }
   ): Promise<HttpResult> {
-    await (usesApiKeyAuth(this.apiKey, options.preferApiKey)
+    const usesApiKey = usesApiKeyAuth(this.apiKey, options.preferApiKey)
+    await (usesApiKey
       ? this.rateLimiters.apiKey
       : this.rateLimiters.session
-    ).acquire()
+    ).acquire(options.signal)
 
     const parsed = new URL(url)
     for (const [key, value] of Object.entries(options.query ?? {})) {
       if (value) parsed.searchParams.set(key, value)
     }
+    const endpoint = trackerEndpoint(parsed)
 
     const headers = authHeaders({
       apiKey: this.apiKey,
@@ -591,20 +614,58 @@ export class GazelleClient {
         redirect: 'follow'
       })
     } catch (err) {
-      throw new RetryableError(err instanceof Error ? err.message : String(err))
+      if (trace.attempt === trace.maxAttempts) {
+        logDiagnostic('tracker_request', {
+          tracker: this.trackerId,
+          attempts: trace.attempt,
+          method,
+          endpoint,
+          authMode: usesApiKey ? 'api' : 'session',
+          result: 'error',
+          elapsedMs: Date.now() - trace.requestStarted,
+          ...diagnosticError(err)
+        })
+      }
+      throw new RetryableError('network request failed', {
+        cause: err instanceof Error ? err : undefined
+      })
     }
 
     const text = await response.text()
+    const contentType = response.headers.get('content-type') ?? ''
+    const kind = responseKind(contentType, text)
+    const retryableResponse =
+      response.status === 429 ||
+      [500, 502, 503, 504].includes(response.status) ||
+      /rate limit/i.test(text)
+    if (!retryableResponse || trace.attempt === trace.maxAttempts) {
+      logDiagnostic('tracker_request', {
+        tracker: this.trackerId,
+        attempts: trace.attempt,
+        method,
+        endpoint,
+        authMode: usesApiKey ? 'api' : 'session',
+        result: 'response',
+        status: response.status,
+        redirected: Boolean(response.redirected) || response.url !== parsed.toString(),
+        responseKind: kind,
+        elapsedMs: Date.now() - trace.requestStarted,
+        ...jsonEnvelopeFields(kind, text)
+      })
+    }
 
-    if (response.status === 401) {
+    if (response.status === 401 || kind === 'login-page') {
       throw new TrackerLoginError(extractErrorMessage(text) || 'authentication failed')
+    }
+    if (kind === 'security-page') {
+      throw new TrackerRequestError('blocked by security page')
     }
 
     if (response.status === 429 || /rate limit/i.test(text)) {
       const retryAfterHeader = response.headers.get('Retry-After')
       const retryAfter = Number(retryAfterHeader ?? '1')
       const waitSeconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 1
-      await sleep(waitSeconds * 1000)
+      if (trace.attempt < trace.maxAttempts) await sleep(waitSeconds * 1000)
       throw new RetryableError('rate limit exceeded')
     }
 
@@ -627,15 +688,25 @@ export class GazelleClient {
   }
 }
 
+function trackerEndpoint(url: URL): string {
+  const file = url.pathname.split('/').filter(Boolean).at(-1) ?? 'root'
+  const action = url.searchParams.get('action')
+  const safeFile = file.replace(/[^a-z0-9._-]/gi, '_').slice(0, 80)
+  const safeAction = action?.replace(/[^a-z0-9._-]/gi, '_').slice(0, 80)
+  return safeAction ? `${safeFile}:${safeAction}` : safeFile
+}
+
 function parseEnvelope<T>(text: string): T {
   let envelope: GazelleEnvelope<T>
   try {
     envelope = JSON.parse(text) as GazelleEnvelope<T>
   } catch {
-    throw new TrackerRequestError(text || 'invalid JSON response')
+    throw new TrackerRequestError('invalid JSON response')
   }
   if (envelope.status !== 'success') {
-    throw new TrackerRequestError(String(envelope.error ?? text))
+    const message = String(envelope.error ?? 'request failed')
+    if (isAuthFailureMessage(message)) throw new TrackerLoginError(message)
+    throw new TrackerRequestError(message)
   }
   return envelope.response as T
 }
@@ -643,15 +714,40 @@ function parseEnvelope<T>(text: string): T {
 function extractErrorMessage(text: string): string {
   try {
     const parsed = JSON.parse(text) as { error?: unknown }
-    if (parsed.error !== undefined) return String(parsed.error)
+    if (typeof parsed.error === 'string' && parsed.error.trim()) return parsed.error.trim()
   } catch {
     /* ignore */
   }
-  return text.trim()
+  return ''
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+function isAuthFailureMessage(message: string): boolean {
+  return /login|auth|session|cookie|unauthor|invalid key|credentials/i.test(message)
+}
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException('The operation was aborted', 'AbortError')
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) return new Promise((resolve) => setTimeout(resolve, ms))
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(abortReason(signal))
+      return
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = (): void => {
+      clearTimeout(timer)
+      reject(abortReason(signal))
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
 }
 
 function cloneUploadData(data: TrackerUploadData): TrackerUploadData {

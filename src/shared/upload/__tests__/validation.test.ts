@@ -266,6 +266,17 @@ describe('tracker health validation', () => {
     expect(validateTrackerHealth(healthyRows, ['redacted', 'orpheus'])).toBeNull()
   })
 
+  it('waits while a required tracker check is still in flight', () => {
+    const rows = healthyRows.map((row) =>
+      row.id === 'trackers:redacted:api'
+        ? { ...row, status: 'checking' as const, detail: 'Checking…' }
+        : row
+    )
+    expect(validateTrackerHealth(rows, ['redacted'])).toBe(
+      'Waiting for tracker health checks to finish.'
+    )
+  })
+
   it('only requires destinations with uploads left on retry', () => {
     const upload: UploadSnapshot = {
       ...validUpload(),

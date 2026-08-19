@@ -99,18 +99,24 @@ export function validateTrackerHealth(
 
   const byId = new Map(rows.map((row) => [row.id, row]))
   const failures: string[] = []
+  let waiting = false
   for (const trackerId of trackerIds) {
     for (const mode of TRACKER_AUTH_MODES) {
       const row = byId.get(trackerHealthRowId(trackerId, mode))
       if (row?.status === 'available') continue
+      if (!row || row.status === 'checking') {
+        waiting = true
+        continue
+      }
       const label = `${TRACKER_NAMES[trackerId]} ${mode === 'api' ? 'API' : 'Session'}`
-      failures.push(`${label}: ${row?.detail ?? 'Not checked'}`)
+      failures.push(`${label}: ${row.detail ?? 'Not checked'}`)
     }
   }
 
-  return failures.length > 0
-    ? `Tracker health checks must pass before uploading: ${failures.join('; ')}.`
-    : null
+  if (failures.length > 0) {
+    return `Tracker health checks must pass before uploading: ${failures.join('; ')}.`
+  }
+  return waiting ? 'Waiting for tracker health checks to finish.' : null
 }
 
 /**

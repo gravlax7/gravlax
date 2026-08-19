@@ -10,6 +10,9 @@ export function HealthcheckScreen(props: {
 }) {
   const [expanded, setExpanded] = createSignal<Set<string>>(new Set())
   const [checkedAt, setCheckedAt] = createSignal<Date | null>(null)
+  const [reportCopied, setReportCopied] = createSignal(false)
+  const [diagnosticError, setDiagnosticError] = createSignal('')
+  let copiedTimer: number | undefined
 
   createEffect(() => {
     if (props.result && !props.loading) setCheckedAt(new Date())
@@ -31,8 +34,33 @@ export function HealthcheckScreen(props: {
       props.onRefresh()
     }
     window.addEventListener('keydown', onKey)
-    onCleanup(() => window.removeEventListener('keydown', onKey))
+    onCleanup(() => {
+      window.removeEventListener('keydown', onKey)
+      if (copiedTimer !== undefined) window.clearTimeout(copiedTimer)
+    })
   })
+
+  const copyReport = async (): Promise<void> => {
+    try {
+      const report = await window.gravlax.diagnostics.report()
+      await window.gravlax.clipboard.writeText(report)
+      setDiagnosticError('')
+      setReportCopied(true)
+      if (copiedTimer !== undefined) window.clearTimeout(copiedTimer)
+      copiedTimer = window.setTimeout(() => setReportCopied(false), 2000)
+    } catch (error) {
+      setDiagnosticError(error instanceof Error ? error.message : 'Could not copy the report.')
+    }
+  }
+
+  const revealLogs = async (): Promise<void> => {
+    try {
+      await window.gravlax.diagnostics.revealLogs()
+      setDiagnosticError('')
+    } catch (error) {
+      setDiagnosticError(error instanceof Error ? error.message : 'Could not reveal the log file.')
+    }
+  }
 
   const groups = createMemo(() => {
     const rows = props.result?.rows ?? []
@@ -71,13 +99,37 @@ export function HealthcheckScreen(props: {
               )}
             </Show>
           </div>
-          <Button variant="secondary" loading={props.loading} onClick={() => props.onRefresh()}>
-            <Show when={!props.loading}>
-              <Icon name="refresh-cw" size={14} />
-            </Show>
-            Refresh
-          </Button>
+          <div
+            style={{
+              display: 'flex',
+              gap: '8px',
+              'align-items': 'center',
+              'flex-wrap': 'wrap',
+              'justify-content': 'flex-end'
+            }}
+          >
+            <Button variant="ghost" onClick={() => void copyReport()}>
+              {reportCopied() ? 'Copied report' : 'Copy tracker report'}
+            </Button>
+            <Button variant="ghost" onClick={() => void revealLogs()}>
+              <Icon name="folder" size={14} />
+              Reveal logs
+            </Button>
+            <Button variant="secondary" loading={props.loading} onClick={() => props.onRefresh()}>
+              <Show when={!props.loading}>
+                <Icon name="refresh-cw" size={14} />
+              </Show>
+              Refresh
+            </Button>
+          </div>
         </div>
+
+        <Show when={diagnosticError()}>
+          <Callout tone="error">
+            <Icon name="alert-triangle" size={16} />
+            <div>{diagnosticError()}</div>
+          </Callout>
+        </Show>
 
         <Show
           when={props.result}
@@ -141,7 +193,9 @@ export function HealthcheckScreen(props: {
                                 'flex-shrink': 0
                               }}
                             >
-                              <Icon name={statusIcon(row.status)} size={16} />
+                              <Show when={row.status === 'checking'} fallback={<Icon name={statusIcon(row.status)} size={16} />}>
+                                <Spinner size="sm" />
+                              </Show>
                             </span>
                             <div style={{ flex: 1, 'min-width': 0 }}>
                               <div style={{ 'font-weight': 600 }}>{row.name}</div>
@@ -220,6 +274,8 @@ function statusTone(row: HealthRow): BadgeTone {
       return row.detail?.includes('(optional)') ? 'warning' : 'error'
     case 'disabled':
       return 'neutral'
+    case 'checking':
+      return 'info'
     default:
       return 'info'
   }

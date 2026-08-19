@@ -50,6 +50,7 @@ export class RedactedClient extends GazelleClient {
 
 export function createRedactedTracker(cfg: TrackerConfig, timeoutMs = 10_000) {
   const client = new RedactedClient({
+    trackerId: 'redacted',
     siteUrl: cfg.siteUrl,
     announceUrl: cfg.announceUrl,
     apiKey: cfg.apiKey,

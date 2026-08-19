@@ -608,6 +608,7 @@ export interface HealthRow {
 }
 
 export interface HealthResult {
+  runId: number
   overview: string
   rows: HealthRow[]
 }

@@ -10,7 +10,7 @@ export type HealthOverall = {
 }
 
 export function summarizeHealth(result: HealthResult | null, loading: boolean): HealthOverall {
-  if (loading && !result) {
+  if (loading || result?.rows.some((row) => row.status === 'checking')) {
     return { label: 'Checking…', color: 'var(--fg-muted)', icon: 'activity' }
   }
   if (!result) {
