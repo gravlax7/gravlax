@@ -603,7 +603,7 @@ function mapMetadata(builder: PlanBuilder, toml: Record<string, unknown>): void 
   ]
   for (const [key, present] of providers) {
     if (present) {
-      builder.skip(key, 'Gravlax fetches metadata from MusicBrainz and Deezer only.')
+      builder.skip(key, 'Gravlax fetches metadata from MusicBrainz, Deezer, and Bandcamp only.')
     }
   }
 }

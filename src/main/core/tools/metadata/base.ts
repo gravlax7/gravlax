@@ -26,14 +26,17 @@ export interface Provider {
   formatURL(releaseID: unknown, releaseName: string, rawURL: string): string
 }
 
-export function isPlainProviderURL(url: URL, hosts: string[]): boolean {
+export function isPlainHttpURL(url: URL): boolean {
   return (
     (url.protocol === 'http:' || url.protocol === 'https:') &&
-    hosts.includes(url.hostname.toLowerCase()) &&
     !url.port &&
     !url.username &&
     !url.password
   )
+}
+
+export function isPlainProviderURL(url: URL, hosts: string[]): boolean {
+  return isPlainHttpURL(url) && hosts.includes(url.hostname.toLowerCase())
 }
 
 export function releaseIDFromRawURL(

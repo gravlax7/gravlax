@@ -146,6 +146,7 @@ const configInput: z.ZodType<Config> = z.object({
   metadataProviders: z.object({
     musicBrainz: z.object({ enabled: z.boolean() }),
     deezer: z.object({ enabled: z.boolean() }),
+    bandcamp: z.object({ enabled: z.boolean() }),
     requestTimeoutSeconds: z.number()
   }),
   imageHosts: z.object({

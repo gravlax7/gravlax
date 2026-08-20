@@ -74,6 +74,7 @@ export interface TrackerConfig {
 export interface MetadataProvidersConfig {
   musicBrainz: MetadataProviderConfig
   deezer: MetadataProviderConfig
+  bandcamp: MetadataProviderConfig
   requestTimeoutSeconds: number
 }
 

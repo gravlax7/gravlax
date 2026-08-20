@@ -1,10 +1,12 @@
 import { Show, type JSX } from 'solid-js'
 import musicBrainzIcon from '../assets/providers/musicbrainz.png'
 import deezerIcon from '../assets/providers/deezer.png'
+import bandcampIcon from '../assets/providers/bandcamp.png'
 
 const ICONS: Record<string, string> = {
   musicbrainz: musicBrainzIcon,
-  deezer: deezerIcon
+  deezer: deezerIcon,
+  bandcamp: bandcampIcon
 }
 
 function key(name: string): string {

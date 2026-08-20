@@ -118,6 +118,7 @@ export function sections(): SectionMetadata[] {
       fields: [
         { name: 'musicBrainz.enabled', label: 'MusicBrainz enabled', type: 'bool' },
         { name: 'deezer.enabled', label: 'Deezer enabled', type: 'bool' },
+        { name: 'bandcamp.enabled', label: 'Bandcamp enabled', type: 'bool' },
         { name: 'requestTimeoutSeconds', label: 'Request timeout seconds', type: 'number' }
       ]
     },
