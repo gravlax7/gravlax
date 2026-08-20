@@ -75,6 +75,7 @@ describe('uploadflow', () => {
     let state = setFilesCheck(selectSourcePath(newState(), '/tmp/release'), {
       status: 'ok',
       mqa: { checkedCount: 2, mqaPaths: ['02.flac'], errors: [] },
+      upconvert: { checkedCount: 0, results: [], errors: [] },
       logs: { logFiles: ['rip.log'], checks: [] }
     })
     state = selectSourcePath(state, '/tmp/other-release')

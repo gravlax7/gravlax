@@ -51,6 +51,18 @@ describe('snapshot round-trip', () => {
     state = setFilesCheck(state, {
       status: 'ok',
       mqa: { checkedCount: 2, mqaPaths: ['02.flac'], errors: [] },
+      upconvert: {
+        checkedCount: 1,
+        results: [
+          {
+            relativePath: '02.flac',
+            bitDepth: 24,
+            wastedBits: 8,
+            isUpconverted: true
+          }
+        ],
+        errors: []
+      },
       logs: {
         logFiles: ['rip.log'],
         checks: [
@@ -69,6 +81,11 @@ describe('snapshot round-trip', () => {
     const restored = restoreState('/workspace/upload-abc123', snapshot(state))
     expect(restored.filesCheck.status).toBe('ok')
     expect(restored.filesCheck.mqa.mqaPaths).toEqual(['02.flac'])
+    expect(restored.filesCheck.upconvert.results[0]).toMatchObject({
+      relativePath: '02.flac',
+      wastedBits: 8,
+      isUpconverted: true
+    })
     expect(restored.filesCheck.logs.checks[0]?.score).toBe(97)
     expect(restored.filesCheck.logs.checks[0]?.issues).toEqual(['Test and copy was not used'])
   })
@@ -78,6 +95,22 @@ describe('snapshot round-trip', () => {
     const snap = snapshot(state)
     expect(snap.filesCheck).toBeUndefined()
     expect(restoreState('/workspace/upload-abc123', snap).filesCheck.status).toBe('idle')
+  })
+
+  it('fills in upconvert results for a files-check snapshot written before the check existed', () => {
+    const state = selectSourcePath(newState(), '/music/album')
+    const snap = snapshot(state)
+    snap.filesCheck = {
+      status: 'ok',
+      mqa: { checkedCount: 1, mqaPaths: [], errors: [] },
+      logs: { logFiles: [], checks: [] }
+    } as never
+
+    expect(restoreState('/workspace/upload-abc123', snap).filesCheck.upconvert).toEqual({
+      checkedCount: 0,
+      results: [],
+      errors: []
+    })
   })
 
   it('migrates the retired rules-check step to upload', () => {

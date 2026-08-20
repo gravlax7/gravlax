@@ -110,6 +110,10 @@ import { generateSpectrals, listSpectralPairs } from '@main/core/tools/spectrals
 import { spectralIdsForRelease } from '@shared/upload/spectralIds'
 import { checkMQAWorkspace, mqaSummaryDetail } from '@main/core/tools/diagnostics/workspace'
 import {
+  checkUpconvertWorkspace,
+  upconvertSummaryDetail
+} from '@main/core/tools/diagnostics/upconvert'
+import {
   checkLogsWorkspace,
   logcheckerSummaryDetail
 } from '@main/core/tools/diagnostics/logchecker'
@@ -1409,7 +1413,32 @@ export class UploadSession {
           onProgress: (current, total, label) => {
             if (!task.fresh()) return
             this.apply(
-              markBackgroundTaskProgress(this.state, 'files-check', current, total, label),
+              markBackgroundTaskProgress(
+                this.state,
+                'files-check',
+                current,
+                total,
+                `MQA — ${label}`
+              ),
+              { persist: false }
+            )
+          }
+        })
+        if (!task.fresh()) return
+
+        const upconvertSummary = await checkUpconvertWorkspace(workspacePath, {
+          signal: task.signal,
+          tools: this.deps.tools,
+          onProgress: (current, total, label) => {
+            if (!task.fresh()) return
+            this.apply(
+              markBackgroundTaskProgress(
+                this.state,
+                'files-check',
+                current,
+                total,
+                `Upconvert — ${label}`
+              ),
               { persist: false }
             )
           }
@@ -1433,12 +1462,17 @@ export class UploadSession {
         const next = setFilesCheck(this.state, {
           status: failed ? 'failed' : 'ok',
           mqa: mqaSummary,
+          upconvert: upconvertSummary,
           logs: logSummary
         })
 
         // task.detail stays human-readable for the expandable log view; the
         // renderer reads state.filesCheck for everything it shows.
-        const parts = [mqaSummaryDetail(mqaSummary), logcheckerSummaryDetail(logSummary)]
+        const parts = [
+          mqaSummaryDetail(mqaSummary),
+          upconvertSummaryDetail(upconvertSummary),
+          logcheckerSummaryDetail(logSummary)
+        ]
         const detail = parts.filter(Boolean).join('\n\n')
         this.apply(
           failed

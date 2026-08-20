@@ -4,17 +4,22 @@ import {
   hasLogErrors,
   hasLogIssues,
   hasLogResults,
+  hasUpconvertResults,
   logHeadline,
   logScores,
   logTone,
   mqaHeadline,
-  mqaTone
+  mqaTone,
+  upconvertFindings,
+  upconvertHeadline,
+  upconvertTone
 } from '../filesCheck'
 
 function snapshot(overrides: Partial<FilesCheckSnapshot> = {}): FilesCheckSnapshot {
   return {
     status: 'ok',
     mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
+    upconvert: { checkedCount: 0, results: [], errors: [] },
     logs: { logFiles: [], checks: [] },
     ...overrides
   }
@@ -48,6 +53,60 @@ describe('MQA reporting', () => {
     const s = snapshot()
     expect(mqaHeadline(s)).toBe('No FLAC files for MQA checks')
     expect(mqaTone(s)).toBe('info')
+  })
+})
+
+describe('upconvert reporting', () => {
+  it('flags likely upconverts and lists their bare file names', () => {
+    const s = snapshot({
+      upconvert: {
+        checkedCount: 2,
+        results: [
+          { relativePath: 'CD1/01.flac', bitDepth: 24, wastedBits: 8, isUpconverted: true },
+          { relativePath: 'CD1/02.flac', bitDepth: 24, wastedBits: 2, isUpconverted: false }
+        ],
+        errors: []
+      }
+    })
+    expect(upconvertHeadline(s)).toBe('Possible 24-bit upconvert detected')
+    expect(upconvertTone(s)).toBe('warning')
+    expect(upconvertFindings(s)).toEqual([
+      { fileName: '01.flac', wastedBits: 8, bitDepth: 24 }
+    ])
+  })
+
+  it('passes a clean 24-bit release', () => {
+    const s = snapshot({
+      upconvert: {
+        checkedCount: 1,
+        results: [
+          { relativePath: '01.flac', bitDepth: 24, wastedBits: 7, isUpconverted: false }
+        ],
+        errors: []
+      }
+    })
+    expect(upconvertHeadline(s)).toBe('No likely 24-bit upconverts found')
+    expect(upconvertTone(s)).toBe('success')
+  })
+
+  it('warns when a file could not be checked', () => {
+    const s = snapshot({
+      upconvert: {
+        checkedCount: 1,
+        results: [],
+        errors: [{ relativePath: '01.flac', message: 'corrupt' }]
+      }
+    })
+    expect(upconvertHeadline(s)).toBe('Upconvert check incomplete')
+    expect(upconvertTone(s)).toBe('warning')
+    expect(hasUpconvertResults(s)).toBe(true)
+  })
+
+  it('hides the result when there are no 24-bit FLACs', () => {
+    const s = snapshot()
+    expect(upconvertHeadline(s)).toBe('No 24-bit FLAC files for upconvert checks')
+    expect(upconvertTone(s)).toBe('info')
+    expect(hasUpconvertResults(s)).toBe(false)
   })
 })
 
