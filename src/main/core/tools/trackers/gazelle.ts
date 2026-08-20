@@ -78,6 +78,19 @@ export function usesApiKeyAuth(apiKey: string, preferApiKey: boolean): boolean {
   return preferApiKey && apiKey !== ''
 }
 
+export function encodeSessionCookie(value: string): string {
+  const trimmed = value.trim()
+  let decoded = trimmed
+  if (/%[0-9A-Fa-f]{2}/.test(trimmed)) {
+    try {
+      decoded = decodeURIComponent(trimmed)
+    } catch {
+      decoded = trimmed
+    }
+  }
+  return encodeURIComponent(decoded)
+}
+
 export function authHeaders(options: {
   apiKey: string
   sessionCookie: string
@@ -92,7 +105,7 @@ export function authHeaders(options: {
   if (usesApiKeyAuth(options.apiKey, options.preferApiKey)) {
     headers.Authorization = options.apiKey
   } else if (options.sessionCookie !== '') {
-    headers.Cookie = `session=${options.sessionCookie}`
+    headers.Cookie = `session=${encodeSessionCookie(options.sessionCookie)}`
   }
   return headers
 }

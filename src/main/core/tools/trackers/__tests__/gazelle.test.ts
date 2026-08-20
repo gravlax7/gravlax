@@ -6,6 +6,7 @@ import {
   TrackerLoginError,
   TrackerRequestError,
   authHeaders,
+  encodeSessionCookie,
   parseTorrentGroupIdFromUrl,
   resetTrackerRateLimiter,
   usesApiKeyAuth
@@ -97,6 +98,33 @@ describe('authHeaders', () => {
         userAgent: 'test-client/1.0'
       }).Cookie
     ).toBe('session=cookie')
+  })
+
+  it('percent-encodes base64 padding and does not double-encode', () => {
+    expect(
+      authHeaders({
+        apiKey: '',
+        sessionCookie: 'abc+def/ghi==',
+        preferApiKey: false,
+        userAgent: 'test-client/1.0'
+      }).Cookie
+    ).toBe('session=abc%2Bdef%2Fghi%3D%3D')
+    expect(
+      authHeaders({
+        apiKey: '',
+        sessionCookie: 'abc%2Bdef%2Fghi%3D%3D',
+        preferApiKey: false,
+        userAgent: 'test-client/1.0'
+      }).Cookie
+    ).toBe('session=abc%2Bdef%2Fghi%3D%3D')
+  })
+})
+
+describe('encodeSessionCookie', () => {
+  it('encodes padding and leaves already-encoded values stable', () => {
+    expect(encodeSessionCookie('token==')).toBe('token%3D%3D')
+    expect(encodeSessionCookie('token%3D%3D')).toBe('token%3D%3D')
+    expect(encodeSessionCookie('plain')).toBe('plain')
   })
 })
 
