@@ -181,6 +181,7 @@ export function finishFilesApply(
     },
     filesCheck: {
       ...s.filesCheck,
+      integrity: remapIntegrityPaths(s.filesCheck.integrity, pathMap),
       mqa: {
         ...s.filesCheck.mqa,
         mqaPaths: s.filesCheck.mqa.mqaPaths.map((path) => pathMap.get(path) ?? path),
@@ -233,6 +234,7 @@ export function finishFilesRestore(s: State, workspacePath: string): State {
     },
     filesCheck: {
       ...s.filesCheck,
+      integrity: remapIntegrityPaths(s.filesCheck.integrity, pathMap),
       mqa: {
         ...s.filesCheck.mqa,
         mqaPaths: s.filesCheck.mqa.mqaPaths.map((path) => pathMap.get(path) ?? path),
@@ -250,5 +252,24 @@ export function finishFilesRestore(s: State, workspacePath: string): State {
         }))
       }
     }
+  }
+}
+
+function remapIntegrityPaths(
+  integrity: State['filesCheck']['integrity'],
+  pathMap: Map<string, string>
+): State['filesCheck']['integrity'] {
+  const remap = (path: string): string => pathMap.get(path) ?? path
+  return {
+    ...integrity,
+    failures: integrity.failures.map((failure) => ({
+      ...failure,
+      relativePath: remap(failure.relativePath)
+    })),
+    repairedPaths: integrity.repairedPaths.map(remap),
+    repairErrors: integrity.repairErrors.map((failure) => ({
+      ...failure,
+      relativePath: remap(failure.relativePath)
+    }))
   }
 }

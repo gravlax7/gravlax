@@ -1,5 +1,5 @@
 import type { UploadFlowSnapshot } from '@shared/types'
-import { withTaskSnapshotStatuses } from './background'
+import { resetBackgroundTask, withTaskSnapshotStatuses } from './background'
 import { setFilesCheck } from './filesCheck'
 import { setFiles } from './files'
 import { setMetadata } from './metadata'
@@ -115,6 +115,9 @@ export function restoreState(workspacePath: string, snap: UploadFlowSnapshot): S
   state = setTranscode(state, snap.transcode ?? {})
   if (snap.filesCheck) {
     state = setFilesCheck(state, snap.filesCheck)
+    if (!('integrity' in snap.filesCheck)) {
+      state = resetBackgroundTask(state, 'files-check')
+    }
   }
   if (snap.upload) {
     state = resumeSubmit(resumeGroupSearch(setUpload(state, snap.upload)))

@@ -1,6 +1,6 @@
 import type { MQASummary } from '@shared/types'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
-import { checkMQA } from './mqa'
+import { checkMQA } from '../tools/diagnostics/mqa'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 
 export type { MQASummary }

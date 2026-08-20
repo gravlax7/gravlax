@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { defaultConfig } from '@main/core/config/defaults'
 import { newState, stepIndex, type State } from '@main/core/uploadflow'
 import { UploadSession } from '@main/services/uploadSession'
@@ -23,6 +23,18 @@ function newSession(): UploadSession {
 
 function runtimeOf(session: UploadSession): SessionRuntime {
   return (session as unknown as { runtime: SessionRuntime }).runtime
+}
+
+function integrityReadyState(): State {
+  const state = newState()
+  state.filesCheck.integrity = {
+    status: 'passed',
+    checkedCount: 1,
+    failures: [],
+    repairedPaths: [],
+    repairErrors: []
+  }
+  return state
 }
 
 function completedAlternateFormats(): State['transcode'] {
@@ -70,9 +82,92 @@ function completedAlternateFormats(): State['transcode'] {
 }
 
 describe('UploadSession', () => {
-  it('commits the report while keeping a description edit made during the build', async () => {
+  it('starts source-reading work only after FLAC integrity passes', () => {
+    const session = newSession()
+    const internal = session as unknown as {
+      scheduleReadyTasks: () => void
+      startFilesCheckIfReady: () => void
+      startSpectralsIfReady: () => void
+      startMetadataIfReady: () => void
+      startTranscodeInspectIfReady: () => void
+      startTagsCurrentIfReady: () => Promise<void>
+      startTagsReleaseIfNeeded: () => Promise<void>
+    }
+    const files = vi.spyOn(internal, 'startFilesCheckIfReady').mockImplementation(() => undefined)
+    const spectrals = vi.spyOn(internal, 'startSpectralsIfReady').mockImplementation(() => undefined)
+    const metadata = vi.spyOn(internal, 'startMetadataIfReady').mockImplementation(() => undefined)
+    const transcode = vi.spyOn(internal, 'startTranscodeInspectIfReady').mockImplementation(() => undefined)
+    const tagsCurrent = vi.spyOn(internal, 'startTagsCurrentIfReady').mockResolvedValue()
+    const tagsRelease = vi.spyOn(internal, 'startTagsReleaseIfNeeded').mockResolvedValue()
+
+    internal.scheduleReadyTasks()
+    expect(files).toHaveBeenCalledOnce()
+    expect(spectrals).not.toHaveBeenCalled()
+    expect(metadata).not.toHaveBeenCalled()
+    expect(transcode).not.toHaveBeenCalled()
+
+    const runtime = runtimeOf(session)
+    runtime.apply({
+      ...runtime.current,
+      filesCheck: {
+        ...runtime.current.filesCheck,
+        integrity: {
+          status: 'passed',
+          checkedCount: 1,
+          failures: [],
+          repairedPaths: [],
+          repairErrors: []
+        }
+      }
+    })
+    internal.scheduleReadyTasks()
+    expect(spectrals).toHaveBeenCalledOnce()
+    expect(metadata).toHaveBeenCalledOnce()
+    expect(transcode).toHaveBeenCalledOnce()
+    expect(tagsCurrent).toHaveBeenCalledOnce()
+    expect(tagsRelease).toHaveBeenCalledOnce()
+  })
+
+  it('refuses integrity repair after an upload has completed', async () => {
+    const send = vi.fn()
+    const session = new UploadSession({
+      appVersion: 'test',
+      userDataPath: '',
+      getConfig: defaultConfig,
+      trashItem: async () => undefined,
+      tools: automaticToolResolver,
+      send
+    })
+    const runtime = runtimeOf(session)
+    runtime.apply({
+      ...runtime.current,
+      upload: { ...runtime.current.upload, phase: 'done' }
+    })
+
+    await session.repairFlacIntegrity()
+
+    expect(send).toHaveBeenCalledWith('upload:notify', {
+      level: 'error',
+      message: 'FLACs cannot be repaired after upload or seeding has started.'
+    })
+  })
+
+  it('refuses tracker submission until FLAC integrity passes', async () => {
     const session = newSession()
     const state = newState()
+    state.upload.phase = 'ready'
+    runtimeOf(session).apply(state)
+
+    await expect(session.submitUpload()).resolves.toEqual({
+      ok: false,
+      error: 'Repair failed FLAC integrity checks before uploading.'
+    })
+    expect(session.getState().upload.phase).toBe('failed')
+  })
+
+  it('commits the report while keeping a description edit made during the build', async () => {
+    const session = newSession()
+    const state = integrityReadyState()
     state.currentStep = stepIndex('upload') ?? 6
     state.tags.proposed = { title: 'Album' }
 
@@ -91,7 +186,7 @@ describe('UploadSession', () => {
 
   it('uses the running app version in the upload report', async () => {
     const session = newSession()
-    const state = newState()
+    const state = integrityReadyState()
     state.currentStep = stepIndex('upload') ?? 6
     state.tags.proposed = { title: 'Album' }
 
@@ -108,7 +203,7 @@ describe('UploadSession', () => {
   it('keeps completed FLAC and MP3 formats when group search changes during the build', async () => {
     const session = newSession()
     const runtime = runtimeOf(session)
-    const state = newState()
+    const state = integrityReadyState()
     state.currentStep = stepIndex('upload') ?? 6
     state.tags.proposed = { title: 'Album' }
     state.transcode = completedAlternateFormats()
@@ -143,7 +238,7 @@ describe('UploadSession', () => {
   it('keeps format edits while adding formats completed during the build', async () => {
     const session = newSession()
     const runtime = runtimeOf(session)
-    const state = newState()
+    const state = integrityReadyState()
     state.currentStep = stepIndex('upload') ?? 6
     state.tags.proposed = { title: 'Album' }
     runtime.apply(state)
@@ -172,7 +267,7 @@ describe('UploadSession', () => {
   it('rebuilds with the latest inputs when they change during the build', async () => {
     const session = newSession()
     const runtime = runtimeOf(session)
-    const state = newState()
+    const state = integrityReadyState()
     state.currentStep = stepIndex('upload') ?? 6
     state.tags.proposed = { title: 'Old title' }
     runtime.apply(state)
@@ -194,7 +289,7 @@ describe('UploadSession', () => {
   it('does not replace a payload that starts submitting during the build', async () => {
     const session = newSession()
     const runtime = runtimeOf(session)
-    const state = newState()
+    const state = integrityReadyState()
     state.currentStep = stepIndex('upload') ?? 6
     state.tags.proposed = { title: 'Album' }
     runtime.apply(state)
@@ -229,7 +324,7 @@ describe('UploadSession', () => {
   it('does not commit a report after the workspace changes', async () => {
     const session = newSession()
     const runtime = runtimeOf(session)
-    const state = newState()
+    const state = integrityReadyState()
     state.currentStep = stepIndex('upload') ?? 6
     state.tags.proposed = { title: 'Old workspace' }
     runtime.apply(state)

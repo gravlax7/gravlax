@@ -12,6 +12,13 @@ vi.mock('@main/core/tools/trackers/health', () => ({
 
 function validState(): State {
   const state = newState()
+  state.filesCheck.integrity = {
+    status: 'passed',
+    checkedCount: 1,
+    failures: [],
+    repairedPaths: [],
+    repairErrors: []
+  }
   state.currentStep = stepIndex('upload') ?? 6
   state.draft.workspacePath = '/workspace/Album'
   state.upload = {

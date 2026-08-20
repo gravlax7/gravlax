@@ -70,7 +70,8 @@ function cfgWithRedacted(tracker: TrackerConfig): Config {
     },
     workflow: {
       confirmBeforeWrites: true,
-      useUpcAsCatNo: true
+      useUpcAsCatNo: true,
+      autoRepairFlacIntegrity: false
     }
   }
 }

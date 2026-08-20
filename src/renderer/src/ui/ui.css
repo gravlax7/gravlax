@@ -1249,6 +1249,17 @@ button.toggle.toggle-on .toggle-thumb {
   white-space: nowrap;
 }
 
+.files-check-integrity-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.files-check-integrity-item {
+  display: grid;
+  gap: 2px;
+}
+
 .files-check-log-toggle {
   display: inline-flex;
   align-items: center;

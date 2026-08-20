@@ -18,6 +18,7 @@ import {
 function snapshot(overrides: Partial<FilesCheckSnapshot> = {}): FilesCheckSnapshot {
   return {
     status: 'ok',
+    integrity: { status: 'passed', checkedCount: 1, failures: [], repairedPaths: [], repairErrors: [] },
     mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
     upconvert: { checkedCount: 0, results: [], errors: [] },
     logs: { logFiles: [], checks: [] },

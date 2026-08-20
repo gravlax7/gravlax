@@ -111,15 +111,7 @@ import { expandPath } from '@main/core/config/paths'
 import { saveUploadedRelease } from '@main/core/appdata/uploadHistory'
 import { generateSpectrals, listSpectralPairs } from '@main/core/tools/spectrals/generate'
 import { spectralIdsForRelease } from '@shared/upload/spectralIds'
-import { checkMQAWorkspace, mqaSummaryDetail } from '@main/core/tools/diagnostics/workspace'
-import {
-  checkUpconvertWorkspace,
-  upconvertSummaryDetail
-} from '@main/core/tools/diagnostics/upconvert'
-import {
-  checkLogsWorkspace,
-  logcheckerSummaryDetail
-} from '@main/core/tools/diagnostics/logchecker'
+import { runFilesCheck } from '@main/core/filesCheck'
 import { detectSourceMedia } from '@main/core/tools/diagnostics/sourceMedia'
 import { createEnabledTrackers } from '@main/core/tools/trackers'
 import { extractAlbumReleaseWithEmbeddedCoverArt } from '@main/core/tags/extract'
@@ -131,6 +123,7 @@ import { TaskScope, isAbortError, type TaskHandle } from '@main/services/taskSlo
 import { UploadSessionRuntime, type UploadSessionRuntimeDeps } from '@main/services/uploadSessionRuntime'
 import { UploadSessionFileChanges } from '@main/services/uploadSessionFileChanges'
 import { evaluateStepNavigation } from '@shared/upload/workflow'
+import { flacIntegrityRepairAllowed } from '@shared/upload/filesCheck'
 import { listUploadStartEntries } from '@main/services/uploadStartService'
 import type { UploadStatsRecord } from '@main/services/uploadStatsService'
 import type { ToolResolver } from '@main/core/tools/binaries'
@@ -280,6 +273,7 @@ export class UploadSession {
   }
 
   async ensureUploadReport(): Promise<void> {
+    if (!this.flacIntegrityPassed() && this.state.upload.phase !== 'submitting' && this.state.upload.phase !== 'done') return
     const generation = this.tasks.generation
     const workspacePath = this.state.draft.workspacePath
 
@@ -391,6 +385,12 @@ export class UploadSession {
   }
 
   async submitUpload(): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (!this.flacIntegrityPassed()) {
+      const error = 'Repair failed FLAC integrity checks before uploading.'
+      this.apply(failUploadReport(this.state, error))
+      this.notify('error', error)
+      return { ok: false, error }
+    }
     let cfg = this.deps.getConfig()
     const transcodeError = validateSelectedTranscodes(this.state.transcode)
     if (transcodeError) {
@@ -1103,12 +1103,23 @@ export class UploadSession {
     this.startFilesCheckIfReady()
   }
 
+  async repairFlacIntegrity(): Promise<void> {
+    if (!this.integrityRepairAllowed()) {
+      this.notify('error', 'FLACs cannot be repaired after upload or seeding has started.')
+      return
+    }
+    this.filesCheck.cancel()
+    this.apply(resetBackgroundTask(clearFilesCheck(this.state), 'files-check'))
+    this.startFilesCheckIfReady(true)
+  }
+
   async refreshMetadata(): Promise<void> {
     this.apply(resetBackgroundTask(this.state, 'metadata'))
     this.startMetadataIfReady()
   }
 
   async refreshTags(): Promise<void> {
+    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const workspacePath = this.state.draft.workspacePath
     // A failed metadata request leaves the proposed release empty. Reloading
@@ -1138,6 +1149,10 @@ export class UploadSession {
 
   async runTranscode(opts?: { quiet?: boolean }): Promise<void> {
     const quiet = opts?.quiet === true
+    if (!this.flacIntegrityPassed()) {
+      if (!quiet) this.notify('warning', 'Wait for FLAC integrity checks before transcoding.')
+      return
+    }
     if (!this.state.draft.workspacePath) return
     if (this.state.transcode.phase === 'running' || this.state.transcode.phase === 'inspecting') return
 
@@ -1322,8 +1337,9 @@ export class UploadSession {
   }
 
   private scheduleReadyTasks(): void {
-    this.startSpectralsIfReady()
     this.startFilesCheckIfReady()
+    if (this.state.filesCheck.integrity.status !== 'passed') return
+    this.startSpectralsIfReady()
     this.startMetadataIfReady()
     this.startTranscodeInspectIfReady()
     void this.startTagsCurrentIfReady()
@@ -1331,6 +1347,7 @@ export class UploadSession {
   }
 
   private startTranscodeInspectIfReady(): void {
+    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const t = getTask(this.state.background, 'transcode')
     if (!t || t.status !== 'queued') return
@@ -1383,6 +1400,7 @@ export class UploadSession {
   }
 
   private startSpectralsIfReady(): void {
+    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const t = getTask(this.state.background, 'spectrals')
     if (!t || t.status !== 'queued') return
@@ -1428,7 +1446,7 @@ export class UploadSession {
     )
   }
 
-  private startFilesCheckIfReady(): void {
+  private startFilesCheckIfReady(repairRequested = false): void {
     if (!this.state.draft.workspacePath || !this.state.draft.sourceMedia) return
     const t = getTask(this.state.background, 'files-check')
     if (!t || t.status !== 'queued') return
@@ -1439,9 +1457,16 @@ export class UploadSession {
 
     void this.filesCheck.run(
       async (task) => {
-        const mqaSummary = await checkMQAWorkspace(workspacePath, {
+        const canRepair = this.integrityRepairAllowed()
+        const result = await runFilesCheck({
+          workspacePath,
+          sourceMedia,
+          trackers: createEnabledTrackers(this.deps.getConfig()),
           signal: task.signal,
           tools: this.deps.tools,
+          repairRequested,
+          autoRepair: this.deps.getConfig().workflow.autoRepairFlacIntegrity,
+          repairAllowed: canRepair,
           onProgress: (current, total, label) => {
             if (!task.fresh()) return
             this.apply(
@@ -1450,74 +1475,47 @@ export class UploadSession {
                 'files-check',
                 current,
                 total,
-                `MQA — ${label}`
+                label
               ),
               { persist: false }
             )
-          }
-        })
-        if (!task.fresh()) return
-
-        const upconvertSummary = await checkUpconvertWorkspace(workspacePath, {
-          signal: task.signal,
-          tools: this.deps.tools,
-          onProgress: (current, total, label) => {
+          },
+          onIntegrityPassed: (integrity) => {
             if (!task.fresh()) return
-            this.apply(
-              markBackgroundTaskProgress(
-                this.state,
-                'files-check',
-                current,
-                total,
-                `Upconvert — ${label}`
-              ),
-              { persist: false }
-            )
+            this.apply(setFilesCheck(this.state, {
+              status: 'running',
+              integrity,
+              mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
+              upconvert: { checkedCount: 0, results: [], errors: [] },
+              logs: { logFiles: [], checks: [] }
+            }))
+            this.scheduleReadyTasks()
           }
         })
         if (!task.fresh()) return
 
-        // Logchecker is a tracker round-trip, and only CD rips have logs.
-        const logSummary =
-          sourceMedia === 'CD'
-            ? await checkLogsWorkspace(workspacePath, {
-                sourceMedia,
-                trackers: createEnabledTrackers(this.deps.getConfig()),
-                signal: task.signal
-              })
-            : { logFiles: [], checks: [] }
-        if (!task.fresh()) return
-
-        // A tracker that could not be reached fails the step; a rip with a
-        // poor score does not — that is a finding, and the step reports it.
-        const failed = logSummary.checks.some((c) => c.error)
-        const next = setFilesCheck(this.state, {
-          status: failed ? 'failed' : 'ok',
-          mqa: mqaSummary,
-          upconvert: upconvertSummary,
-          logs: logSummary
-        })
-
-        // task.detail stays human-readable for the expandable log view; the
-        // renderer reads state.filesCheck for everything it shows.
-        const parts = [
-          mqaSummaryDetail(mqaSummary),
-          upconvertSummaryDetail(upconvertSummary),
-          logcheckerSummaryDetail(logSummary)
-        ]
-        const detail = parts.filter(Boolean).join('\n\n')
+        const next = setFilesCheck(this.state, result.snapshot)
         this.apply(
-          failed
-            ? markBackgroundTaskFailed(next, 'files-check', detail)
-            : markBackgroundTaskCompleted(next, 'files-check', detail)
+          result.taskFailed
+            ? markBackgroundTaskFailed(next, 'files-check', result.detail)
+            : markBackgroundTaskCompleted(next, 'files-check', result.detail)
         )
+        if (result.snapshot.integrity.status === 'passed') this.scheduleReadyTasks()
       },
       {
         guard: this.stillOn(workspacePath),
         onError: (err) => {
+          const integrity = this.state.filesCheck.integrity.status === 'idle'
+            ? {
+                ...this.state.filesCheck.integrity,
+                status: 'failed' as const,
+                error: String(err)
+              }
+            : this.state.filesCheck.integrity
           const next = setFilesCheck(this.state, {
             ...this.state.filesCheck,
             status: 'failed',
+            integrity,
             error: String(err)
           })
           this.apply(markBackgroundTaskFailed(next, 'files-check', String(err)))
@@ -1526,7 +1524,16 @@ export class UploadSession {
     )
   }
 
+  private integrityRepairAllowed(): boolean {
+    return flacIntegrityRepairAllowed(this.state)
+  }
+
+  private flacIntegrityPassed(): boolean {
+    return this.state.filesCheck.integrity.status === 'passed'
+  }
+
   private startMetadataIfReady(): void {
+    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const t = getTask(this.state.background, 'metadata')
     if (!t || t.status !== 'queued') return
@@ -1568,6 +1575,7 @@ export class UploadSession {
   }
 
   private async startTagsCurrentIfReady(): Promise<void> {
+    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const status = this.state.tags.currentStatus
     if (status === 'loading') return
@@ -1614,6 +1622,7 @@ export class UploadSession {
   }
 
   private async startTagsReleaseIfNeeded(): Promise<void> {
+    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const selection = this.state.metadata.selected
     if (!selection) return

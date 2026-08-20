@@ -201,6 +201,8 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return String(c.confirmBeforeWrites)
         case 'useUpcAsCatNo':
           return String(c.useUpcAsCatNo)
+        case 'autoRepairFlacIntegrity':
+          return String(c.autoRepairFlacIntegrity)
       }
       break
     }
@@ -345,6 +347,7 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
     case 'workflow':
       if (field === 'confirmBeforeWrites') next.workflow.confirmBeforeWrites = value
       if (field === 'useUpcAsCatNo') next.workflow.useUpcAsCatNo = value
+      if (field === 'autoRepairFlacIntegrity') next.workflow.autoRepairFlacIntegrity = value
       break
   }
   return next

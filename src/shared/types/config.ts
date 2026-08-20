@@ -151,6 +151,7 @@ export interface CleanupConfig {
 export interface WorkflowConfig {
   confirmBeforeWrites: boolean
   useUpcAsCatNo: boolean
+  autoRepairFlacIntegrity: boolean
 }
 
 export interface ValidationIssue {

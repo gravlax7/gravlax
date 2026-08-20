@@ -1,5 +1,6 @@
 import type {
   FilesCheckSnapshot,
+  IntegritySummary,
   LogcheckerSummary,
   MQASummary,
   UpconvertSummary
@@ -14,9 +15,20 @@ export function emptyUpconvertSummary(): UpconvertSummary {
   return { checkedCount: 0, results: [], errors: [] }
 }
 
+export function emptyIntegritySummary(): IntegritySummary {
+  return {
+    status: 'idle',
+    checkedCount: 0,
+    failures: [],
+    repairedPaths: [],
+    repairErrors: []
+  }
+}
+
 export function emptyFilesCheck(): FilesCheckSnapshot {
   return {
     status: 'idle',
+    integrity: emptyIntegritySummary(),
     mqa: emptyMQASummary(),
     upconvert: emptyUpconvertSummary(),
     logs: { logFiles: [], checks: [] }
@@ -39,10 +51,19 @@ export function setFilesCheckRunning(s: State): State {
 export function restoreFilesCheck(snapshot: FilesCheckSnapshot | undefined): FilesCheckSnapshot {
   if (!snapshot) return emptyFilesCheck()
   const mqa = snapshot.mqa
+  const integrity = snapshot.integrity
   const upconvert = snapshot.upconvert
   const logs = snapshot.logs
   return {
     status: snapshot.status ?? 'idle',
+    integrity: {
+      status: integrity?.status ?? 'idle',
+      checkedCount: integrity?.checkedCount ?? 0,
+      failures: (integrity?.failures ?? []).map((failure) => ({ ...failure })),
+      repairedPaths: [...(integrity?.repairedPaths ?? [])],
+      repairErrors: (integrity?.repairErrors ?? []).map((failure) => ({ ...failure })),
+      error: integrity?.error
+    },
     mqa: {
       checkedCount: mqa?.checkedCount ?? 0,
       mqaPaths: mqa?.mqaPaths ?? [],

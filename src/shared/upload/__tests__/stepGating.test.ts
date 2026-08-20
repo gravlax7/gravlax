@@ -32,6 +32,7 @@ function baseState(overrides: Partial<UploadFlowStateJSON> = {}): UploadFlowStat
     transcode: {},
     filesCheck: {
       status: 'idle',
+      integrity: { status: 'passed', checkedCount: 1, failures: [], repairedPaths: [], repairErrors: [] },
       mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
       upconvert: { checkedCount: 0, results: [], errors: [] },
       logs: { logFiles: [], checks: [] }
@@ -97,6 +98,34 @@ describe('highestReachableStep', () => {
         })
       )
     ).toBe(1)
+  })
+
+  it('blocks every later step while FLAC integrity has not passed', () => {
+    const state = baseState({
+      currentStep: 0,
+      draft: {
+        sourcePath: '/a',
+        workspacePath: '/w',
+        sourceMedia: 'WEB',
+        lossyMaster: false,
+        lossyComment: '',
+        spectralIds: [],
+        spectralIdsAuto: true
+      },
+      filesCheck: {
+        ...baseState().filesCheck,
+        integrity: {
+          status: 'failed',
+          checkedCount: 1,
+          failures: [{ relativePath: '01.flac', message: 'unset MD5' }],
+          repairedPaths: [],
+          repairErrors: []
+        }
+      }
+    })
+    expect(highestReachableStep(state)).toBe(0)
+    expect(canNavigateToStep(1, state)).toBe(false)
+    expect(stepHasError(0, state)).toBe(true)
   })
 
   it('does not gate on a failed files-check', () => {

@@ -63,6 +63,7 @@ const api = {
     setSpectralIds: (ids: number[]) => invoke('upload:setSpectralIds', ids),
     regenerateSpectrals: () => invoke('upload:regenerateSpectrals'),
     refreshFilesCheck: () => invoke('upload:refreshFilesCheck'),
+    repairFlacIntegrity: () => invoke('upload:repairFlacIntegrity'),
     refreshMetadata: () => invoke('upload:refreshMetadata'),
     refreshTags: () => invoke('upload:refreshTags'),
     setTranscodeSelection: (optionIds: string[]) => invoke('upload:setTranscodeSelection', optionIds),

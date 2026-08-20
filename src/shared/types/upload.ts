@@ -318,6 +318,22 @@ export interface TranscodeSnapshot {
 
 export type FilesCheckStatus = 'idle' | 'running' | 'ok' | 'failed'
 
+export type IntegrityStatus = 'idle' | 'passed' | 'failed'
+
+export interface IntegrityIssue {
+  relativePath: string
+  message: string
+}
+
+export interface IntegritySummary {
+  status: IntegrityStatus
+  checkedCount: number
+  failures: IntegrityIssue[]
+  repairedPaths: string[]
+  repairErrors: IntegrityIssue[]
+  error?: string
+}
+
 export interface MQASummary {
   checkedCount: number
   mqaPaths: string[]
@@ -356,6 +372,7 @@ export interface LogcheckerSummary {
 
 export interface FilesCheckSnapshot {
   status: FilesCheckStatus
+  integrity: IntegritySummary
   mqa: MQASummary
   upconvert: UpconvertSummary
   logs: LogcheckerSummary

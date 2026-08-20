@@ -50,6 +50,14 @@ export function highestReachableStep(state: UploadFlowStateJSON): number {
   const index = (id: StepID): number => workflowStepIndex(id) ?? 0
   let highest = index('files-check')
 
+  if (
+    state.filesCheck.integrity.status !== 'passed' &&
+    state.upload.phase !== 'submitting' &&
+    state.upload.phase !== 'done'
+  ) {
+    return highest
+  }
+
   const files = taskById(state.background.tasks, 'files-check')
   if (files?.status === 'succeeded') highest = Math.max(highest, index('spectrals'))
   // A failed files check does not gate: a tracker logchecker outage says
@@ -89,6 +97,20 @@ export function evaluateStepNavigation(
   const firstStepAfterMedia = workflowStepIndex('spectrals') ?? 0
   if (goingForward && targetIndex >= firstStepAfterMedia && !state.draft.sourceMedia) {
     return { ok: false, error: 'Choose WEB or CD source media before continuing.' }
+  }
+  if (
+    goingForward &&
+    targetIndex >= firstStepAfterMedia &&
+    state.filesCheck.integrity.status !== 'passed' &&
+    state.upload.phase !== 'submitting' &&
+    state.upload.phase !== 'done'
+  ) {
+    return {
+      ok: false,
+      error: state.filesCheck.integrity.status === 'idle'
+        ? 'Wait for the FLAC integrity check to finish.'
+        : 'Repair failed FLAC integrity checks before continuing.'
+    }
   }
   // Seed is the one step a user cannot revisit on the strength of having been
   // there before: it needs a submitted upload every time.

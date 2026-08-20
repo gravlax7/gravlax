@@ -73,7 +73,8 @@ export function defaultConfig(): Config {
     },
     workflow: {
       confirmBeforeWrites: true,
-      useUpcAsCatNo: true
+      useUpcAsCatNo: true,
+      autoRepairFlacIntegrity: false
     }
   }
 }

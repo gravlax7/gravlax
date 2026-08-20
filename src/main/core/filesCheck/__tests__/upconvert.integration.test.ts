@@ -2,7 +2,7 @@ import { access, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { writeSyntheticFlac } from '../../__tests__/helpers/audioFixture'
+import { writeSyntheticFlac } from '../../tools/__tests__/helpers/audioFixture'
 import { checkUpconvert } from '../upconvert'
 
 async function binaryAvailable(name: string): Promise<boolean> {

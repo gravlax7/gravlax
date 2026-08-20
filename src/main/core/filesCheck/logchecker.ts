@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { basename } from 'node:path'
 import type { LogCheck, LogcheckerSummary, SourceMedia } from '@shared/types'
 import type { Tracker } from '@main/core/tools/trackers'
-import { discoverLogFiles } from './sourceMedia'
+import { discoverLogFiles } from '../tools/diagnostics/sourceMedia'
 
 export type { LogCheck, LogcheckerSummary }
 

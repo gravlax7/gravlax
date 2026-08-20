@@ -82,7 +82,8 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
     },
     workflow: {
       confirmBeforeWrites: true,
-      useUpcAsCatNo: true
+      useUpcAsCatNo: true,
+      autoRepairFlacIntegrity: false
     },
     ...overrides
   }

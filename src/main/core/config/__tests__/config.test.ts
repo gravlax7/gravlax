@@ -25,6 +25,7 @@ describe('config', () => {
     expect(cfg.appearance.theme).toBe('system')
     expect(cfg.workflow.confirmBeforeWrites).toBe(true)
     expect(cfg.workflow.useUpcAsCatNo).toBe(true)
+    expect(cfg.workflow.autoRepairFlacIntegrity).toBe(false)
     expect(cfg.metadataProviders.requestTimeoutSeconds).toBe(10)
     expect(cfg.metadataProviders.musicBrainz.enabled).toBe(true)
     expect(cfg.metadataProviders.deezer.enabled).toBe(true)
@@ -58,6 +59,14 @@ describe('config', () => {
 
     loaded.tools.sox = '/custom/sox'
     expect(resetSection(loaded, 'tools').tools).toEqual(defaultConfig().tools)
+  })
+
+  it('loads and updates automatic FLAC repair without enabling it for old configs', () => {
+    expect(mergeLoadedConfig({ workflow: {} }).workflow.autoRepairFlacIntegrity).toBe(false)
+    const loaded = mergeLoadedConfig({ workflow: { autoRepairFlacIntegrity: true } })
+    expect(loaded.workflow.autoRepairFlacIntegrity).toBe(true)
+    const changed = setFieldBool(defaultConfig(), 'workflow', 'autoRepairFlacIntegrity', true)
+    expect(fieldBoolValue(changed, 'workflow', 'autoRepairFlacIntegrity')).toBe(true)
   })
 
   it.each(['aurora', 'plum'])('replaces retired %s theme settings', (theme) => {

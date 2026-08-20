@@ -1,18 +1,18 @@
-import { For, Show, createSignal } from 'solid-js'
+import { Show, createSignal } from 'solid-js'
 import type { SourceMedia, UploadFlowStateJSON } from '@shared/types'
 import {
-  hasLogResults,
-  hasUpconvertResults,
-  logHeadline,
-  logScores,
+  integrityTone,
   logTone,
-  mqaHeadline,
   mqaTone,
-  upconvertFindings,
-  upconvertHeadline,
   upconvertTone
 } from '@shared/upload/filesCheck'
 import { Card, Icon, ProgressBar, SegmentedControl } from '../../../ui'
+import {
+  IntegrityResult,
+  LogcheckerResult,
+  MqaResult,
+  UpconvertResult
+} from '../filesCheck'
 
 const SOURCE_MEDIA: SourceMedia[] = ['WEB', 'CD']
 
@@ -23,8 +23,7 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
   const detail = () => task()?.detail ?? ''
   const status = () => task()?.status
   const filesCheck = () => props.state.filesCheck
-  const scores = () => logScores(filesCheck())
-  const upconverts = () => upconvertFindings(filesCheck())
+  const integrity = () => integrityTone(filesCheck())
   const mqa = () => mqaTone(filesCheck())
   const upconvert = () => upconvertTone(filesCheck())
   const logs = () => logTone(filesCheck())
@@ -32,10 +31,10 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
     if (!task()) return 'info' as const
     if (status() === 'failed') return 'error' as const
     if (status() === 'running' || status() === 'queued') return 'info' as const
-    if (mqa() === 'warning' || upconvert() === 'warning' || logs() === 'warning') {
+    if (integrity() === 'warning' || mqa() === 'warning' || upconvert() === 'warning' || logs() === 'warning') {
       return 'warning' as const
     }
-    if (mqa() === 'success' || upconvert() === 'success' || logs() === 'success') {
+    if (integrity() === 'success' || mqa() === 'success' || upconvert() === 'success' || logs() === 'success') {
       return 'success' as const
     }
     return 'info' as const
@@ -43,7 +42,6 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
 
   const media = () => props.state.draft.sourceMedia
   const logCount = () => props.state.filesCheck.logs.logFiles.length
-
   return (
     <>
       <Show when={media()}>
@@ -117,79 +115,10 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
 
         <Show when={status() === 'succeeded'}>
           <div class="files-check-results">
-            <Show when={mqaHeadline(filesCheck())}>
-              {(title) => (
-                <div class={`files-check-result files-check-result-${mqa()}`}>
-                  <Icon name={mqa() === 'success' ? 'check' : 'alert-triangle'} size={20} />
-                  <div class="files-check-result-body">
-                    <div class="files-check-headline">{title()}</div>
-                  </div>
-                </div>
-              )}
-            </Show>
-
-            <Show when={hasUpconvertResults(filesCheck())}>
-              <div class={`files-check-result files-check-result-${upconvert()}`}>
-                <Icon
-                  name={
-                    upconvert() === 'success'
-                      ? 'check'
-                      : upconvert() === 'warning'
-                        ? 'alert-triangle'
-                        : 'info'
-                  }
-                  size={20}
-                />
-                <div class="files-check-result-body">
-                  <div class="files-check-headline">{upconvertHeadline(filesCheck())}</div>
-                  <Show when={upconverts().length > 0}>
-                    <div class="files-check-scores">
-                      <For each={upconverts()}>
-                        {(entry) => (
-                          <div class="files-check-score-row">
-                            <span class="files-check-score-value is-imperfect">
-                              {entry.wastedBits}/{entry.bitDepth}
-                            </span>
-                            <div class="files-check-score-meta">
-                              <span class="files-check-score-tracker">Wasted bits</span>
-                              <span class="files-check-score-file">{entry.fileName}</span>
-                            </div>
-                          </div>
-                        )}
-                      </For>
-                    </div>
-                  </Show>
-                </div>
-              </div>
-            </Show>
-
-            <Show when={hasLogResults(filesCheck())}>
-              <div class={`files-check-result files-check-result-${logs()}`}>
-                <Icon name={logs() === 'success' ? 'check' : 'alert-triangle'} size={20} />
-                <div class="files-check-result-body">
-                  <div class="files-check-headline">{logHeadline(filesCheck())}</div>
-                  <Show when={scores().length > 0}>
-                    <div class="files-check-scores">
-                      <For each={scores()}>
-                        {(entry) => (
-                          <div class="files-check-score-row">
-                            <span
-                              class={`files-check-score-value ${entry.score === 100 ? 'is-perfect' : 'is-imperfect'}`}
-                            >
-                              {entry.score}
-                            </span>
-                            <div class="files-check-score-meta">
-                              <span class="files-check-score-tracker">{entry.tracker}</span>
-                              <span class="files-check-score-file">{entry.fileName}</span>
-                            </div>
-                          </div>
-                        )}
-                      </For>
-                    </div>
-                  </Show>
-                </div>
-              </div>
-            </Show>
+            <IntegrityResult state={props.state} />
+            <MqaResult filesCheck={filesCheck()} />
+            <UpconvertResult filesCheck={filesCheck()} />
+            <LogcheckerResult filesCheck={filesCheck()} />
           </div>
         </Show>
 

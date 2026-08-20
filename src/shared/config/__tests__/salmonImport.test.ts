@@ -74,7 +74,7 @@ function defaultConfig(): Config {
       deleteTemporaryFiles: true,
       deleteSpectralsAfterUpload: false
     },
-    workflow: { confirmBeforeWrites: true, useUpcAsCatNo: true }
+    workflow: { confirmBeforeWrites: true, useUpcAsCatNo: true, autoRepairFlacIntegrity: false }
   }
 }
 

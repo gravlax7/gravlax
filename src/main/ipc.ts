@@ -69,6 +69,7 @@ export function registerIpc(deps: IpcDeps): void {
   handle('upload:setSpectralIds', (ids) => upload.setSpectralIds(ids))
   handle('upload:regenerateSpectrals', () => upload.regenerateSpectrals())
   handle('upload:refreshFilesCheck', () => upload.refreshFilesCheck())
+  handle('upload:repairFlacIntegrity', () => upload.repairFlacIntegrity())
   handle('upload:refreshMetadata', () => upload.refreshMetadata())
   handle('upload:refreshTags', () => upload.refreshTags())
   handle('upload:setTranscodeSelection', (optionIds) => upload.setTranscodeSelection(optionIds))

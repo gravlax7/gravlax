@@ -239,6 +239,12 @@ export function sections(): SectionMetadata[] {
           label: 'Use UPC as catalogue number',
           description: 'When a catalogue number is missing, use the UPC/barcode instead.',
           type: 'bool'
+        },
+        {
+          name: 'autoRepairFlacIntegrity',
+          label: 'Automatically repair failed FLAC integrity checks',
+          description: 'Re-encode failed FLACs in the working copy and check them again before continuing.',
+          type: 'bool'
         }
       ]
     }

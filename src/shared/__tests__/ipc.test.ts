@@ -38,6 +38,10 @@ describe('IPC argument contract', () => {
     expect(() => parseIpcArguments('upload:saveTorrent', [''])).toThrow()
   })
 
+  it('accepts FLAC integrity repair without renderer input', () => {
+    expect(parseIpcArguments('upload:repairFlacIntegrity', [])).toEqual([])
+  })
+
   it('accepts clipboard text and rejects an empty value', () => {
     expect(parseIpcArguments('clipboard:writeText', ['/downloads/music'])).toEqual([
       '/downloads/music'
@@ -122,6 +126,6 @@ function configInput() {
       deleteTemporaryFiles: true,
       deleteSpectralsAfterUpload: false
     },
-    workflow: { confirmBeforeWrites: true, useUpcAsCatNo: true }
+    workflow: { confirmBeforeWrites: true, useUpcAsCatNo: true, autoRepairFlacIntegrity: false }
   }
 }

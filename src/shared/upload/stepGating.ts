@@ -36,7 +36,8 @@ export function stepNodeStatus(
 export function stepHasError(index: number, state: UploadFlowStateJSON): boolean {
   switch (WORKFLOW_STEPS[index]?.id) {
     case 'files-check':
-      return taskById(state.background.tasks, 'files-check')?.status === 'failed'
+      return state.filesCheck.integrity.status === 'failed' ||
+        taskById(state.background.tasks, 'files-check')?.status === 'failed'
     case 'spectrals':
       return taskById(state.background.tasks, 'spectrals')?.status === 'failed'
     case 'metadata':

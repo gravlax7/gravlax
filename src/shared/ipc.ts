@@ -54,6 +54,7 @@ export interface IpcInvokeMap {
   'upload:setSpectralIds': { args: [number[]]; result: void }
   'upload:regenerateSpectrals': { args: []; result: void }
   'upload:refreshFilesCheck': { args: []; result: void }
+  'upload:repairFlacIntegrity': { args: []; result: void }
   'upload:refreshMetadata': { args: []; result: void }
   'upload:refreshTags': { args: []; result: void }
   'upload:setTranscodeSelection': { args: [string[]]; result: void }
@@ -191,7 +192,11 @@ const configInput: z.ZodType<Config> = z.object({
     deleteTemporaryFiles: z.boolean(),
     deleteSpectralsAfterUpload: z.boolean()
   }),
-  workflow: z.object({ confirmBeforeWrites: z.boolean(), useUpcAsCatNo: z.boolean() })
+  workflow: z.object({
+    confirmBeforeWrites: z.boolean(),
+    useUpcAsCatNo: z.boolean(),
+    autoRepairFlacIntegrity: z.boolean()
+  })
 })
 
 /** Runtime validation for values crossing Electron's process boundary. */
@@ -228,6 +233,7 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'upload:setSpectralIds': z.tuple([z.array(z.number().int().positive())]),
   'upload:regenerateSpectrals': noArgs,
   'upload:refreshFilesCheck': noArgs,
+  'upload:repairFlacIntegrity': noArgs,
   'upload:refreshMetadata': noArgs,
   'upload:refreshTags': noArgs,
   'upload:setTranscodeSelection': z.tuple([z.array(z.string().min(1))]),

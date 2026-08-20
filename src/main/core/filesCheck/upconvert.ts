@@ -2,7 +2,7 @@ import type { UpconvertCheckResult, UpconvertSummary } from '@shared/types'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { runCommand } from '@main/core/tools/runCommand'
-import { readFLACStreamInfo, type FlacStreamInfo } from './mqa'
+import { readFLACStreamInfo, type FlacStreamInfo } from '../tools/diagnostics/mqa'
 
 const UPCONVERT_WASTED_BITS = 8
 

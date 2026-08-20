@@ -17,6 +17,13 @@ describe('files-check paths', () => {
     ])
     state = setFilesCheck(state, {
       status: 'ok',
+      integrity: {
+        status: 'failed',
+        checkedCount: 2,
+        failures: [{ relativePath: '01.flac', message: 'unset MD5' }],
+        repairedPaths: ['02.flac'],
+        repairErrors: [{ relativePath: '02.flac', message: 'encode failed' }]
+      },
       mqa: { checkedCount: 2, mqaPaths: ['01.flac'], errors: [] },
       upconvert: {
         checkedCount: 2,
@@ -41,9 +48,15 @@ describe('files-check paths', () => {
     )
     expect(state.filesCheck.upconvert.results[0]?.relativePath).toBe('01 - First.flac')
     expect(state.filesCheck.upconvert.errors[0]?.relativePath).toBe('02 - Second.flac')
+    expect(state.filesCheck.integrity.failures[0]?.relativePath).toBe('01 - First.flac')
+    expect(state.filesCheck.integrity.repairedPaths).toEqual(['02 - Second.flac'])
+    expect(state.filesCheck.integrity.repairErrors[0]?.relativePath).toBe('02 - Second.flac')
 
     state = finishFilesRestore(state, '/workspace/Album')
     expect(state.filesCheck.upconvert.results[0]?.relativePath).toBe('01.flac')
     expect(state.filesCheck.upconvert.errors[0]?.relativePath).toBe('02.flac')
+    expect(state.filesCheck.integrity.failures[0]?.relativePath).toBe('01.flac')
+    expect(state.filesCheck.integrity.repairedPaths).toEqual(['02.flac'])
+    expect(state.filesCheck.integrity.repairErrors[0]?.relativePath).toBe('02.flac')
   })
 })

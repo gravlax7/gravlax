@@ -163,6 +163,9 @@ export function normalizeWorkflow(raw: unknown, base: Config['workflow']): Confi
   if (typeof obj.useUpcAsCatNo === 'boolean') {
     next.useUpcAsCatNo = obj.useUpcAsCatNo
   }
+  if (typeof obj.autoRepairFlacIntegrity === 'boolean') {
+    next.autoRepairFlacIntegrity = obj.autoRepairFlacIntegrity
+  }
   return next
 }
 

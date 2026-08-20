@@ -50,6 +50,7 @@ describe('snapshot round-trip', () => {
     state = setSourceMedia(state, 'CD')
     state = setFilesCheck(state, {
       status: 'ok',
+      integrity: { status: 'passed', checkedCount: 2, failures: [], repairedPaths: [], repairErrors: [] },
       mqa: { checkedCount: 2, mqaPaths: ['02.flac'], errors: [] },
       upconvert: {
         checkedCount: 1,
@@ -98,7 +99,7 @@ describe('snapshot round-trip', () => {
   })
 
   it('fills in upconvert results for a files-check snapshot written before the check existed', () => {
-    const state = selectSourcePath(newState(), '/music/album')
+    const state = setSourceMedia(selectSourcePath(newState(), '/music/album'), 'WEB')
     const snap = snapshot(state)
     snap.filesCheck = {
       status: 'ok',
@@ -111,6 +112,9 @@ describe('snapshot round-trip', () => {
       results: [],
       errors: []
     })
+    const restored = restoreState('/workspace/upload-abc123', snap)
+    expect(restored.filesCheck.integrity.status).toBe('idle')
+    expect(restored.background.tasks.find((task) => task.id === 'files-check')?.status).toBe('queued')
   })
 
   it('migrates the retired rules-check step to upload', () => {
