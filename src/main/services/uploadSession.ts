@@ -59,7 +59,10 @@ import {
   type State,
   task as getTask,
   ensureUploadReport,
+  fingerprintUploadInputs,
   hostCoverImageForSubmit,
+  mergeConcurrentUploadReport,
+  setUpload,
   updateUploadReport,
   setGroupSearch,
   beginSubmit,
@@ -277,17 +280,46 @@ export class UploadSession {
   }
 
   async ensureUploadReport(): Promise<void> {
-    // Building a report can read the workspace and await cover resolution. Do
-    // not let a build that began before a user edit replace that edit once it
-    // finishes.
-    const state = this.state
-    const next = await ensureUploadReport(
-      state,
-      this.deps.getConfig(),
-      this.deps.appVersion
-    )
-    if (state !== this.state) return
-    if (next !== state) this.apply(next)
+    const generation = this.tasks.generation
+    const workspacePath = this.state.draft.workspacePath
+
+    for (;;) {
+      if (!this.stillOnWorkspace(generation, workspacePath)) return
+
+      const before = this.state
+      const cfg = this.deps.getConfig()
+      const fingerprint = fingerprintUploadInputs(before, cfg, this.deps.appVersion)
+      const built = await ensureUploadReport(before, cfg, this.deps.appVersion)
+
+      if (!this.stillOnWorkspace(generation, workspacePath)) return
+      const latest = this.state
+
+      // A second submit may have passed its own report check while this build
+      // was reading files. Its fixed payload must not be changed underneath it.
+      if (
+        before.upload.phase !== 'submitting' &&
+        before.upload.phase !== 'done' &&
+        (latest.upload.phase === 'submitting' || latest.upload.phase === 'done')
+      ) {
+        return
+      }
+
+      const latestFingerprint = fingerprintUploadInputs(
+        latest,
+        this.deps.getConfig(),
+        this.deps.appVersion
+      )
+      if (latestFingerprint !== fingerprint) continue
+      if (built === before) return
+
+      this.apply(
+        setUpload(
+          latest,
+          mergeConcurrentUploadReport(before.upload, built.upload, latest.upload)
+        )
+      )
+      return
+    }
   }
 
   updateUploadReport(patch: Partial<UploadSnapshot>): void {
