@@ -34,7 +34,8 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
     },
     metadataProviders: {
       musicBrainz: { enabled: true },
-      deezer: { enabled: false },
+      deezer: { enabled: true },
+      bandcamp: { enabled: true },
       requestTimeoutSeconds: 10
     },
     imageHosts: {

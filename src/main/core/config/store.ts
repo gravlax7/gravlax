@@ -23,6 +23,9 @@ export function normalizeMetadataProviders(raw: unknown, base: Config['metadataP
   if (obj.deezer && typeof obj.deezer === 'object') {
     next.deezer = { ...next.deezer, ...(obj.deezer as object) }
   }
+  if (obj.bandcamp && typeof obj.bandcamp === 'object') {
+    next.bandcamp = { ...next.bandcamp, ...(obj.bandcamp as object) }
+  }
   if (typeof obj.requestTimeoutSeconds === 'number') {
     next.requestTimeoutSeconds = obj.requestTimeoutSeconds
   }

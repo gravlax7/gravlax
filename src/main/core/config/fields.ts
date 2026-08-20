@@ -87,6 +87,8 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return String(c.musicBrainz.enabled)
         case 'deezer.enabled':
           return String(c.deezer.enabled)
+        case 'bandcamp.enabled':
+          return String(c.bandcamp.enabled)
         case 'requestTimeoutSeconds':
           return String(c.requestTimeoutSeconds)
       }
@@ -316,6 +318,7 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
     case 'metadataProviders':
       if (field === 'musicBrainz.enabled') next.metadataProviders.musicBrainz.enabled = value
       if (field === 'deezer.enabled') next.metadataProviders.deezer.enabled = value
+      if (field === 'bandcamp.enabled') next.metadataProviders.bandcamp.enabled = value
       break
     case 'imageHosts':
       if (field === 'thesungod.enabled') next.imageHosts.thesungod.enabled = value

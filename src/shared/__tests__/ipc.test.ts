@@ -76,7 +76,8 @@ function configInput() {
     trackers: { redacted: { ...tracker }, orpheus: { ...tracker } },
     metadataProviders: {
       musicBrainz: { enabled: true },
-      deezer: { enabled: false },
+      deezer: { enabled: true },
+      bandcamp: { enabled: true },
       requestTimeoutSeconds: 10
     },
     imageHosts: {

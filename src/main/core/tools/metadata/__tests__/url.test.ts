@@ -41,6 +41,43 @@ describe('resolveMetadataUrl', () => {
     })
   })
 
+  it.each([
+    'https://fourtet.bandcamp.com/album/there-is-love-in-you',
+    'http://fourtet.bandcamp.com/album/there-is-love-in-you/?utm_source=test#tracks',
+    'https://fourtet.bandcamp.com/track/angel-echoes/'
+  ])('resolves a Bandcamp URL: %s', (url) => {
+    const parsed = new URL(url)
+    const type = parsed.pathname.includes('/track/') ? 'track' : 'album'
+    const slug = type === 'track' ? 'angel-echoes' : 'there-is-love-in-you'
+    expect(resolveMetadataUrl(defaultConfig(), url)).toEqual({
+      ok: true,
+      selection: {
+        provider: 'Bandcamp',
+        releaseId: JSON.stringify(['fourtet.bandcamp.com', type, slug]),
+        url: `https://fourtet.bandcamp.com/${type}/${slug}`
+      }
+    })
+  })
+
+  it('resolves a Bandcamp custom domain album URL', () => {
+    expect(resolveMetadataUrl(defaultConfig(), 'https://music.example.com/album/foo')).toEqual({
+      ok: true,
+      selection: {
+        provider: 'Bandcamp',
+        releaseId: JSON.stringify(['music.example.com', 'album', 'foo']),
+        url: 'https://music.example.com/album/foo'
+      }
+    })
+  })
+
+  it('allows a Bandcamp URL when its search provider is disabled', () => {
+    const cfg = defaultConfig()
+    cfg.metadataProviders.bandcamp.enabled = false
+    expect(resolveMetadataUrl(cfg, 'https://fourtet.bandcamp.com/album/there-is-love-in-you').ok).toBe(
+      true
+    )
+  })
+
   it('allows a direct URL when its search provider is disabled', () => {
     const cfg = defaultConfig()
     cfg.metadataProviders.deezer.enabled = false
@@ -89,8 +126,7 @@ describe('resolveMetadataUrl', () => {
     'https://www.deezer.com/track/99',
     'https://www.deezer.com/playlist/99',
     'https://www.deezer.com/album/not-a-number',
-    'https://deezer.page.link/example',
-    'https://www.deezer.com.evil.test/album/99'
+    'https://deezer.page.link/example'
   ])('rejects an unsupported URL: %s', (url) => {
     expect(resolveMetadataUrl(defaultConfig(), url)).toEqual({
       ok: false,
