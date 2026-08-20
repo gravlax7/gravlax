@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util'
 import type { Config } from '@shared/types/config'
 import type {
   BitDepth,
@@ -334,6 +335,66 @@ function carryUserSelections(next: UploadSnapshot, previous: UploadSnapshot): Up
       ? { phase: 'failed' as const, error: previous.error }
       : {})
   }
+}
+
+/**
+ * Commit a report built from `before` without losing changes made while its
+ * file reads were in flight. Generated fields come from `built`; live upload
+ * state and user edits that changed since `before` come from `latest`.
+ */
+export function mergeConcurrentUploadReport(
+  before: UploadSnapshot,
+  built: UploadSnapshot,
+  latest: UploadSnapshot
+): UploadSnapshot {
+  const merged = structuredClone(built)
+  const liveFields = [
+    'phase',
+    'selectedTrackerIds',
+    'orpheusSplit',
+    'unknown',
+    'scene',
+    'tags',
+    'image',
+    'coverPath',
+    'albumDesc',
+    'groupIds',
+    'groupSearch',
+    'submissions',
+    'spectralBbcode',
+    'error'
+  ] as const satisfies readonly (keyof UploadSnapshot)[]
+
+  for (const field of liveFields) {
+    if (isDeepStrictEqual(before[field], latest[field])) continue
+    Object.assign(merged, { [field]: structuredClone(latest[field]) })
+  }
+
+  merged.formats = mergeConcurrentFormatChanges(before.formats, built.formats, latest.formats)
+  return merged
+}
+
+function mergeConcurrentFormatChanges(
+  before: UploadFormatPayload[] | undefined,
+  built: UploadFormatPayload[] | undefined,
+  latest: UploadFormatPayload[] | undefined
+): UploadFormatPayload[] | undefined {
+  if (!built) return built
+  const beforeById = new Map((before ?? []).map((format) => [format.id, format]))
+  const latestById = new Map((latest ?? []).map((format) => [format.id, format]))
+
+  return built.map((builtFormat) => {
+    const beforeFormat = beforeById.get(builtFormat.id)
+    const latestFormat = latestById.get(builtFormat.id)
+    const releaseDescChanged =
+      latestFormat &&
+      (!beforeFormat || !isDeepStrictEqual(beforeFormat.releaseDesc, latestFormat.releaseDesc))
+    return {
+      ...builtFormat,
+      releaseDesc: releaseDescChanged ? latestFormat.releaseDesc : builtFormat.releaseDesc,
+      logfileNames: [...builtFormat.logfileNames]
+    }
+  })
 }
 
 export async function ensureUploadReport(s: State, cfg: Config, version: string): Promise<State> {
