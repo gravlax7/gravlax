@@ -48,6 +48,8 @@ export type {
   TranscodeSnapshot,
   FilesCheckStatus,
   MQASummary,
+  UpconvertCheckResult,
+  UpconvertSummary,
   LogCheck,
   LogcheckerSummary,
   FilesCheckSnapshot,

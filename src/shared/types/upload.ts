@@ -324,6 +324,19 @@ export interface MQASummary {
   errors: Array<{ relativePath: string; message: string }>
 }
 
+export interface UpconvertCheckResult {
+  relativePath: string
+  bitDepth: number
+  wastedBits: number
+  isUpconverted: boolean
+}
+
+export interface UpconvertSummary {
+  checkedCount: number
+  results: UpconvertCheckResult[]
+  errors: Array<{ relativePath: string; message: string }>
+}
+
 export interface LogCheck {
   relativePath: string
   trackerId: string
@@ -344,6 +357,7 @@ export interface LogcheckerSummary {
 export interface FilesCheckSnapshot {
   status: FilesCheckStatus
   mqa: MQASummary
+  upconvert: UpconvertSummary
   logs: LogcheckerSummary
   /** Set only when the check itself broke, as opposed to finding problems. */
   error?: string

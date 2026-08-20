@@ -2,11 +2,15 @@ import { For, Show, createSignal } from 'solid-js'
 import type { SourceMedia, UploadFlowStateJSON } from '@shared/types'
 import {
   hasLogResults,
+  hasUpconvertResults,
   logHeadline,
   logScores,
   logTone,
   mqaHeadline,
-  mqaTone
+  mqaTone,
+  upconvertFindings,
+  upconvertHeadline,
+  upconvertTone
 } from '@shared/upload/filesCheck'
 import { Card, Icon, ProgressBar, SegmentedControl } from '../../../ui'
 
@@ -20,14 +24,20 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
   const status = () => task()?.status
   const filesCheck = () => props.state.filesCheck
   const scores = () => logScores(filesCheck())
+  const upconverts = () => upconvertFindings(filesCheck())
   const mqa = () => mqaTone(filesCheck())
+  const upconvert = () => upconvertTone(filesCheck())
   const logs = () => logTone(filesCheck())
   const cardTone = () => {
     if (!task()) return 'info' as const
     if (status() === 'failed') return 'error' as const
     if (status() === 'running' || status() === 'queued') return 'info' as const
-    if (mqa() === 'warning' || logs() === 'warning') return 'warning' as const
-    if (mqa() === 'success' || logs() === 'success') return 'success' as const
+    if (mqa() === 'warning' || upconvert() === 'warning' || logs() === 'warning') {
+      return 'warning' as const
+    }
+    if (mqa() === 'success' || upconvert() === 'success' || logs() === 'success') {
+      return 'success' as const
+    }
     return 'info' as const
   }
 
@@ -86,7 +96,7 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
               <div class="files-check-headline">Checking files…</div>
               <div class="files-check-sub">
                 {task()?.progressTotal && task()!.progressTotal > 0
-                  ? `MQA ${task()!.progressCurrent}/${task()!.progressTotal}${task()!.progressLabel ? ` — ${task()!.progressLabel}` : ''}`
+                  ? `${task()!.progressCurrent}/${task()!.progressTotal}${task()!.progressLabel ? ` — ${task()!.progressLabel}` : ''}`
                   : 'Scanning release files for issues…'}
               </div>
             </div>
@@ -116,6 +126,41 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
                   </div>
                 </div>
               )}
+            </Show>
+
+            <Show when={hasUpconvertResults(filesCheck())}>
+              <div class={`files-check-result files-check-result-${upconvert()}`}>
+                <Icon
+                  name={
+                    upconvert() === 'success'
+                      ? 'check'
+                      : upconvert() === 'warning'
+                        ? 'alert-triangle'
+                        : 'info'
+                  }
+                  size={20}
+                />
+                <div class="files-check-result-body">
+                  <div class="files-check-headline">{upconvertHeadline(filesCheck())}</div>
+                  <Show when={upconverts().length > 0}>
+                    <div class="files-check-scores">
+                      <For each={upconverts()}>
+                        {(entry) => (
+                          <div class="files-check-score-row">
+                            <span class="files-check-score-value is-imperfect">
+                              {entry.wastedBits}/{entry.bitDepth}
+                            </span>
+                            <div class="files-check-score-meta">
+                              <span class="files-check-score-tracker">Wasted bits</span>
+                              <span class="files-check-score-file">{entry.fileName}</span>
+                            </div>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                </div>
+              </div>
             </Show>
 
             <Show when={hasLogResults(filesCheck())}>

@@ -185,6 +185,17 @@ export function finishFilesApply(
         ...s.filesCheck.mqa,
         mqaPaths: s.filesCheck.mqa.mqaPaths.map((path) => pathMap.get(path) ?? path),
         errors: s.filesCheck.mqa.errors.map((error) => ({ ...error, relativePath: pathMap.get(error.relativePath) ?? error.relativePath }))
+      },
+      upconvert: {
+        ...s.filesCheck.upconvert,
+        results: s.filesCheck.upconvert.results.map((result) => ({
+          ...result,
+          relativePath: pathMap.get(result.relativePath) ?? result.relativePath
+        })),
+        errors: s.filesCheck.upconvert.errors.map((error) => ({
+          ...error,
+          relativePath: pathMap.get(error.relativePath) ?? error.relativePath
+        }))
       }
     }
   }
@@ -226,6 +237,17 @@ export function finishFilesRestore(s: State, workspacePath: string): State {
         ...s.filesCheck.mqa,
         mqaPaths: s.filesCheck.mqa.mqaPaths.map((path) => pathMap.get(path) ?? path),
         errors: s.filesCheck.mqa.errors.map((error) => ({ ...error, relativePath: pathMap.get(error.relativePath) ?? error.relativePath }))
+      },
+      upconvert: {
+        ...s.filesCheck.upconvert,
+        results: s.filesCheck.upconvert.results.map((result) => ({
+          ...result,
+          relativePath: pathMap.get(result.relativePath) ?? result.relativePath
+        })),
+        errors: s.filesCheck.upconvert.errors.map((error) => ({
+          ...error,
+          relativePath: pathMap.get(error.relativePath) ?? error.relativePath
+        }))
       }
     }
   }

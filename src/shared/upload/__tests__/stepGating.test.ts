@@ -33,6 +33,7 @@ function baseState(overrides: Partial<UploadFlowStateJSON> = {}): UploadFlowStat
     filesCheck: {
       status: 'idle',
       mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
+      upconvert: { checkedCount: 0, results: [], errors: [] },
       logs: { logFiles: [], checks: [] }
     },
     upload: {},
