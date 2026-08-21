@@ -342,6 +342,25 @@ export class GazelleClient {
     }
   }
 
+  async previewBbcode(source: string, signal?: AbortSignal): Promise<string> {
+    if (source === '') return ''
+
+    const body = new URLSearchParams()
+    body.set('body', source)
+    const resp = await this.request('POST', `${this.siteUrl}/ajax.php`, {
+      query: { action: 'preview' },
+      body,
+      preferApiKey: true,
+      timeoutMs: this.timeoutMs,
+      signal,
+      // The preview action accepts either the API key or session cookie as-is.
+      // It does not need the authkey and passkey returned by the index action.
+      skipAuth: true
+    })
+
+    return parsePreviewResponse(resp.text)
+  }
+
   async torrentGroupIdFromTorrentId(torrentId: number, signal?: AbortSignal): Promise<number | null> {
     const resp = await this.request('GET', `${this.siteUrl}/torrents.php`, {
       query: { torrentid: String(torrentId) },
@@ -724,6 +743,33 @@ function parseEnvelope<T>(text: string): T {
   return envelope.response as T
 }
 
+function parsePreviewResponse(text: string): string {
+  const trimmed = text.trim()
+  if (!trimmed) throw new TrackerRequestError('preview response was empty')
+
+  // Both trackers label successful preview HTML as JSON. Only treat the body
+  // as an envelope when it really parses as one; ordinary descriptions may
+  // begin with a brace.
+  if (trimmed.startsWith('{')) {
+    let envelope: GazelleEnvelope<unknown> | undefined
+    try {
+      envelope = JSON.parse(trimmed) as GazelleEnvelope<unknown>
+    } catch {
+      /* rendered text, not an envelope */
+    }
+    if (envelope?.status === 'failure') {
+      const message = String(envelope.error ?? 'preview request failed')
+      if (isAuthFailureMessage(message)) throw new TrackerLoginError(message)
+      throw new TrackerRequestError(message)
+    }
+    if (envelope?.status === 'success' && typeof envelope.response === 'string') {
+      return envelope.response
+    }
+  }
+
+  return text
+}
+
 function extractErrorMessage(text: string): string {
   try {
     const parsed = JSON.parse(text) as { error?: unknown }
@@ -735,7 +781,7 @@ function extractErrorMessage(text: string): string {
 }
 
 function isAuthFailureMessage(message: string): boolean {
-  return /login|auth|session|cookie|unauthor|invalid key|credentials/i.test(message)
+  return /login|auth|session|cookie|unauthor|invalid(?: api)? key|credentials/i.test(message)
 }
 
 function abortReason(signal: AbortSignal): Error {

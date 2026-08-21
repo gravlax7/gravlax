@@ -132,7 +132,7 @@ export function substituteSpectralBbcode(description: string, bbcode: string): s
   return description.replace(SPECTRAL_PLACEHOLDER, bbcode)
 }
 
-export const SOURCE_TORRENT_PLACEHOLDER = 'FLAC torrent URL will be inserted at submit.'
+export const SOURCE_TORRENT_PLACEHOLDER = '[i]FLAC torrent URL will be inserted at submit.[/i]'
 
 export function substituteSourceTorrentUrl(description: string, url: string): string {
   if (!description.includes(SOURCE_TORRENT_PLACEHOLDER)) return description

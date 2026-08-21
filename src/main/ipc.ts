@@ -7,6 +7,7 @@ import type { UploadStatsService } from './services/uploadStatsService'
 import { runHealthcheck } from './services/healthcheck'
 import { readSalmonImportSources } from './services/salmonImportService'
 import type { ToolResolver } from './core/tools/binaries'
+import { previewBbcode } from './core/tools/trackers/preview'
 
 export interface IpcDeps {
   configService: ConfigService
@@ -78,6 +79,7 @@ export function registerIpc(deps: IpcDeps): void {
   handle('upload:runTranscode', () => upload.runTranscode())
   handle('upload:ensureUploadReport', () => upload.ensureUploadReport())
   handle('upload:updateUploadReport', (patch) => upload.updateUploadReport(patch))
+  handle('upload:previewBbcode', (source) => previewBbcode(config.get(), source))
   handle('upload:searchTrackerGroups', async (options) => upload.searchTrackerGroups(options ?? {}))
   handle('upload:fetchTorrentGroup', (trackerId, groupId) => upload.fetchTorrentGroup(trackerId, groupId))
   handle('upload:resolveTorrentGroupId', (trackerId, torrentId) => upload.resolveTorrentGroupId(trackerId, torrentId))

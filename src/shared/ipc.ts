@@ -63,6 +63,7 @@ export interface IpcInvokeMap {
   'upload:runTranscode': { args: []; result: void }
   'upload:ensureUploadReport': { args: []; result: void }
   'upload:updateUploadReport': { args: [Partial<UploadSnapshot>]; result: void }
+  'upload:previewBbcode': { args: [string]; result: string }
   'upload:searchTrackerGroups': { args: [{ force?: boolean }?]; result: void }
   'upload:fetchTorrentGroup': { args: [UploadTrackerId, number]; result: TrackerGroupDetail }
   'upload:resolveTorrentGroupId': { args: [UploadTrackerId, number]; result: number | null }
@@ -242,6 +243,7 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'upload:runTranscode': noArgs,
   'upload:ensureUploadReport': noArgs,
   'upload:updateUploadReport': z.tuple([objectInput<Partial<UploadSnapshot>>()]),
+  'upload:previewBbcode': z.tuple([z.string()]),
   'upload:searchTrackerGroups': optionalOneArgument(z.object({ force: z.boolean().optional() })),
   'upload:fetchTorrentGroup': z.tuple([trackerID, z.number().int().positive()]),
   'upload:resolveTorrentGroupId': z.tuple([trackerID, z.number().int().positive()]),

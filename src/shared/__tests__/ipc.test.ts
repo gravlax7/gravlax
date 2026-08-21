@@ -19,6 +19,14 @@ describe('IPC argument contract', () => {
     expect(parseIpcArguments('upload:searchTrackerGroups', [])).toEqual([])
   })
 
+  it('accepts BBCode preview text, including an empty description', () => {
+    expect(parseIpcArguments('upload:previewBbcode', ['[b]Album[/b]'])).toEqual([
+      '[b]Album[/b]'
+    ])
+    expect(parseIpcArguments('upload:previewBbcode', [''])).toEqual([''])
+    expect(() => parseIpcArguments('upload:previewBbcode', [42])).toThrow()
+  })
+
   it('accepts an update check without renderer-supplied input', () => {
     expect(parseIpcArguments('updates:check', [])).toEqual([])
   })

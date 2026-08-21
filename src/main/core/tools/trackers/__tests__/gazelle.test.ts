@@ -210,6 +210,69 @@ describe('GazelleClient', () => {
     await expect(c.checkAuthentication('session')).rejects.toBeInstanceOf(TrackerLoginError)
   })
 
+  it('posts BBCode previews directly with the API key and reads raw HTML', async () => {
+    const calls: Array<{ input: string; init?: RequestInit }> = []
+    stubFetch(async (input, init) => {
+      calls.push({ input, init })
+      return {
+        status: 200,
+        text: '<strong>Album</strong>',
+        headers: { 'content-type': 'application/json; charset=utf-8' }
+      }
+    })
+
+    const c = client({ apiKey: 'api-key', sessionCookie: 'session-cookie' })
+    await expect(c.previewBbcode('[b]Album[/b]')).resolves.toBe('<strong>Album</strong>')
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.input).toBe('https://example.test/ajax.php?action=preview')
+    expect(new Headers(calls[0]?.init?.headers).get('Authorization')).toBe('api-key')
+    expect(new Headers(calls[0]?.init?.headers).get('Cookie')).toBeNull()
+    expect(calls[0]?.init?.body).toBeInstanceOf(URLSearchParams)
+    expect((calls[0]?.init?.body as URLSearchParams).get('body')).toBe('[b]Album[/b]')
+  })
+
+  it('uses the session cookie for previews when no API key is set', async () => {
+    let headers = new Headers()
+    stubFetch(async (_input, init) => {
+      headers = new Headers(init?.headers)
+      return { status: 200, text: '<em>Album</em>' }
+    })
+
+    await client({ apiKey: '', sessionCookie: 'session-cookie' }).previewBbcode('[i]Album[/i]')
+
+    expect(headers.get('Authorization')).toBeNull()
+    expect(headers.get('Cookie')).toBe('session=session-cookie')
+  })
+
+  it('does not request an empty preview', async () => {
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+
+    await expect(client().previewBbcode('')).resolves.toBe('')
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects preview failure envelopes and empty responses', async () => {
+    stubFetch(async () => ({
+      status: 200,
+      text: JSON.stringify({ status: 'failure', error: 'preview unavailable' })
+    }))
+    await expect(client().previewBbcode('[b]x[/b]')).rejects.toBeInstanceOf(TrackerRequestError)
+
+    stubFetch(async () => ({ status: 200, text: '   ' }))
+    await expect(client().previewBbcode('[b]x[/b]')).rejects.toThrow('preview response was empty')
+  })
+
+  it('classifies preview authentication failures', async () => {
+    stubFetch(async () => ({
+      status: 200,
+      text: JSON.stringify({ status: 'failure', error: 'invalid API key' })
+    }))
+
+    await expect(client().previewBbcode('[b]x[/b]')).rejects.toBeInstanceOf(TrackerLoginError)
+  })
+
   it('resolves torrent group id from redirected URL', async () => {
     stubFetch(async (input) => {
       if (input.includes('action=index')) {

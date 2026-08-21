@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onMount } from 'solid-js'
+import { For, Index, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import type { Config } from '@shared/types/config'
 import type {
   HealthResult,
@@ -9,7 +9,6 @@ import type {
 } from '@shared/types'
 import { enabledTrackerOptions } from '@shared/config/trackers'
 import { artistRoleLabel } from '@shared/tags/editor'
-import { bbcodeToHtml } from '@shared/upload/bbcode'
 import { formatByteSize } from '@shared/format'
 import {
   Badge,
@@ -28,6 +27,7 @@ import { Toggle } from '../../../components/Toggle'
 import { TrackerIcon, trackerLabel } from '../../../components/TrackerIcon'
 import { spectralUrl } from '../pathUtil'
 import { GroupSuggestions } from '../GroupSuggestions'
+import { createBbcodePreviewBatcher } from '@shared/upload/bbcodePreviewBatcher'
 import { anySelectedTrackerHasGroupId } from '@shared/upload/groupIds'
 import { importanceToArtistRole } from '@shared/upload/artists'
 import {
@@ -45,6 +45,10 @@ import {
 function importanceLabel(importance: number): string {
   return artistRoleLabel(importanceToArtistRole(importance))
 }
+
+const requestBbcodePreview = createBbcodePreviewBatcher((source) =>
+  window.gravlax.upload.previewBbcode(source)
+)
 
 function displayOrEmpty(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '—'
@@ -79,7 +83,60 @@ function BbcodeDescriptionField(props: {
   onChange: (value: string) => void
 }) {
   const [editing, setEditing] = createSignal(false)
-  const html = createMemo(() => bbcodeToHtml(props.value))
+  const [html, setHtml] = createSignal('')
+  const [loading, setLoading] = createSignal(false)
+  const [previewError, setPreviewError] = createSignal<string | null>(null)
+  let lastSource: string | null = null
+  let lastHtml = ''
+  let requestGeneration = 0
+  let disposed = false
+
+  const requestPreview = (source: string, force = false): void => {
+    if (!force && lastSource === source) {
+      setHtml(lastHtml)
+      setPreviewError(null)
+      setLoading(false)
+      return
+    }
+
+    const generation = ++requestGeneration
+    if (source === '') {
+      lastSource = source
+      lastHtml = ''
+      setHtml('')
+      setPreviewError(null)
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setPreviewError(null)
+    void requestBbcodePreview(source).then(
+      (nextHtml) => {
+        if (disposed || generation !== requestGeneration) return
+        lastSource = source
+        lastHtml = nextHtml
+        setHtml(nextHtml)
+        setLoading(false)
+      },
+      (error: unknown) => {
+        if (disposed || generation !== requestGeneration) return
+        const message = error instanceof Error ? error.message.trim() : String(error).trim()
+        setPreviewError(message || 'Could not load the BBCode preview.')
+        setLoading(false)
+      }
+    )
+  }
+
+  createEffect(() => {
+    const source = props.value
+    if (!editing()) requestPreview(source)
+  })
+
+  onCleanup(() => {
+    disposed = true
+    requestGeneration += 1
+  })
 
   return (
     <div class="upload-report-field upload-report-field-full">
@@ -96,7 +153,33 @@ function BbcodeDescriptionField(props: {
       </div>
       <Show
         when={editing()}
-        fallback={<div class="mono upload-report-bbcode-preview" innerHTML={html()} />}
+        fallback={
+          <Show
+            when={!loading()}
+            fallback={
+              <div class="upload-report-bbcode-state" aria-live="polite">
+                <Spinner size="sm" />
+                <span>Loading preview…</span>
+              </div>
+            }
+          >
+            <Show
+              when={!previewError()}
+              fallback={
+                <Callout tone="warning">
+                  <div class="upload-report-bbcode-error">
+                    <span>{previewError()}</span>
+                    <Button variant="secondary" onClick={() => requestPreview(props.value, true)}>
+                      Retry
+                    </Button>
+                  </div>
+                </Callout>
+              }
+            >
+              <div class="mono upload-report-bbcode-preview" innerHTML={html()} />
+            </Show>
+          </Show>
+        }
       >
         <textarea
           class="mono upload-report-textarea"
@@ -590,40 +673,40 @@ export function UploadStep(props: {
         when={(upload().formats ?? []).length > 0}
         fallback={<Callout tone="warning">No format payloads prepared yet.</Callout>}
       >
-        <For each={upload().formats ?? []}>
+        <Index each={upload().formats ?? []}>
           {(format, index) => (
             <Card class="upload-report-format-card">
               <div class="upload-report-format-title">
-                <strong>{format.label}</strong>
-                <span class="mono upload-report-path">{format.folderPath}</span>
+                <strong>{format().label}</strong>
+                <span class="mono upload-report-path">{format().folderPath}</span>
               </div>
               <div class="upload-report-grid">
                 <div class="upload-report-field">
                   <span>Format</span>
-                  <div class="mono upload-report-readonly">{displayOrEmpty(format.format)}</div>
+                  <div class="mono upload-report-readonly">{displayOrEmpty(format().format)}</div>
                 </div>
                 <div class="upload-report-field">
                   <span>Bitrate</span>
-                  <div class="mono upload-report-readonly">{displayOrEmpty(format.bitrate)}</div>
+                  <div class="mono upload-report-readonly">{displayOrEmpty(format().bitrate)}</div>
                 </div>
-                <Show when={format.logfileNames.length > 0}>
+                <Show when={format().logfileNames.length > 0}>
                   <div class="upload-report-field upload-report-field-full">
                     <span>Log files</span>
                     <div class="mono upload-report-logs">
-                      {format.logfileNames.join(', ')}
+                      {format().logfileNames.join(', ')}
                     </div>
                   </div>
                 </Show>
                 <BbcodeDescriptionField
                   label="Release description"
-                  value={format.releaseDesc}
+                  value={format().releaseDesc}
                   rows={8}
-                  onChange={(releaseDesc) => updateFormat(index(), { releaseDesc })}
+                  onChange={(releaseDesc) => updateFormat(index, { releaseDesc })}
                 />
               </div>
             </Card>
           )}
-        </For>
+        </Index>
       </Show>
 
       <Show when={progressVisible()}>
