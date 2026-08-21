@@ -34,3 +34,5 @@ Runtime depends on external binaries on `PATH`: `sox`, `flac`, `metaflac`, and `
 If you ever take control of the app to test something, be sure to NEVER hit the submit button.
 
 Don't write tracker URLs in the codebase
+
+Whenever possible, remove unused code and simplify to what's absolutely necessary only.

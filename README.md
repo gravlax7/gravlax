@@ -21,14 +21,12 @@ seeding.
 | Type | Supported services |
 | --- | --- |
 | Image hosts | Ra (thesungod), ImgBB, catbox, and the Redacted image host |
-| Metadata providers | MusicBrainz and Deezer |
+| Metadata providers | MusicBrainz, Deezer, Bandcamp |
 | Torrent clients | qBittorrent |
 
-Only ImgBB & Catbox can be used spectral uploads. The Redacted image host requires an
-enabled Redacted tracker with an API key, and it can be used only for
-Redacted cover images.
+Only ImgBB & Catbox can be used for spectral uploads.
 
-Support for more image hosts, metadata providers, and torrent clients can be discussed.
+Don't be afraid to request support for more image hosts, metadata providers, or torrent clients.
 
 ## Import settings from smoked-salmon
 
