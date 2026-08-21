@@ -26,7 +26,7 @@ seeding.
 
 Only ImgBB & Catbox can be used for spectral uploads.
 
-Don't be afraid to request support for more image hosts, metadata providers, or torrent clients.
+Feel free to request support for more image hosts, metadata providers, or torrent clients.
 
 ## Import settings from smoked-salmon
 
@@ -37,7 +37,7 @@ The usual config locations are:
 - macOS: `~/Library/Application Support/smoked-salmon/config.toml`
 - Linux: `~/.config/smoked-salmon/config.toml`
 
-It can also read `rclone.conf` when your smoked-salmon seedbox uses rclone. The
+It can also read `rclone.conf` when your smoked-salmon config uses rclone. The
 importer shows every change before it applies it, so you can keep or skip each
 setting.
 
@@ -130,6 +130,12 @@ package from your distribution or from the [FLAC project](https://xiph.org/flac/
 
 Use **Healthcheck** after any change. Gravlax is ready when it reports that the
 required tools, at least one image host, and every enabled tracker are available.
+
+## AI disclaimer
+
+Parts of Gravlax's code and documentation were created with the help of AI
+tools. The maintainers review and test these contributions, but they may still
+contain errors. Please report any issues you find.
 
 ## Development
 
