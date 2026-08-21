@@ -2258,21 +2258,10 @@ button.toggle.toggle-on .toggle-thumb {
   gap: var(--space-3);
 }
 
-.upload-report-tracker-text {
+.upload-report-tracker-name {
   flex: 1;
   min-width: 0;
-}
-
-.upload-report-tracker-name {
   font-weight: var(--weight-medium);
-}
-
-.upload-report-tracker-host {
-  font-size: var(--text-sm);
-  color: var(--fg-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .upload-report-tracker-check {

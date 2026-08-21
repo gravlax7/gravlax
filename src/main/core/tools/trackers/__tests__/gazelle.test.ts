@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 import {
+  GAZELLE_USER_AGENT,
   GazelleClient,
   RateLimiter,
   TrackerLoginError,
@@ -167,7 +167,7 @@ describe('GazelleClient', () => {
     expect(calls[0]?.url).toContain('action=index')
     const headers = new Headers(calls[0]?.headers)
     expect(headers.get('Authorization')).toBe('api-key')
-    expect(headers.get('User-Agent')).toBe(DEFAULT_USER_AGENT)
+    expect(headers.get('User-Agent')).toBe(GAZELLE_USER_AGENT)
   })
 
   it('throws TrackerRequestError on failed envelope', async () => {

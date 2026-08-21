@@ -353,10 +353,10 @@ function SubmissionRow(props: { submission: UploadSubmission }) {
         {(url) => (
           <button
             type="button"
-            class="mono upload-submission-link"
+            class="upload-submission-link"
             onClick={() => void window.gravlax.shell.openExternal(url())}
           >
-            {url()}
+            Open on tracker
           </button>
         )}
       </Show>
@@ -401,16 +401,6 @@ export function UploadStep(props: {
     if (current.has(id)) current.delete(id)
     else current.add(id)
     patch({ selectedTrackerIds: [...current] })
-  }
-
-  const trackerHost = (id: UploadTrackerId): string => {
-    const raw = props.config.trackers[id].siteUrl.trim()
-    if (!raw) return ''
-    try {
-      return new URL(raw).host
-    } catch {
-      return raw
-    }
   }
 
   const updateFormat = (index: number, next: Partial<UploadFormatPayload>): void => {
@@ -514,12 +504,7 @@ export function UploadStep(props: {
                     onClick={() => toggleTracker(id)}
                   >
                     <TrackerIcon trackerId={id} size={20} />
-                    <div class="upload-report-tracker-text">
-                      <div class="upload-report-tracker-name">{trackerLabel(id)}</div>
-                      <Show when={trackerHost(id)}>
-                        {(host) => <div class="upload-report-tracker-host mono">{host()}</div>}
-                      </Show>
-                    </div>
+                    <div class="upload-report-tracker-name">{trackerLabel(id)}</div>
                     <Show when={selected()}>
                       <Icon name="check" size={16} class="upload-report-tracker-check" />
                     </Show>
