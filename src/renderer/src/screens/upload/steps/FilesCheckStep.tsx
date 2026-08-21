@@ -1,13 +1,8 @@
 import { Show, createSignal } from 'solid-js'
 import type { SourceMedia, UploadFlowStateJSON } from '@shared/types'
+import { Card, Icon, ProgressBar, Section, SegmentedControl } from '../../../ui'
 import {
-  integrityTone,
-  logTone,
-  mqaTone,
-  upconvertTone
-} from '@shared/upload/filesCheck'
-import { Card, Icon, ProgressBar, SegmentedControl } from '../../../ui'
-import {
+  FilesCheckResult,
   IntegrityResult,
   LogcheckerResult,
   MqaResult,
@@ -23,27 +18,10 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
   const detail = () => task()?.detail ?? ''
   const status = () => task()?.status
   const filesCheck = () => props.state.filesCheck
-  const integrity = () => integrityTone(filesCheck())
-  const mqa = () => mqaTone(filesCheck())
-  const upconvert = () => upconvertTone(filesCheck())
-  const logs = () => logTone(filesCheck())
-  const cardTone = () => {
-    if (!task()) return 'info' as const
-    if (status() === 'failed') return 'error' as const
-    if (status() === 'running' || status() === 'queued') return 'info' as const
-    if (integrity() === 'warning' || mqa() === 'warning' || upconvert() === 'warning' || logs() === 'warning') {
-      return 'warning' as const
-    }
-    if (integrity() === 'success' || mqa() === 'success' || upconvert() === 'success' || logs() === 'success') {
-      return 'success' as const
-    }
-    return 'info' as const
-  }
-
   const media = () => props.state.draft.sourceMedia
   const logCount = () => props.state.filesCheck.logs.logFiles.length
   return (
-    <>
+    <Section>
       <Show when={media()}>
         <Card class="files-check-media">
           <div class="files-check-media-text">
@@ -64,76 +42,65 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
         </Card>
       </Show>
 
-      <Card class={`files-check-card files-check-${cardTone()}`}>
-        <Show when={!task()}>
-          <div class="files-check-result">
-            <Icon name={props.state.draft.sourcePath ? 'activity' : 'info'} size={20} />
-            <div class="files-check-result-body">
-              <Show
-                when={props.state.draft.sourcePath}
-                fallback={
-                  <>
-                    <div class="files-check-headline">Waiting for a source folder</div>
-                    <div class="files-check-sub">Choose a release from the start menu to begin files check.</div>
-                  </>
-                }
-              >
-                <div class="files-check-headline">Preparing the working copy…</div>
-                <div class="files-check-sub">
-                  Copying the release, then reading it to work out WEB or CD.
-                </div>
-              </Show>
+      <Show when={!task()}>
+        <FilesCheckResult tone="info" icon={props.state.draft.sourcePath ? 'activity' : 'info'}>
+          <Show
+            when={props.state.draft.sourcePath}
+            fallback={
+              <>
+                <div class="files-check-headline">Waiting for a source folder</div>
+                <div class="files-check-sub">Choose a release from the start menu to begin files check.</div>
+              </>
+            }
+          >
+            <div class="files-check-headline">Preparing the working copy…</div>
+            <div class="files-check-sub">
+              Copying the release, then reading it to work out WEB or CD.
             </div>
+          </Show>
+        </FilesCheckResult>
+      </Show>
+
+      <Show when={task() && (status() === 'running' || status() === 'queued')}>
+        <FilesCheckResult tone="info" icon="activity">
+          <div class="files-check-headline">Checking files…</div>
+          <div class="files-check-sub">
+            {task()?.progressTotal && task()!.progressTotal > 0
+              ? `${task()!.progressCurrent}/${task()!.progressTotal}${task()!.progressLabel ? ` — ${task()!.progressLabel}` : ''}`
+              : 'Scanning release files for issues…'}
           </div>
-        </Show>
+          <Show when={(task()?.progressTotal ?? 0) > 0}>
+            <ProgressBar
+              value={task()!.progressCurrent ?? 0}
+              max={task()!.progressTotal ?? 0}
+              label="Files check progress"
+            />
+          </Show>
+        </FilesCheckResult>
+      </Show>
 
-        <Show when={task() && (status() === 'running' || status() === 'queued')}>
-          <div class="files-check-result">
-            <Icon name="activity" size={20} />
-            <div class="files-check-result-body">
-              <div class="files-check-headline">Checking files…</div>
-              <div class="files-check-sub">
-                {task()?.progressTotal && task()!.progressTotal > 0
-                  ? `${task()!.progressCurrent}/${task()!.progressTotal}${task()!.progressLabel ? ` — ${task()!.progressLabel}` : ''}`
-                  : 'Scanning release files for issues…'}
-              </div>
-            </div>
-          </div>
-        </Show>
+      <Show when={status() === 'failed'}>
+        <FilesCheckResult tone="error" icon="alert-triangle">
+          <div class="files-check-headline">Files check failed</div>
+          <Show when={filesCheck().error}>
+            {(message) => <div class="files-check-sub">{message()}</div>}
+          </Show>
+        </FilesCheckResult>
+      </Show>
 
-        <Show when={status() === 'failed'}>
-          <div class="files-check-result">
-            <Icon name="alert-triangle" size={20} />
-            <div class="files-check-result-body">
-              <div class="files-check-headline">Files check failed</div>
-              <Show when={filesCheck().error}>
-                {(message) => <div class="files-check-sub">{message()}</div>}
-              </Show>
-            </div>
-          </div>
-        </Show>
+      <Show when={status() === 'succeeded'}>
+        <IntegrityResult state={props.state} />
+        <MqaResult filesCheck={filesCheck()} />
+        <UpconvertResult filesCheck={filesCheck()} />
+        <LogcheckerResult filesCheck={filesCheck()} />
+      </Show>
 
-        <Show when={status() === 'succeeded'}>
-          <div class="files-check-results">
-            <IntegrityResult state={props.state} />
-            <MqaResult filesCheck={filesCheck()} />
-            <UpconvertResult filesCheck={filesCheck()} />
-            <LogcheckerResult filesCheck={filesCheck()} />
-          </div>
-        </Show>
-
-        <Show when={(status() === 'running' || status() === 'queued') && (task()?.progressTotal ?? 0) > 0}>
-          <ProgressBar
-            value={task()!.progressCurrent ?? 0}
-            max={task()!.progressTotal ?? 0}
-            label="Files check progress"
-          />
-        </Show>
-
-        <Show when={detail()}>
+      <Show when={detail()}>
+        <Card class="files-check-log-card">
           <button
             type="button"
-            class="files-check-log-toggle"
+            class={`files-check-log-toggle ${expanded() ? 'is-open' : ''}`}
+            aria-expanded={expanded()}
             onClick={() => setExpanded((v) => !v)}
           >
             <Icon name="chevron-down" size={14} />
@@ -142,8 +109,8 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
           <Show when={expanded()}>
             <pre class="files-check-log mono">{detail()}</pre>
           </Show>
-        </Show>
-      </Card>
-    </>
+        </Card>
+      </Show>
+    </Section>
   )
 }
