@@ -16,7 +16,6 @@ import {
   Callout,
   Card,
   Icon,
-  ProgressBar,
   Section,
   Spinner,
   type BadgeTone
@@ -383,7 +382,6 @@ export function UploadStep(props: {
   config: Config
   health: HealthResult | null
   healthLoading: boolean
-  submitRequestActive: boolean
 }) {
   const upload = () => props.state.upload
   const enabledTrackers = createMemo(() =>
@@ -419,56 +417,9 @@ export function UploadStep(props: {
   const showOrpheusSplit = createMemo(() => isOrpheusSplitEligible(upload()))
   const completed = createMemo(() => submissions().filter((s) => s.status === 'done'))
   const isRetry = createMemo(() => completed().length > 0 && upload().phase !== 'done')
-  const progressVisible = createMemo(
-    () =>
-      props.submitRequestActive ||
-      submissions().length > 0 ||
-      upload().phase === 'submitting' ||
-      upload().phase === 'done' ||
-      upload().phase === 'failed'
+  const detailsVisible = createMemo(() =>
+    submissions().length > 0 || Boolean(upload().error)
   )
-  const standaloneError = createMemo(() =>
-    progressVisible() ? undefined : upload().error
-  )
-  const preparing = createMemo(
-    () =>
-      props.submitRequestActive &&
-      upload().phase !== 'submitting' &&
-      upload().phase !== 'done'
-  )
-  const progressTitle = createMemo(() => {
-    if (preparing()) return 'Preparing uploads'
-    if (upload().phase === 'done') return 'Uploads complete'
-    if (upload().phase === 'failed') return 'Upload needs attention'
-    if (upload().phase === 'submitting') return 'Uploading'
-    return 'Uploads'
-  })
-  const progressSummary = createMemo(() => {
-    if (preparing()) return 'Running final checks and preparing images…'
-    if (submissions().length > 0) {
-      return `${completed().length} of ${submissions().length} uploaded`
-    }
-    if (upload().error) return 'The upload did not start.'
-    return 'No uploads have started.'
-  })
-
-  let progressTarget: HTMLDivElement | undefined
-  let submitWasActive = false
-  createEffect(() => {
-    const active = props.submitRequestActive
-    if (active && !submitWasActive) {
-      queueMicrotask(() => {
-        if (!progressTarget) return
-        progressTarget.focus({ preventScroll: true })
-        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        progressTarget.scrollIntoView({
-          behavior: reduceMotion ? 'auto' : 'smooth',
-          block: 'nearest'
-        })
-      })
-    }
-    submitWasActive = active
-  })
 
   return (
     <Section title="Upload" description="Review what will be uploaded and where.">
@@ -480,10 +431,6 @@ export function UploadStep(props: {
         <Callout tone="info">
           Uploaded. Continue to Seed to transfer the release and add the torrents to your client.
         </Callout>
-      </Show>
-
-      <Show when={standaloneError()}>
-        {(error) => <Callout tone="error">{error()}</Callout>}
       </Show>
 
       <Card class="upload-report-card">
@@ -669,6 +616,12 @@ export function UploadStep(props: {
                 <strong>{format().label}</strong>
                 <span class="mono upload-report-path">{format().folderPath}</span>
               </div>
+              <Show when={props.state.draft.lossyMaster}>
+                <Callout tone="warning">
+                  <Icon name="alert-triangle" size={16} />
+                  <span>This upload will be reported as a lossy master.</span>
+                </Callout>
+              </Show>
               <div class="upload-report-grid upload-report-format-grid">
                 <div class="upload-report-field">
                   <span>Format</span>
@@ -704,43 +657,25 @@ export function UploadStep(props: {
         </Index>
       </Show>
 
-      <Show when={progressVisible()}>
-        <div ref={progressTarget} class="upload-progress-target" tabIndex={-1}>
-          <Card class="upload-report-card upload-progress-card">
-            <div class="upload-progress-header" aria-live="polite" aria-atomic="true">
-              <div class="upload-progress-title">
-                <Show
-                  when={props.submitRequestActive && upload().phase !== 'done'}
-                >
-                  <Spinner size="sm" />
-                </Show>
-                <span>{progressTitle()}</span>
-              </div>
-              <div class="mono upload-progress-summary">{progressSummary()}</div>
+      <Show when={detailsVisible()}>
+        <Card class="upload-report-card upload-progress-card">
+          <div class="upload-progress-title">Upload details</div>
+          <Show when={submissions().length > 0}>
+            <div class="upload-submission-list">
+              <For each={submissions()}>
+                {(submission) => <SubmissionRow submission={submission} />}
+              </For>
             </div>
-            <Show when={submissions().length > 0}>
-              <ProgressBar
-                value={completed().length}
-                max={submissions().length}
-                tone={upload().phase === 'done' ? 'success' : 'accent'}
-                label="Overall upload progress"
-              />
-              <div class="upload-submission-list">
-                <For each={submissions()}>
-                  {(submission) => <SubmissionRow submission={submission} />}
-                </For>
-              </div>
-            </Show>
-            <Show when={upload().error}>
-              {(error) => <Callout tone="error">{error()}</Callout>}
-            </Show>
-            <Show when={isRetry()}>
-              <div class="upload-submission-note">
-                Retrying sends only the uploads that have not succeeded.
-              </div>
-            </Show>
-          </Card>
-        </div>
+          </Show>
+          <Show when={upload().error}>
+            {(error) => <Callout tone="error">{error()}</Callout>}
+          </Show>
+          <Show when={isRetry()}>
+            <div class="upload-submission-note">
+              Retrying sends only the uploads that have not succeeded.
+            </div>
+          </Show>
+        </Card>
       </Show>
 
       <Show when={!upload().error && upload().phase !== 'done' && blockedReason()}>
@@ -800,10 +735,12 @@ export function UploadSubmitAction(props: {
 
   return (
     <>
-      <Button variant="primary" disabled={!canSubmit()} onClick={startSubmit}>
-        <Show when={busy() && upload().phase !== 'done'}>
-          <Spinner size="sm" />
-        </Show>
+      <Button
+        variant="primary"
+        loading={busy() && upload().phase !== 'done'}
+        disabled={!canSubmit()}
+        onClick={startSubmit}
+      >
         {submitButtonLabel(
           upload().phase,
           props.submitRequestActive,

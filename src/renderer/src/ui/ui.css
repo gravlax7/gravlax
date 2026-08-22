@@ -941,6 +941,9 @@ button.toggle.toggle-on .toggle-thumb {
 }
 
 .upload-file-progress-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
   color: var(--fg-muted);
   font-size: var(--text-sm);
@@ -2102,21 +2105,7 @@ button.toggle.toggle-on .toggle-thumb {
   gap: var(--space-2);
 }
 
-.upload-progress-target:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: var(--radius-md);
-}
-
 .upload-progress-card {
-  gap: var(--space-3);
-}
-
-.upload-progress-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
   gap: var(--space-3);
 }
 
@@ -2125,12 +2114,6 @@ button.toggle.toggle-on .toggle-thumb {
   align-items: center;
   gap: var(--space-2);
   font-weight: var(--weight-semibold);
-}
-
-.upload-progress-summary {
-  color: var(--fg-muted);
-  font-size: var(--text-sm);
-  text-align: right;
 }
 
 .upload-submission {

@@ -26,7 +26,7 @@ import {
   isTranscodeBusy
 } from '@shared/upload/stepGating'
 import { Modal } from '../../components/Modal'
-import { Button, Icon, ProgressBar } from '../../ui'
+import { Button, Icon, ProgressBar, Spinner } from '../../ui'
 import { basename } from './pathUtil'
 import { Lightbox } from './Lightbox'
 import { Stepper } from './Stepper'
@@ -75,6 +75,35 @@ export function UploadScreen(props: {
   const stepIndex = () => props.state.currentStep
   const stepId = () => UPLOAD_STEPS[stepIndex()]?.id
   const tagsStepIndex = UPLOAD_STEPS.findIndex((step) => step.id === 'tags')
+  const uploadSubmissions = () => props.state.upload.submissions ?? []
+  const uploadedCount = () =>
+    uploadSubmissions().filter((submission) => submission.status === 'done').length
+  const uploadPreparing = () =>
+    submitRequestActive() &&
+    props.state.upload.phase !== 'submitting' &&
+    props.state.upload.phase !== 'done'
+  const uploadProgressVisible = () =>
+    stepId() === 'upload' &&
+    (submitRequestActive() ||
+      uploadSubmissions().length > 0 ||
+      props.state.upload.phase === 'submitting' ||
+      props.state.upload.phase === 'done' ||
+      props.state.upload.phase === 'failed')
+  const uploadProgressTitle = () => {
+    if (uploadPreparing()) return 'Preparing uploads'
+    if (props.state.upload.phase === 'done') return 'Uploads complete'
+    if (props.state.upload.phase === 'failed') return 'Upload needs attention'
+    if (props.state.upload.phase === 'submitting') return 'Uploading'
+    return 'Uploads'
+  }
+  const uploadProgressSummary = () => {
+    if (uploadPreparing()) return 'Running final checks and preparing images…'
+    if (uploadSubmissions().length > 0) {
+      return `${uploadedCount()} of ${uploadSubmissions().length} uploaded`
+    }
+    if (props.state.upload.error) return 'The upload did not start.'
+    return 'No uploads have started.'
+  }
 
   createEffect(() => {
     const error = submitErrorAwaited()
@@ -371,7 +400,6 @@ export function UploadScreen(props: {
               config={props.config}
               health={props.health}
               healthLoading={props.healthLoading}
-              submitRequestActive={submitRequestActive()}
             />
           </Show>
           <Show when={stepId() === 'seed'}>
@@ -406,6 +434,30 @@ export function UploadScreen(props: {
             tone="accent"
             label="Tag and filename progress"
           />
+        </div>
+      </Show>
+
+      <Show when={uploadProgressVisible()}>
+        <div class="upload-file-progress" role="status" aria-live="polite">
+          <div class="upload-file-progress-label">
+            <Show when={submitRequestActive() || props.state.upload.phase === 'submitting'}>
+              <Spinner size="sm" />
+            </Show>
+            <strong>{uploadProgressTitle()}</strong>
+            <span> — {uploadProgressSummary()}</span>
+          </div>
+          <Show when={uploadSubmissions().length > 0}>
+            <span class="upload-file-progress-count">
+              {uploadedCount()}/{uploadSubmissions().length}
+            </span>
+            <ProgressBar
+              class="upload-file-progress-bar"
+              value={uploadedCount()}
+              max={uploadSubmissions().length}
+              tone={props.state.upload.phase === 'done' ? 'success' : 'accent'}
+              label="Overall upload progress"
+            />
+          </Show>
         </div>
       </Show>
 
