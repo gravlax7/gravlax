@@ -27,6 +27,7 @@ export interface RunFilesCheckOptions {
   repairAllowed?: boolean
   jobs?: Partial<FilesCheckJobs>
   onProgress?: (current: number, total: number, label: string) => void
+  onRepairStarting?: () => void | Promise<void>
   onIntegrityPassed?: (integrity: IntegritySummary) => void
 }
 
@@ -75,6 +76,7 @@ export async function runFilesCheck(options: RunFilesCheckOptions): Promise<File
     ? await jobs.repairIntegrity(workspacePath, {
         signal,
         tools,
+        onRepairStarting: options.onRepairStarting,
         onProgress: progress('integrity')
       })
     : await jobs.checkIntegrity(workspacePath, {

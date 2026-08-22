@@ -11,3 +11,4 @@ coverage/
 red-*.md
 temp/
 .worktrees/
+graphify-out

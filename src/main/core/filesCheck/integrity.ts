@@ -15,6 +15,7 @@ interface IntegrityOptions {
 }
 
 interface RepairOptions extends IntegrityOptions {
+  onRepairStarting?: () => void | Promise<void>
   repair?: (
     path: string,
     options: { signal?: AbortSignal; tools?: ToolResolver; run?: CommandRunner }
@@ -118,6 +119,8 @@ export async function repairFLACIntegrityWorkspace(
   const repairedPaths: string[] = []
   const repairErrors: IntegrityIssue[] = []
   const repair = options.repair ?? repairFLACIntegrity
+  await options.onRepairStarting?.()
+  options.signal?.throwIfAborted()
   options.onProgress?.(0, before.failures.length, 'Repairing failed FLACs…')
   for (let index = 0; index < before.failures.length; index++) {
     options.signal?.throwIfAborted()

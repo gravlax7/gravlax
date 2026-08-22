@@ -67,6 +67,28 @@ describe('TaskSlot', () => {
 })
 
 describe('TaskSlot.run', () => {
+  it('aborts a run and waits for its cleanup to finish', async () => {
+    const slot = new TaskScope().slot('spectrals')
+    let finishCleanup!: () => void
+    const cleanup = new Promise<void>((resolve) => { finishCleanup = resolve })
+    let handleSignal: AbortSignal | undefined
+    const running = slot.run(async (handle) => {
+      handleSignal = handle.signal
+      await cleanup
+    })
+
+    let stopped = false
+    const stopping = slot.cancelAndWait().then(() => { stopped = true })
+    await Promise.resolve()
+
+    expect(handleSignal?.aborted).toBe(true)
+    expect(stopped).toBe(false)
+    finishCleanup()
+    await stopping
+    await running
+    expect(stopped).toBe(true)
+  })
+
   it('reports a genuine failure', async () => {
     const errors: string[] = []
     await new TaskScope().slot('metadata').run(

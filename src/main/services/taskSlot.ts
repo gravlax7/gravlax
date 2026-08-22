@@ -29,6 +29,7 @@ export function isAbortError(err: unknown): boolean {
 export class TaskSlot {
   private runID = 0
   private controller: AbortController | null = null
+  private running = new Set<Promise<void>>()
 
   constructor(private readonly scope: TaskScope) {}
 
@@ -39,6 +40,14 @@ export class TaskSlot {
     // Aborting is not enough on its own: work already past an await would
     // otherwise finish and apply its results over the new state.
     this.runID++
+  }
+
+  /** Abort every run still winding down in this slot and wait for it to stop. */
+  async cancelAndWait(): Promise<void> {
+    this.cancel()
+    while (this.running.size > 0) {
+      await Promise.all(this.running)
+    }
   }
 
   /**
@@ -72,6 +81,20 @@ export class TaskSlot {
     options: { guard?: () => boolean; onError?: (err: unknown) => void } = {}
   ): Promise<void> {
     const handle = this.begin(options.guard)
+    const running = this.execute(body, handle, options)
+    this.running.add(running)
+    try {
+      await running
+    } finally {
+      this.running.delete(running)
+    }
+  }
+
+  private async execute(
+    body: (handle: TaskHandle) => Promise<void>,
+    handle: TaskHandle,
+    options: { onError?: (err: unknown) => void }
+  ): Promise<void> {
     try {
       await body(handle)
     } catch (err) {

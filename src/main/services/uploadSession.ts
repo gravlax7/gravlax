@@ -1119,7 +1119,6 @@ export class UploadSession {
   }
 
   async refreshTags(): Promise<void> {
-    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const workspacePath = this.state.draft.workspacePath
     // A failed metadata request leaves the proposed release empty. Reloading
@@ -1338,7 +1337,6 @@ export class UploadSession {
 
   private scheduleReadyTasks(): void {
     this.startFilesCheckIfReady()
-    if (this.state.filesCheck.integrity.status !== 'passed') return
     this.startSpectralsIfReady()
     this.startMetadataIfReady()
     this.startTranscodeInspectIfReady()
@@ -1347,7 +1345,6 @@ export class UploadSession {
   }
 
   private startTranscodeInspectIfReady(): void {
-    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const t = getTask(this.state.background, 'transcode')
     if (!t || t.status !== 'queued') return
@@ -1400,7 +1397,6 @@ export class UploadSession {
   }
 
   private startSpectralsIfReady(): void {
-    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const t = getTask(this.state.background, 'spectrals')
     if (!t || t.status !== 'queued') return
@@ -1467,6 +1463,7 @@ export class UploadSession {
           repairRequested,
           autoRepair: this.deps.getConfig().workflow.autoRepairFlacIntegrity,
           repairAllowed: canRepair,
+          onRepairStarting: () => this.stopSpectralsForRepair(task),
           onProgress: (current, total, label) => {
             if (!task.fresh()) return
             this.apply(
@@ -1500,7 +1497,7 @@ export class UploadSession {
             ? markBackgroundTaskFailed(next, 'files-check', result.detail)
             : markBackgroundTaskCompleted(next, 'files-check', result.detail)
         )
-        if (result.snapshot.integrity.status === 'passed') this.scheduleReadyTasks()
+        this.scheduleReadyTasks()
       },
       {
         guard: this.stillOn(workspacePath),
@@ -1528,12 +1525,18 @@ export class UploadSession {
     return flacIntegrityRepairAllowed(this.state)
   }
 
+  private async stopSpectralsForRepair(task: TaskHandle): Promise<void> {
+    if (!task.fresh()) return
+    await this.spectrals.cancelAndWait()
+    if (!task.fresh()) return
+    this.apply(resetBackgroundTask(this.state, 'spectrals'))
+  }
+
   private flacIntegrityPassed(): boolean {
     return this.state.filesCheck.integrity.status === 'passed'
   }
 
   private startMetadataIfReady(): void {
-    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const t = getTask(this.state.background, 'metadata')
     if (!t || t.status !== 'queued') return
@@ -1575,7 +1578,6 @@ export class UploadSession {
   }
 
   private async startTagsCurrentIfReady(): Promise<void> {
-    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const status = this.state.tags.currentStatus
     if (status === 'loading') return
@@ -1622,7 +1624,6 @@ export class UploadSession {
   }
 
   private async startTagsReleaseIfNeeded(): Promise<void> {
-    if (!this.flacIntegrityPassed()) return
     if (!this.state.draft.workspacePath) return
     const selection = this.state.metadata.selected
     if (!selection) return

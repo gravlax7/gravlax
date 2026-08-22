@@ -90,7 +90,14 @@ describe('runFilesCheck', () => {
   })
 
   it('uses one repair pass only when automatic repair is enabled and allowed', async () => {
-    const allJobs = jobs()
+    const onRepairStarting = vi.fn(async () => undefined)
+    const repairIntegrity = vi.fn<FilesCheckJobs['repairIntegrity']>(
+      async (_workspacePath, options) => {
+        await options?.onRepairStarting?.()
+        return passedIntegrity
+      }
+    )
+    const allJobs = jobs({ repairIntegrity })
 
     await runFilesCheck({
       workspacePath: '/workspace',
@@ -98,10 +105,12 @@ describe('runFilesCheck', () => {
       trackers: [],
       autoRepair: true,
       repairAllowed: true,
+      onRepairStarting,
       jobs: allJobs
     })
 
     expect(allJobs.repairIntegrity).toHaveBeenCalledOnce()
     expect(allJobs.checkIntegrity).not.toHaveBeenCalled()
+    expect(onRepairStarting).toHaveBeenCalledOnce()
   })
 })

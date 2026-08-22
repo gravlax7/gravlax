@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { defaultConfig } from '@main/core/config/defaults'
-import { newState, stepIndex, type State } from '@main/core/uploadflow'
+import {
+  markBackgroundTaskRunning,
+  newBackgroundWork,
+  newState,
+  stepIndex,
+  type State
+} from '@main/core/uploadflow'
 import { UploadSession } from '@main/services/uploadSession'
 import { automaticToolResolver } from '@main/core/tools/binaries'
 import { validatePreparedUploadFormats } from '@shared/upload/validation'
@@ -82,7 +88,7 @@ function completedAlternateFormats(): State['transcode'] {
 }
 
 describe('UploadSession', () => {
-  it('starts source-reading work only after FLAC integrity passes', () => {
+  it('starts read-only preflight work before FLAC integrity passes', () => {
     const session = newSession()
     const internal = session as unknown as {
       scheduleReadyTasks: () => void
@@ -102,30 +108,72 @@ describe('UploadSession', () => {
 
     internal.scheduleReadyTasks()
     expect(files).toHaveBeenCalledOnce()
-    expect(spectrals).not.toHaveBeenCalled()
-    expect(metadata).not.toHaveBeenCalled()
-    expect(transcode).not.toHaveBeenCalled()
-
-    const runtime = runtimeOf(session)
-    runtime.apply({
-      ...runtime.current,
-      filesCheck: {
-        ...runtime.current.filesCheck,
-        integrity: {
-          status: 'passed',
-          checkedCount: 1,
-          failures: [],
-          repairedPaths: [],
-          repairErrors: []
-        }
-      }
-    })
-    internal.scheduleReadyTasks()
     expect(spectrals).toHaveBeenCalledOnce()
     expect(metadata).toHaveBeenCalledOnce()
     expect(transcode).toHaveBeenCalledOnce()
     expect(tagsCurrent).toHaveBeenCalledOnce()
     expect(tagsRelease).toHaveBeenCalledOnce()
+  })
+
+  it('refuses to encode before FLAC integrity passes', async () => {
+    const send = vi.fn()
+    const session = new UploadSession({
+      appVersion: 'test',
+      userDataPath: '',
+      getConfig: defaultConfig,
+      trashItem: async () => undefined,
+      tools: automaticToolResolver,
+      send
+    })
+
+    await session.runTranscode()
+
+    expect(send).toHaveBeenCalledWith('upload:notify', {
+      level: 'warning',
+      message: 'Wait for FLAC integrity checks before transcoding.'
+    })
+  })
+
+  it('queues spectrals again after waiting for a repair stop', async () => {
+    const session = newSession()
+    const runtime = runtimeOf(session)
+    const state = markBackgroundTaskRunning({
+      ...runtime.current,
+      background: newBackgroundWork('/source'),
+      metadata: { selected: { provider: 'manual' } },
+      tags: { proposed: { title: 'Edited title' }, proposedDirty: true },
+      transcode: completedAlternateFormats()
+    }, 'spectrals')
+    runtime.apply(state)
+    const metadata = structuredClone(state.metadata)
+    const tags = structuredClone(state.tags)
+    const transcode = structuredClone(state.transcode)
+
+    let finishStop!: () => void
+    const stopped = new Promise<void>((resolve) => { finishStop = resolve })
+    const cancelAndWait = vi.fn(() => stopped)
+    const internal = session as unknown as {
+      spectrals: { cancelAndWait: () => Promise<void> }
+      stopSpectralsForRepair: (task: { signal: AbortSignal; fresh: () => boolean }) => Promise<void>
+    }
+    internal.spectrals = { cancelAndWait }
+    const controller = new AbortController()
+    const stopping = internal.stopSpectralsForRepair({
+      signal: controller.signal,
+      fresh: () => !controller.signal.aborted
+    })
+
+    expect(cancelAndWait).toHaveBeenCalledOnce()
+    expect(runtime.current.background.tasks.find((task) => task.id === 'spectrals')?.status)
+      .toBe('running')
+    finishStop()
+    await stopping
+
+    expect(runtime.current.background.tasks.find((task) => task.id === 'spectrals')?.status)
+      .toBe('queued')
+    expect(runtime.current.metadata).toEqual(metadata)
+    expect(runtime.current.tags).toEqual(tags)
+    expect(runtime.current.transcode).toEqual(transcode)
   })
 
   it('refuses integrity repair after an upload has completed', async () => {
