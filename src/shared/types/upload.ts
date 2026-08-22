@@ -249,6 +249,9 @@ export interface FileNameState {
 
 export interface FilesApplySnapshot {
   phase: FilesApplyPhase
+  progressCurrent?: number
+  progressTotal?: number
+  progressLabel?: string
   onDiskModified: boolean
   stripEmbeddedCoverArt: boolean
   renameReleaseFolder: boolean
@@ -437,6 +440,7 @@ export interface UploadFormatPayload {
   id: string
   label: string
   folderPath: string
+  sizeBytes?: number
   format: string
   bitrate: string
   otherBitrate: string

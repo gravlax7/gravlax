@@ -15,6 +15,7 @@ import {
   setFilenameOverride,
   setFolderNameOverride,
   setRenameReleaseFolder,
+  setFilesApplyProgress,
   setStripEmbeddedCoverArt,
   setTagsProposed,
   type State
@@ -119,20 +120,37 @@ export class UploadSessionFileChanges {
       }
 
       this.context.cancelGeneratedWork()
+      const captureSteps = state.files.original.captured ? 0 : plan.files.length
+      const progressTotal = captureSteps + plan.files.length + 1
+      const reportProgress = (current: number, label: string): void => {
+        if (!stillCurrent()) return
+        this.context.apply(
+          setFilesApplyProgress(this.context.getState(), current, progressTotal, label),
+          { persist: false }
+        )
+      }
+      this.context.apply(
+        setFilesApplyProgress(
+          beginFilesApply(state),
+          0,
+          progressTotal,
+          captureSteps > 0 ? 'Saving original tags…' : 'Applying tags…'
+        ),
+        { persist: false }
+      )
       let originals = state.files.original.files
       if (!state.files.original.captured) {
         const captured = await captureOriginalFiles(
           workspacePath,
           state.files.apply.files,
           undefined,
-          this.context.tools
+          this.context.tools,
+          (current, _total, label) => reportProgress(current, label)
         )
         if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
         originals = captured.originals
+        this.context.apply(beginFilesApply(this.context.getState(), originals), { persist: false })
       }
-      this.context.apply(
-        beginFilesApply(this.context.getState(), state.files.original.captured ? undefined : originals)
-      )
       await this.context.persistNow()
       if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
 
@@ -147,7 +165,9 @@ export class UploadSessionFileChanges {
             originals,
             stripEmbeddedCoverArt: this.context.getState().files.apply.stripEmbeddedCoverArt,
             signal: handle.signal,
-            tools: this.context.tools
+            tools: this.context.tools,
+            onProgress: (current, _total, label) =>
+              reportProgress(captureSteps + current, label)
           })
         },
         { guard: stillCurrent, onError: (error) => { operationError = error } }

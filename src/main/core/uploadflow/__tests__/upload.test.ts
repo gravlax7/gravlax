@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -121,8 +121,17 @@ describe('upload helpers', () => {
 
 describe('multi-format upload', () => {
   it('builds and plans FLAC, MP3 320, and MP3 V0 as three uploads', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-formats-'))
+    const root = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-formats-'))
+    const dir = path.join(root, 'Album [FLAC]')
+    const mp3320 = path.join(root, 'Album [MP3 320]')
+    const mp3V0 = path.join(root, 'Album [MP3 V0]')
     try {
+      await Promise.all([dir, mp3320, mp3V0].map((folder) => mkdir(folder)))
+      await Promise.all([
+        writeFile(path.join(dir, 'source.bin'), Buffer.alloc(1024)),
+        writeFile(path.join(mp3320, '320.bin'), Buffer.alloc(2048)),
+        writeFile(path.join(mp3V0, 'v0.bin'), Buffer.alloc(3072))
+      ])
       const state = newState()
       state.draft.workspacePath = dir
       state.draft.sourceMedia = 'WEB'
@@ -164,12 +173,12 @@ describe('multi-format upload', () => {
           {
             optionId: 'transcode-320',
             status: 'succeeded',
-            outputPath: path.join(dir, '..', 'Album [MP3 320]')
+            outputPath: mp3320
           },
           {
             optionId: 'transcode-V0',
             status: 'succeeded',
-            outputPath: path.join(dir, '..', 'Album [MP3 V0]')
+            outputPath: mp3V0
           }
         ]
       }
@@ -184,9 +193,10 @@ describe('multi-format upload', () => {
       ])
       expect(snapshot.formats?.map((format) => format.folderPath)).toEqual([
         dir,
-        path.join(dir, '..', 'Album [MP3 320]'),
-        path.join(dir, '..', 'Album [MP3 V0]')
+        mp3320,
+        mp3V0
       ])
+      expect(snapshot.formats?.map((format) => format.sizeBytes)).toEqual([1024, 2048, 3072])
       // The site rejects a bitrate outside its own list, so V0 goes up under
       // the name Gazelle uses rather than the lame preset we transcoded with.
       expect(snapshot.formats?.map((format) => format.bitrate)).toEqual([
@@ -218,7 +228,7 @@ describe('multi-format upload', () => {
         'transcode-V0'
       ])
     } finally {
-      await rm(dir, { recursive: true, force: true })
+      await rm(root, { recursive: true, force: true })
     }
   })
 

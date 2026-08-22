@@ -27,17 +27,34 @@ describe('tag and filename writes', () => {
       await writeFile(image, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'))
       await runCommand('metaflac', ['--remove-tag=TITLE', '--set-tag=TITLE=Old title', '--set-tag=ISRC=KEEP', '--set-tag=COVERART=LEGACYDATA', '--set-tag=COVERARTMIME=image/png', `--import-picture-from=${image}`, source])
 
-      const captured = await captureOriginalFiles(album, [{ id: 'track-1', currentPath: 'old.flac' }])
+      const captureProgress: Array<{ current: number; total: number; label: string }> = []
+      const captured = await captureOriginalFiles(
+        album,
+        [{ id: 'track-1', currentPath: 'old.flac' }],
+        undefined,
+        undefined,
+        (current, total, label) => captureProgress.push({ current, total, label })
+      )
       expect(captured.pictureCount).toBe(1)
+      expect(captureProgress.at(-1)).toEqual({
+        current: 1,
+        total: 1,
+        label: 'Saved original tags: old.flac'
+      })
       expect(captured.originals[0]?.managedComments?.join('\n')).not.toContain('LEGACYDATA')
       expect(captured.originals[0]?.legacyCoverBackups).toHaveLength(2)
+      const applyProgress: Array<{ current: number; total: number; label: string }> = []
       const result = await applyTagsAndRenames({
         workspacePath: album,
         release: { title: 'New Album', groupYear: '2024', albumArtist: 'Artist', comment: 'Line one\nLine two', tracks: [{ title: 'New title', trackNumber: '1', discNumber: '1', artists: [{ name: 'Artist', role: 'main' }] }] },
         plan: { folderName: 'Artist - New Album', files: [{ id: 'track-1', currentPath: 'old.flac', targetPath: '01. New title.flac', targetFilename: '01. New title.flac', changed: true }], errors: [], warnings: [], hash: 'test' },
         originals: captured.originals,
-        stripEmbeddedCoverArt: true
+        stripEmbeddedCoverArt: true,
+        onProgress: (current, total, label) =>
+          applyProgress.push({ current, total, label })
       })
+      expect(applyProgress).toContainEqual({ current: 1, total: 2, label: 'Renaming files…' })
+      expect(applyProgress.at(-1)).toEqual({ current: 2, total: 2, label: 'Finishing…' })
       const changed = join(result.workspacePath, '01. New title.flac')
       expect((await runCommand('metaflac', ['--show-tag=TITLE', changed])).toString()).toContain('TITLE=New title')
       expect((await runCommand('metaflac', ['--show-tag=ISRC', changed])).toString()).toContain('ISRC=KEEP')

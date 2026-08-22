@@ -56,6 +56,10 @@ function displayOrEmpty(value: string | number | null | undefined): string {
   return text || '—'
 }
 
+function displayByteSize(value: number | null | undefined): string {
+  return value == null ? '—' : formatByteSize(value)
+}
+
 function uploadBlockedReason(
   state: UploadFlowStateJSON,
   config: Config,
@@ -665,7 +669,7 @@ export function UploadStep(props: {
                 <strong>{format().label}</strong>
                 <span class="mono upload-report-path">{format().folderPath}</span>
               </div>
-              <div class="upload-report-grid">
+              <div class="upload-report-grid upload-report-format-grid">
                 <div class="upload-report-field">
                   <span>Format</span>
                   <div class="mono upload-report-readonly">{displayOrEmpty(format().format)}</div>
@@ -673,6 +677,12 @@ export function UploadStep(props: {
                 <div class="upload-report-field">
                   <span>Bitrate</span>
                   <div class="mono upload-report-readonly">{displayOrEmpty(format().bitrate)}</div>
+                </div>
+                <div class="upload-report-field">
+                  <span>Torrent size</span>
+                  <div class="mono upload-report-readonly">
+                    {displayByteSize(format().sizeBytes)}
+                  </div>
                 </div>
                 <Show when={format().logfileNames.length > 0}>
                   <div class="upload-report-field upload-report-field-full">

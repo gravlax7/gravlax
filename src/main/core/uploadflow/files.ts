@@ -128,6 +128,27 @@ export function beginFilesApply(s: State, original?: OriginalFileSnapshot[]): St
   }
 }
 
+export function setFilesApplyProgress(
+  s: State,
+  current: number,
+  total: number,
+  label: string
+): State {
+  if (s.files.apply.phase !== 'applying') return s
+  return {
+    ...s,
+    files: {
+      ...s.files,
+      apply: {
+        ...s.files.apply,
+        progressCurrent: current,
+        progressTotal: total,
+        progressLabel: label
+      }
+    }
+  }
+}
+
 function countOriginalEmbeddedCoverArt(files: OriginalFileSnapshot[]): number {
   return files.reduce(
     (count, file) => count +
@@ -176,7 +197,10 @@ export function finishFilesApply(
         })),
         appliedHash,
         ...counts,
-        error: undefined
+        error: undefined,
+        progressCurrent: undefined,
+        progressTotal: undefined,
+        progressLabel: undefined
       }
     },
     filesCheck: {
@@ -203,11 +227,37 @@ export function finishFilesApply(
 }
 
 export function failFilesApply(s: State, error: string): State {
-  return { ...s, files: { ...s.files, apply: { ...s.files.apply, phase: 'failed', error } } }
+  return {
+    ...s,
+    files: {
+      ...s.files,
+      apply: {
+        ...s.files.apply,
+        phase: 'failed',
+        error,
+        progressCurrent: undefined,
+        progressTotal: undefined,
+        progressLabel: undefined
+      }
+    }
+  }
 }
 
 export function beginFilesRestore(s: State): State {
-  return { ...s, files: { ...s.files, apply: { ...s.files.apply, phase: 'restoring', error: undefined } } }
+  return {
+    ...s,
+    files: {
+      ...s.files,
+      apply: {
+        ...s.files.apply,
+        phase: 'restoring',
+        error: undefined,
+        progressCurrent: undefined,
+        progressTotal: undefined,
+        progressLabel: undefined
+      }
+    }
+  }
 }
 
 export function finishFilesRestore(s: State, workspacePath: string): State {

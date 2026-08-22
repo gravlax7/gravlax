@@ -15,6 +15,7 @@ import type {
 import { enabledTrackerOptions } from '@shared/config/trackers'
 import { discoverLogFiles } from '@main/core/tools/diagnostics/sourceMedia'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
+import { enumerateReleaseFiles, totalSize } from '@main/core/tools/releaseFiles'
 import { readFLACStreamInfo } from '@main/core/tools/diagnostics/mqa'
 import {
   albumDescMetadataFromRelease,
@@ -276,6 +277,12 @@ export async function buildUploadSnapshot(
     coverUrl: proposed.cover,
     previousImage
   })
+  const sizedFormats = await Promise.all(
+    formats.map(async (format) => ({
+      ...format,
+      sizeBytes: totalSize(await enumerateReleaseFiles(format.folderPath))
+    }))
+  )
 
   return {
     phase: 'ready',
@@ -297,7 +304,7 @@ export async function buildUploadSnapshot(
     coverPath: cover.coverPath,
     albumDesc,
     groupIds: emptyGroupIds(),
-    formats,
+    formats: sizedFormats,
     groupSearch: emptyGroupSearch(),
     seededFrom: fingerprintUploadInputs(s, cfg, options.version),
     error: undefined

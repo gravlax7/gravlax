@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Config } from '@shared/types/config'
 import type { OriginalFileSnapshot } from '@shared/types'
+import type { FilesProgressCallback } from '@main/core/tools/files/apply'
 
 const mocks = vi.hoisted(() => ({
   applyTagsAndRenames: vi.fn(),
@@ -121,6 +122,77 @@ describe('UploadSessionFileChanges folder renames', () => {
     await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
     expect(getState().draft.workspacePath).toBe('/workspace/New Album')
     expect(startTranscodeInspection).toHaveBeenCalledOnce()
+  })
+
+  it('shows the applying phase while it captures original tags', async () => {
+    const { service, getState } = setup()
+    getState().files.original.captured = false
+    let finishCapture: ((value: { originals: OriginalFileSnapshot[]; pictureCount: number }) => void) | undefined
+    mocks.captureOriginalFiles.mockReturnValueOnce(new Promise((resolve) => {
+      finishCapture = resolve
+    }))
+
+    const applying = service.applyTagsAndNames(true)
+
+    expect(getState().files.apply.phase).toBe('applying')
+    expect(getState().files.apply.progressCurrent).toBe(0)
+    expect(getState().files.apply.progressTotal).toBe(3)
+    expect(getState().files.apply.progressLabel).toBe('Saving original tags…')
+    finishCapture?.({ originals: [originalFile], pictureCount: 0 })
+    await expect(applying).resolves.toEqual({ ok: true })
+  })
+
+  it('combines backup and write progress into one file-change total', async () => {
+    const { service, getState } = setup()
+    getState().files.original.captured = false
+    const progress: Array<{ current?: number; total?: number; label?: string }> = []
+    mocks.captureOriginalFiles.mockImplementationOnce(async (
+      _workspacePath: string,
+      _files: Array<{ id: string; currentPath: string }>,
+      _signal: AbortSignal | undefined,
+      _tools: unknown,
+      onProgress?: FilesProgressCallback
+    ) => {
+      onProgress?.(1, 1, 'Saved original tags: old.flac')
+      progress.push({
+        current: getState().files.apply.progressCurrent,
+        total: getState().files.apply.progressTotal,
+        label: getState().files.apply.progressLabel
+      })
+      return { originals: [originalFile], pictureCount: 0 }
+    })
+    mocks.applyTagsAndRenames.mockImplementationOnce(async (input: {
+      onProgress?: FilesProgressCallback
+    }) => {
+      input.onProgress?.(1, 2, 'Applied tags: old.flac')
+      progress.push({
+        current: getState().files.apply.progressCurrent,
+        total: getState().files.apply.progressTotal,
+        label: getState().files.apply.progressLabel
+      })
+      input.onProgress?.(2, 2, 'Finishing…')
+      progress.push({
+        current: getState().files.apply.progressCurrent,
+        total: getState().files.apply.progressTotal,
+        label: getState().files.apply.progressLabel
+      })
+      return {
+        workspacePath: '/workspace/New Album',
+        folderName: 'New Album',
+        currentPaths: [{ id: 'track-1', currentPath: '01. Track.flac' }],
+        changedFileCount: 1,
+        strippedPictureCount: 0
+      }
+    })
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
+
+    expect(progress).toEqual([
+      { current: 1, total: 3, label: 'Saved original tags: old.flac' },
+      { current: 2, total: 3, label: 'Applied tags: old.flac' },
+      { current: 3, total: 3, label: 'Finishing…' }
+    ])
+    expect(getState().files.apply.progressTotal).toBeUndefined()
   })
 
   it('starts a pending inspection when the applied files already match', async () => {

@@ -26,7 +26,7 @@ import {
   isTranscodeBusy
 } from '@shared/upload/stepGating'
 import { Modal } from '../../components/Modal'
-import { Button, Icon } from '../../ui'
+import { Button, Icon, ProgressBar } from '../../ui'
 import { basename } from './pathUtil'
 import { Lightbox } from './Lightbox'
 import { Stepper } from './Stepper'
@@ -248,7 +248,9 @@ export function UploadScreen(props: {
       return {
         back: 'Back',
         mid: 'Discard edits & reload',
-        continue: props.state.files.apply.phase === 'applied' ? 'Continue' : 'Apply & continue',
+        continue: props.state.files.apply.phase === 'applying'
+          ? 'Applying…'
+          : props.state.files.apply.phase === 'applied' ? 'Continue' : 'Apply & continue',
         midVariant: 'danger'
       }
     if (id === 'transcode') {
@@ -382,6 +384,31 @@ export function UploadScreen(props: {
         </div>
       </div>
 
+      <Show when={
+        stepId() === 'tags' &&
+        props.state.files.apply.phase === 'applying' &&
+        (props.state.files.apply.progressTotal ?? 0) > 0
+      }>
+        <div class="upload-file-progress" role="status" aria-live="polite">
+          <div class="upload-file-progress-label">
+            <strong>Applying tags and filenames</strong>
+            <Show when={props.state.files.apply.progressLabel}>
+              {(label) => <span> — {label()}</span>}
+            </Show>
+          </div>
+          <span class="upload-file-progress-count">
+            {props.state.files.apply.progressCurrent ?? 0}/{props.state.files.apply.progressTotal}
+          </span>
+          <ProgressBar
+            class="upload-file-progress-bar"
+            value={props.state.files.apply.progressCurrent ?? 0}
+            max={props.state.files.apply.progressTotal}
+            tone="accent"
+            label="Tag and filename progress"
+          />
+        </div>
+      </Show>
+
       <footer class="upload-footer">
         <Button
           variant="ghost"
@@ -415,6 +442,7 @@ export function UploadScreen(props: {
           fallback={
             <Button
               variant="primary"
+              loading={stepId() === 'tags' && props.state.files.apply.phase === 'applying'}
               disabled={
                 (stepId() === 'seed' && props.state.seed.phase !== 'done') ||
                 (stepId() === 'transcode' && props.state.transcode?.phase === 'inspecting') ||

@@ -81,13 +81,22 @@ export function TagsStep(props: {
   return (
     <div class="tags-view">
       <div class="files-change-status">
-        <div>
-          <strong>Files on disk:</strong>{' '}
-          {props.state.files.apply.phase === 'applied'
-            ? `tags applied, ${props.state.files.apply.changedFileCount ?? 0} renamed, ${props.state.files.apply.strippedPictureCount ?? 0} cover images stripped`
-            : props.state.files.apply.phase === 'failed'
-              ? props.state.files.apply.error
-              : props.state.files.apply.onDiskModified ? 'modified (new changes pending)' : 'original'}
+        <div class="files-change-status-text" role="status" aria-live="polite">
+          <Show when={busy()}>
+            <Spinner size="sm" />
+          </Show>
+          <div>
+            <strong>Files on disk:</strong>{' '}
+            {props.state.files.apply.phase === 'applying'
+              ? 'applying tags and filenames…'
+              : props.state.files.apply.phase === 'restoring'
+                ? 'restoring original tags and filenames…'
+                : props.state.files.apply.phase === 'applied'
+                  ? `tags applied, ${props.state.files.apply.changedFileCount ?? 0} renamed, ${props.state.files.apply.strippedPictureCount ?? 0} cover images stripped`
+                  : props.state.files.apply.phase === 'failed'
+                    ? props.state.files.apply.error
+                    : props.state.files.apply.onDiskModified ? 'modified (new changes pending)' : 'original'}
+          </div>
         </div>
         <Show when={props.state.files.original.captured}>
           <Button

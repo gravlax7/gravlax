@@ -23,17 +23,26 @@ export interface ApplyFilesResult {
   strippedPictureCount: number
 }
 
+export type FilesProgressCallback = (
+  current: number,
+  total: number,
+  label: string
+) => void
+
 export async function captureOriginalFiles(
   workspacePath: string,
   files: Array<{ id: string; currentPath: string }>,
   signal?: AbortSignal,
-  tools: ToolResolver = automaticToolResolver
+  tools: ToolResolver = automaticToolResolver,
+  onProgress?: FilesProgressCallback
 ): Promise<{ originals: OriginalFileSnapshot[]; pictureCount: number }> {
   const backupRoot = join(uploadWorkspaceRootForPath(workspacePath), '.gravlax-original-metadata')
   await mkdir(backupRoot, { recursive: true, mode: 0o700 })
   const originals: OriginalFileSnapshot[] = []
   let pictureCount = 0
+  onProgress?.(0, files.length, 'Saving original tags…')
   for (const [index, file] of files.entries()) {
+    onProgress?.(index, files.length, `Saving original tags: ${file.currentPath}`)
     const absolutePath = join(workspacePath, fromPosix(file.currentPath))
     const comments = await readManagedComments(absolutePath, signal, tools)
     const managedComments = comments.filter((comment) => !/^COVERART(?:MIME)?=/i.test(comment))
@@ -55,6 +64,7 @@ export async function captureOriginalFiles(
       pictureCount += 1
     }
     originals.push({ id: file.id, relativePath: file.currentPath, managedComments, pictureBackups, legacyCoverBackups })
+    onProgress?.(index + 1, files.length, `Saved original tags: ${file.currentPath}`)
   }
   return { originals, pictureCount }
 }
@@ -67,18 +77,22 @@ export async function applyTagsAndRenames(input: {
   stripEmbeddedCoverArt: boolean
   signal?: AbortSignal
   tools?: ToolResolver
+  onProgress?: FilesProgressCallback
 }): Promise<ApplyFilesResult> {
   const { release, plan, originals, signal } = input
   if (plan.errors.length > 0) throw new Error(plan.errors[0])
   if ((release.tracks?.length ?? 0) !== plan.files.length) {
     throw new Error('Track count changed before the files could be written.')
   }
+  const progressTotal = plan.files.length + 1
+  input.onProgress?.(0, progressTotal, 'Checking filenames…')
   await preflightFileRenames(input.workspacePath, plan.files)
   if (plan.folderName !== basename(input.workspacePath)) {
     await assertMissingOrSame(join(uploadWorkspaceRootForPath(input.workspacePath), plan.folderName), input.workspacePath)
   }
   let strippedPictureCount = 0
   for (const [index, file] of plan.files.entries()) {
+    input.onProgress?.(index, progressTotal, `Applying tags: ${file.currentPath}`)
     const original = originals.find((item) => item.id === file.id)
     if (!original) throw new Error(`Missing original-state backup for ${file.currentPath}.`)
     const values = tagValues(release, index)
@@ -91,8 +105,10 @@ export async function applyTagsAndRenames(input: {
       strippedPictureCount += original.pictureBackups?.length ?? 0
       strippedPictureCount += (original.legacyCoverBackups ?? []).filter((item) => item.key === 'COVERART').length
     }
+    input.onProgress?.(index + 1, progressTotal, `Applied tags: ${file.currentPath}`)
   }
 
+  input.onProgress?.(plan.files.length, progressTotal, 'Renaming files…')
   await renameFiles(input.workspacePath, plan.files)
   let workspacePath = input.workspacePath
   if (plan.folderName !== basename(workspacePath)) {
@@ -110,6 +126,7 @@ export async function applyTagsAndRenames(input: {
     }
     workspacePath = target
   }
+  input.onProgress?.(progressTotal, progressTotal, 'Finishing…')
   return {
     workspacePath,
     folderName: basename(workspacePath),

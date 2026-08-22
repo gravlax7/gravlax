@@ -930,6 +930,37 @@ button.toggle.toggle-on .toggle-thumb {
   background: var(--bg-surface);
 }
 
+.upload-file-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.upload-file-progress-label {
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.upload-file-progress-label strong {
+  color: var(--fg-primary);
+}
+
+.upload-file-progress-count {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.upload-file-progress-bar {
+  grid-column: 1 / -1;
+}
+
 .upload-footer-spacer {
   flex: 1;
 }
@@ -1532,6 +1563,12 @@ button.toggle.toggle-on .toggle-thumb {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
+}
+
+.files-change-status-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .tags-release-status {
@@ -2565,6 +2602,10 @@ button.toggle.toggle-on .toggle-thumb {
   flex-direction: column;
   gap: var(--space-3);
   margin-bottom: var(--space-3);
+}
+
+.upload-report-format-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .upload-report-format-title {
