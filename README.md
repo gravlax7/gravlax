@@ -125,8 +125,9 @@ package from your distribution or from the [FLAC project](https://xiph.org/flac/
 - **Torrent Client:** Set this up if you seed through qBittorrent's Web UI.
 - **Seedbox:** Turn this on only when you want Gravlax to send release folders
   over SFTP before it adds the torrent.
-- **Metadata Providers:** MusicBrainz is on by default. You can also enable
-  Deezer.
+- **Metadata Providers:** MusicBrainz, Deezer, and Bandcamp are on by default.
+  To search Discogs, enable it and add a personal access token. Direct Discogs
+  release URLs also work while its search is disabled.
 
 Use **Healthcheck** after any change. Gravlax is ready when it reports that the
 required tools, at least one image host, and every enabled tracker are available.

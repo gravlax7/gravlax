@@ -72,6 +72,8 @@ function isOtherProviderHost(hostname: string): boolean {
   return (
     host === 'deezer.com' ||
     host.endsWith('.deezer.com') ||
+    host === 'discogs.com' ||
+    host.endsWith('.discogs.com') ||
     host === 'musicbrainz.org' ||
     host.endsWith('.musicbrainz.org')
   )

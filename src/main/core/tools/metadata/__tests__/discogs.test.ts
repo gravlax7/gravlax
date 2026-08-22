@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { defaultConfig } from '@main/core/config/defaults'
 import { finalizeNormalizedRelease } from '../normalization'
 import { createDiscogsProvider } from '../discogs'
+import { createProviders, providerDefinitions } from '../providers'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -21,6 +23,23 @@ function stubJSON(payload: unknown, status = 200) {
 }
 
 describe('Discogs provider', () => {
+  it('registers after the existing providers and stays inactive by default', () => {
+    const config = defaultConfig()
+
+    expect(providerDefinitions(config)).toEqual([
+      { name: 'MusicBrainz', enabled: true },
+      { name: 'Deezer', enabled: true },
+      { name: 'Bandcamp', enabled: true },
+      { name: 'Discogs', enabled: false }
+    ])
+    expect(createProviders(config).map((provider) => provider.name)).toEqual([
+      'MusicBrainz',
+      'Deezer',
+      'Bandcamp',
+      'Discogs'
+    ])
+  })
+
   it('searches releases with auth, edition data, source, and collection status', async () => {
     const fetchMock = stubJSON({
       results: [

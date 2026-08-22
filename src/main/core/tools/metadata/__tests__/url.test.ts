@@ -93,6 +93,19 @@ describe('resolveMetadataUrl', () => {
     )
   })
 
+  it('allows a Discogs URL when its search provider is disabled', () => {
+    const cfg = defaultConfig()
+    cfg.metadataProviders.discogs.enabled = false
+    expect(resolveMetadataUrl(cfg, 'https://www.discogs.com/release/432932')).toEqual({
+      ok: true,
+      selection: {
+        provider: 'Discogs',
+        releaseId: JSON.stringify('432932'),
+        url: 'https://www.discogs.com/release/432932'
+      }
+    })
+  })
+
   it('allows a direct URL when its search provider is disabled', () => {
     const cfg = defaultConfig()
     cfg.metadataProviders.deezer.enabled = false
@@ -143,6 +156,7 @@ describe('resolveMetadataUrl', () => {
     'https://www.deezer.com/album/not-a-number',
     'https://deezer.page.link/example',
     'https://www.discogs.com/master/432932',
+    'https://www.discogs.com/album/432932',
     'https://www.discogs.com/release/not-a-number',
     'https://www.discogs.com.evil.test/release/432932',
     'https://user:pass@www.discogs.com/release/432932',
