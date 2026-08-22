@@ -434,10 +434,25 @@ export function UploadStep(props: {
         <Callout tone="info">Transcoding is still running in the background.</Callout>
       </Show>
 
-      <Show when={upload().phase === 'done'}>
-        <Callout tone="info">
-          Uploaded. Continue to Seed to transfer the release and add the torrents to your client.
-        </Callout>
+      <Show when={detailsVisible()}>
+        <Card class="upload-report-card upload-progress-card">
+          <div class="upload-progress-title">Upload details</div>
+          <Show when={submissions().length > 0}>
+            <div class="upload-submission-list">
+              <For each={submissions()}>
+                {(submission) => <SubmissionRow submission={submission} />}
+              </For>
+            </div>
+          </Show>
+          <Show when={upload().error}>
+            {(error) => <Callout tone="error">{error()}</Callout>}
+          </Show>
+          <Show when={isRetry()}>
+            <div class="upload-submission-note">
+              Retrying sends only the uploads that have not succeeded.
+            </div>
+          </Show>
+        </Card>
       </Show>
 
       <Card class="upload-report-card">
@@ -662,27 +677,6 @@ export function UploadStep(props: {
             </Card>
           )}
         </Index>
-      </Show>
-
-      <Show when={detailsVisible()}>
-        <Card class="upload-report-card upload-progress-card">
-          <div class="upload-progress-title">Upload details</div>
-          <Show when={submissions().length > 0}>
-            <div class="upload-submission-list">
-              <For each={submissions()}>
-                {(submission) => <SubmissionRow submission={submission} />}
-              </For>
-            </div>
-          </Show>
-          <Show when={upload().error}>
-            {(error) => <Callout tone="error">{error()}</Callout>}
-          </Show>
-          <Show when={isRetry()}>
-            <div class="upload-submission-note">
-              Retrying sends only the uploads that have not succeeded.
-            </div>
-          </Show>
-        </Card>
       </Show>
 
       <Show when={!upload().error && upload().phase !== 'done' && blockedReason()}>
