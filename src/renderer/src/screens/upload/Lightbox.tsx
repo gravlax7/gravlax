@@ -1,5 +1,5 @@
 import { Show, createSignal, onCleanup, onMount } from 'solid-js'
-import { Button, Icon, IconButton } from '../../ui'
+import { Button, IconButton } from '../../ui'
 import { spectralUrl } from './pathUtil'
 
 export function Lightbox(props: {
@@ -55,7 +55,7 @@ export function Lightbox(props: {
             <IconButton icon="x" label="Close" size="sm" onClick={() => props.onClose()} />
           </div>
         </div>
-        <div class="ui-lightbox-stage">
+        <div class={`ui-lightbox-stage ${zoomed() ? 'ui-lightbox-stage-zoomed' : ''}`}>
           <Show when={props.index > 0}>
             <IconButton
               class="ui-lightbox-nav ui-lightbox-nav-prev"
@@ -64,11 +64,13 @@ export function Lightbox(props: {
               onClick={() => props.onChangeIndex(props.index - 1)}
             />
           </Show>
-          <img
-            class={`ui-lightbox-img ${zoomed() ? 'ui-lightbox-img-zoomed' : ''}`}
-            src={spectralUrl(current()?.src ?? '')}
-            alt={current()?.label ?? 'Spectral'}
-          />
+          <div class="ui-lightbox-scroll">
+            <img
+              class={`ui-lightbox-img ${zoomed() ? 'ui-lightbox-img-zoomed' : ''}`}
+              src={spectralUrl(current()?.src ?? '')}
+              alt={current()?.label ?? 'Spectral'}
+            />
+          </div>
           <Show when={props.index < props.images.length - 1}>
             <IconButton
               class="ui-lightbox-nav ui-lightbox-nav-next"

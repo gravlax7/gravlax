@@ -1076,12 +1076,23 @@ button.toggle.toggle-on .toggle-thumb {
 
 .ui-lightbox-stage {
   position: relative;
+  min-height: 200px;
+  overflow: hidden;
+  background: var(--bg-raised);
+}
+
+.ui-lightbox-scroll {
+  box-sizing: border-box;
+  overflow: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 200px;
+  max-height: calc(96vh - 7rem);
   padding: var(--space-4);
-  background: var(--bg-raised);
+}
+
+.ui-lightbox-stage-zoomed .ui-lightbox-scroll {
+  display: block;
 }
 
 .ui-lightbox-img {
@@ -1094,8 +1105,9 @@ button.toggle.toggle-on .toggle-thumb {
 .ui-lightbox-img-zoomed {
   max-width: none;
   max-height: none;
-  width: 100%;
-  object-fit: cover;
+  width: auto;
+  height: auto;
+  object-fit: none;
 }
 
 .ui-lightbox-nav {
