@@ -297,28 +297,35 @@ function CoverImageField(props: {
     <div class="upload-report-field upload-report-field-full">
       <div class="upload-report-field-header">
         <span>Cover image</span>
-        <Show when={hasCoverReady()}>
-          <Button variant="secondary" onClick={() => setEditing((v) => !v)}>
-            {editing() ? 'Show preview' : 'Change URL'}
-          </Button>
-        </Show>
       </div>
       <Show
         when={showPreview()}
         fallback={
-          <input
-            class="mono"
-            value={props.value}
-            placeholder="https://"
-            onInput={(e) => props.onChange(e.currentTarget.value)}
-          />
+          <div class="upload-report-cover-editor">
+            <input
+              class="mono"
+              value={props.value}
+              placeholder="https://"
+              onInput={(e) => props.onChange(e.currentTarget.value)}
+            />
+            <Show when={editing()}>
+              <Button variant="secondary" size="sm" onClick={() => setEditing(false)}>
+                Done
+              </Button>
+            </Show>
+          </div>
         }
       >
         <div class="upload-report-cover-preview">
           <button type="button" class="upload-report-cover-thumb-btn" onClick={openCover}>
             <img class="upload-report-cover-thumb" src={previewSrc()} alt="Cover" />
           </button>
-          <div class="mono upload-report-cover-meta">{meta()}</div>
+          <div class="upload-report-cover-details">
+            <div class="mono upload-report-cover-meta">{meta()}</div>
+            <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+              Edit cover URL
+            </Button>
+          </div>
         </div>
       </Show>
     </div>
