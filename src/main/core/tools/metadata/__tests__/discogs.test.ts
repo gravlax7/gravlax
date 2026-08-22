@@ -186,4 +186,28 @@ describe('Discogs provider', () => {
     expect(release.tracks?.[1]?.artists).toEqual([{ name: 'Producer', role: 'producer' }])
     expect(release.tracks?.[4]?.discNumber).toBe('2')
   })
+
+  it('splits numeric disc-track positions into disc and track numbers', () => {
+    const provider = createDiscogsProvider('token', 5000)
+    const release = provider.mapRelease(
+      {
+        title: 'Compilation',
+        tracklist: [
+          { type_: 'track', position: '1-1', title: 'Disc one' },
+          { type_: 'track', position: '1-26', title: 'Disc one end' },
+          { type_: 'track', position: '2-1', title: 'Disc two' }
+        ]
+      },
+      ''
+    )
+
+    expect(release.tracks?.map(({ discNumber, trackNumber }) => ({
+      discNumber,
+      trackNumber
+    }))).toEqual([
+      { discNumber: '1', trackNumber: '1' },
+      { discNumber: '1', trackNumber: '26' },
+      { discNumber: '2', trackNumber: '1' }
+    ])
+  })
 })

@@ -223,14 +223,26 @@ function mapDiscogsTracks(raw: Record<string, unknown>): Track[] {
     if (type !== 'track') continue
 
     const artists = mapDiscogsTrackArtists(track, releaseArtists)
+    const position = discogsTrackPosition(toString(track.position), discNumber)
     tracks.push({
-      discNumber: String(discNumber),
-      trackNumber: toString(track.position).toUpperCase(),
+      discNumber: position.discNumber,
+      trackNumber: position.trackNumber,
       title: appendDiscogsRemixers(toString(track.title), artists),
       artists
     })
   }
   return tracks
+}
+
+function discogsTrackPosition(
+  rawPosition: string,
+  fallbackDiscNumber: number
+): { discNumber: string; trackNumber: string } {
+  const position = rawPosition.toUpperCase()
+  const discTrack = /^(\d+)-(\d+)$/.exec(position)
+  return discTrack
+    ? { discNumber: discTrack[1]!, trackNumber: discTrack[2]! }
+    : { discNumber: String(fallbackDiscNumber), trackNumber: position }
 }
 
 function mapDiscogsTrackArtists(
