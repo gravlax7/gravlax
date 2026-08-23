@@ -2,7 +2,6 @@ import type { Provider, ReleaseResult } from './base'
 import type { Artist, Release } from '@shared/types'
 import {
   applyFeaturedArtistsFromTitle,
-  normalizeArtistRole,
   parseArtistCreditValues,
   stripFeaturedFromTitle
 } from '@shared/tags/editor'
@@ -17,7 +16,10 @@ import {
   toString
 } from './base'
 import { fetchJSON, fetchText } from './http'
-import { mapReleaseTypeToken } from './normalization'
+import {
+  createProviderArtistList,
+  mapReleaseTypeToken
+} from './normalization'
 
 export const DEEZER_NAME = 'Deezer'
 const DEEZER_API = 'https://api.deezer.com'
@@ -164,17 +166,10 @@ function deezerInternalArtists(raw: Record<string, unknown>): Artist[] {
   const defaultArtists = sliceValue(raw.ARTISTS)
   if (!hasContributors && defaultArtists.length === 0) return []
 
-  const artists: Artist[] = []
-  const seen = new Set<string>()
+  const { artists, add } = createProviderArtistList()
   const push = (name: string, role: string): void => {
     for (const artist of parseArtistCreditValues([name])) {
-      const resolvedRole = role === 'guest' ? 'guest' : deezerArtistRole(artist.role ?? role)
-      const trimmed = (artist.name ?? '').trim()
-      if (!trimmed) continue
-      const key = `${trimmed.toLowerCase()}\0${resolvedRole}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      artists.push({ name: trimmed, role: resolvedRole })
+      add(artist.name ?? '', role === 'guest' ? 'guest' : artist.role ?? role)
     }
   }
 
@@ -202,41 +197,18 @@ function deezerInternalArtists(raw: Record<string, unknown>): Artist[] {
 }
 
 function mapDeezerPublicArtists(entries: unknown[]): Artist[] {
-  const artists: Artist[] = []
-  const seen = new Set<string>()
+  const { artists, add } = createProviderArtistList()
   for (const entry of entries) {
     if (typeof entry === 'string' || typeof entry === 'number') {
       for (const parsed of parseArtistCreditValues([toString(entry)])) {
-        pushDeezerArtist(artists, seen, parsed.name ?? '', parsed.role ?? '')
+        add(parsed.name ?? '', parsed.role ?? '')
       }
       continue
     }
     const mapped = mapValue(entry)
-    pushDeezerArtist(artists, seen, toString(mapped.name), toString(mapped.role))
+    add(toString(mapped.name), toString(mapped.role))
   }
   return artists
-}
-
-function pushDeezerArtist(
-  artists: Artist[],
-  seen: Set<string>,
-  name: string,
-  role: string
-): void {
-  const trimmed = name.trim()
-  if (!trimmed) return
-  const normalizedRole = deezerArtistRole(role)
-  const key = `${trimmed.toLowerCase()}\0${normalizedRole}`
-  if (seen.has(key)) return
-  seen.add(key)
-  artists.push({ name: trimmed, role: normalizedRole })
-}
-
-function deezerArtistRole(role: string): string {
-  const normalized = role.trim().toLowerCase()
-  if (!normalized || normalized === 'main' || normalized === 'primary') return 'main'
-  if (['featured', 'featuring', 'feat', 'ft', 'ft.'].includes(normalized)) return 'guest'
-  return normalizeArtistRole(normalized)
 }
 
 function deezerStrings(value: unknown): string[] {

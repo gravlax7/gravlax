@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isLightTheme, isThemePreference, resolveTheme } from '../theme'
+import { THEME_PREFERENCES, isLightTheme, isThemePreference, resolveTheme } from '../theme'
 
 describe('resolveTheme', () => {
   it('returns light when preference is light', () => {
@@ -38,14 +38,7 @@ describe('resolveTheme', () => {
 
 describe('isThemePreference', () => {
   it('accepts valid values', () => {
-    expect(isThemePreference('system')).toBe(true)
-    expect(isThemePreference('dark')).toBe(true)
-    expect(isThemePreference('midnight')).toBe(true)
-    expect(isThemePreference('fjord')).toBe(true)
-    expect(isThemePreference('ember')).toBe(true)
-    expect(isThemePreference('phosphor')).toBe(true)
-    expect(isThemePreference('light')).toBe(true)
-    expect(isThemePreference('inkwell')).toBe(true)
+    for (const theme of THEME_PREFERENCES) expect(isThemePreference(theme)).toBe(true)
   })
 
   it('rejects invalid values', () => {

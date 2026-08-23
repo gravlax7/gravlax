@@ -1,20 +1,11 @@
 import type { Config, SectionID } from '@shared/types/config'
+import { UPLOAD_TRACKER_IDS } from '@shared/trackers'
 
-export function defaultConfig(): Config {
-  return {
-    appearance: { theme: 'system' },
-    directories: { source: '', torrents: '', seeding: '' },
-    tools: { sox: '', flac: '', metaflac: '', lame: '' },
-    trackers: {
-      redacted: {
-        enabled: false,
-        siteUrl: '',
-        announceUrl: '',
-        apiKey: '',
-        sessionCookie: '',
-        coverImageHost: ''
-      },
-      orpheus: {
+function defaultTrackers(): Config['trackers'] {
+  return Object.fromEntries(
+    UPLOAD_TRACKER_IDS.map((id) => [
+      id,
+      {
         enabled: false,
         siteUrl: '',
         announceUrl: '',
@@ -22,7 +13,16 @@ export function defaultConfig(): Config {
         sessionCookie: '',
         coverImageHost: ''
       }
-    },
+    ])
+  ) as Config['trackers']
+}
+
+export function defaultConfig(): Config {
+  return {
+    appearance: { theme: 'system' },
+    directories: { source: '', torrents: '', seeding: '' },
+    tools: { sox: '', flac: '', metaflac: '', lame: '' },
+    trackers: defaultTrackers(),
     metadataProviders: {
       musicBrainz: { enabled: true },
       deezer: { enabled: true },

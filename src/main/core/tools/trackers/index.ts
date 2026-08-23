@@ -1,4 +1,5 @@
 import type { Config } from '@shared/types/config'
+import { UPLOAD_TRACKER_IDS, trackerName } from '@shared/trackers'
 import type { TrackerAuthMode } from '@shared/upload/validation'
 import type { GazelleClient } from './gazelle'
 import { createOrpheusTracker } from './orpheus'
@@ -45,10 +46,11 @@ export interface TrackerDefinition {
 }
 
 export function trackerDefinitions(cfg: Config): TrackerDefinition[] {
-  return [
-    { id: 'redacted', name: 'Redacted', enabled: cfg.trackers.redacted.enabled },
-    { id: 'orpheus', name: 'Orpheus', enabled: cfg.trackers.orpheus.enabled }
-  ]
+  return UPLOAD_TRACKER_IDS.map((id) => ({
+    id,
+    name: trackerName(id),
+    enabled: cfg.trackers[id].enabled
+  }))
 }
 
 export function createTrackers(cfg: Config): Tracker[] {

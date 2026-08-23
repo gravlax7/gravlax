@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { trackerCode } from '@shared/trackers'
 import type { Config } from '@shared/types/config'
 import type {
   SeedFormatInput,
@@ -76,11 +77,6 @@ const PROGRESS_INTERVAL_MS = 250
 // qBittorrent accepts the add before its torrent list always reflects it.
 // Keep the quick first check, then allow the client time to finish the add.
 const TORRENT_LOOKUP_RETRY_MS = [250, 500, 1_000, 2_000, 4_000]
-
-const TRACKER_LABELS: Record<UploadTrackerId, string> = {
-  redacted: 'RED',
-  orpheus: 'OPS'
-}
 
 export function transferTaskId(formatId: string): string {
   return `transfer:${formatId}`
@@ -365,7 +361,7 @@ export function buildInitialSeed(
             id: injectTaskId(format.id, torrent.trackerId),
             kind: 'inject',
             trackerId: torrent.trackerId,
-            label: `Inject ${format.label} (${TRACKER_LABELS[torrent.trackerId]})`,
+            label: `Inject ${format.label} (${trackerCode(torrent.trackerId)})`,
             status: 'pending'
           })
         )

@@ -1,6 +1,8 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import type { Config, FieldMetadata, NotifyPayload, SectionID, ValidationIssue } from '@shared/types/config'
 import { totalUploads, type UpdateCheckResult, type UploadStats } from '@shared/types'
+import { UPLOAD_TRACKER_IDS, trackerName } from '@shared/trackers'
+import { isThemePreference } from '@shared/theme'
 import {
   coverImageHostOptions,
   enabledSpectralImageHostOptions,
@@ -640,10 +642,10 @@ function StatisticsPanel(props: { stats: UploadStats | null }) {
   const number = new Intl.NumberFormat()
   const trackerRows = (): Array<{ label: string; count: number }> => {
     const stats = props.stats
-    return [
-      { label: 'Redacted', count: stats?.trackers.redacted ?? 0 },
-      { label: 'Orpheus', count: stats?.trackers.orpheus ?? 0 }
-    ]
+    return UPLOAD_TRACKER_IDS.map((id) => ({
+      label: trackerName(id),
+      count: stats?.trackers[id] ?? 0
+    }))
   }
   const formatRows = (): Array<{ id: string; label: string; count: number }> => {
     const stats = props.stats
@@ -753,14 +755,7 @@ function FieldRow(props: {
 
   const enumLabel = (value: string): string => {
     if (props.field.name === 'theme') {
-      if (value === 'system') return 'System'
-      if (value === 'dark') return 'Dark'
-      if (value === 'midnight') return 'Midnight'
-      if (value === 'fjord') return 'Fjord'
-      if (value === 'ember') return 'Ember'
-      if (value === 'phosphor') return 'Phosphor'
-      if (value === 'light') return 'Light'
-      if (value === 'inkwell') return 'Inkwell'
+      if (isThemePreference(value)) return `${value.charAt(0).toUpperCase()}${value.slice(1)}`
     }
     if (props.field.name === 'albumDescriptionTemplateId') {
       return descriptionTemplateName(value)
@@ -769,12 +764,8 @@ function FieldRow(props: {
   }
 
   const trackerId = (): ReturnType<typeof trackerIdFromFieldName> => {
-    if (props.section !== 'trackers') return null
-    const name = props.field.name
-    if (name === 'redacted.enabled' || name === 'orpheus.enabled') {
-      return trackerIdFromFieldName(name)
-    }
-    return null
+    if (props.section !== 'trackers' || !props.field.name.endsWith('.enabled')) return null
+    return trackerIdFromFieldName(props.field.name)
   }
 
   const providerName = (): string | null => {
@@ -913,11 +904,9 @@ function enumOptions(cfg: Config, section: SectionID, field: FieldMetadata): str
   if (section === 'spectral' && field.name === 'imageHost') {
     return enabledSpectralImageHostOptions(cfg)
   }
-  if (section === 'trackers' && field.name === 'redacted.coverImageHost') {
-    return coverImageHostOptions(cfg, 'redacted')
-  }
-  if (section === 'trackers' && field.name === 'orpheus.coverImageHost') {
-    return coverImageHostOptions(cfg, 'orpheus')
+  if (section === 'trackers' && field.name.endsWith('.coverImageHost')) {
+    const trackerId = trackerIdFromFieldName(field.name)
+    if (trackerId) return coverImageHostOptions(cfg, trackerId)
   }
   if (section === 'naming' && field.name === 'albumDescriptionTemplateId') {
     return listDescriptionTemplateIds()

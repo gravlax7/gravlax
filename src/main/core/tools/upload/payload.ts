@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
+import { trackerName } from '@shared/trackers'
 import type { UploadFormatPayload, UploadSnapshot, UploadTrackerId } from '@shared/types/upload'
 import { effectiveReleaseType, releaseTypeId } from '@shared/upload/releaseTypes'
 import type { TrackerUploadData, TrackerUploadFiles } from '@main/core/tools/trackers/types'
@@ -49,7 +50,7 @@ export function buildTrackerUploadData(input: BuildUploadDataInput): TrackerUplo
   const releaseType = releaseTypeId(trackerId, releaseTypeName)
   if (releaseType === null) {
     throw new Error(
-      `Release type "${releaseTypeName}" is not valid on ${trackerLabel(trackerId)}`
+      `Release type "${releaseTypeName}" is not valid on ${trackerName(trackerId)}`
     )
   }
 
@@ -70,10 +71,6 @@ export function buildTrackerUploadData(input: BuildUploadDataInput): TrackerUplo
     album_desc: upload.albumDesc ?? '',
     unknown: upload.unknown ?? false
   }
-}
-
-function trackerLabel(trackerId: UploadTrackerId): string {
-  return trackerId === 'orpheus' ? 'Orpheus' : 'Redacted'
 }
 
 /** Reads the rip logs discovered at report-build time into upload attachments. */

@@ -1,5 +1,6 @@
 import { Show, createSignal } from 'solid-js'
 import type { SourceMedia, UploadFlowStateJSON } from '@shared/types'
+import { SOURCE_MEDIA_OPTIONS } from '@shared/upload/sourceMedia'
 import { Card, Icon, ProgressBar, Section, SegmentedControl } from '../../../ui'
 import {
   FilesCheckResult,
@@ -8,8 +9,6 @@ import {
   MqaResult,
   UpconvertResult
 } from '../filesCheck'
-
-const SOURCE_MEDIA: SourceMedia[] = ['WEB', 'CD']
 
 export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
   const [expanded, setExpanded] = createSignal(false)
@@ -36,7 +35,7 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
           </div>
           <SegmentedControl
             value={media() || 'WEB'}
-            options={SOURCE_MEDIA.map((option: SourceMedia) => ({ value: option, label: option }))}
+            options={SOURCE_MEDIA_OPTIONS.map((option: SourceMedia) => ({ value: option, label: option }))}
             onChange={(next) => void window.gravlax.upload.selectSourceMedia(next)}
           />
         </Card>

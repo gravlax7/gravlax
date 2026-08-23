@@ -1,3 +1,13 @@
+import type { UploadTrackerId } from '../trackers'
+import type { Bitrate } from '../upload/encodings'
+import type { SourceMedia } from '../upload/sourceMedia'
+import type { Step, StepID } from '../upload/steps'
+
+export type { UploadTrackerId } from '../trackers'
+export type { Bitrate } from '../upload/encodings'
+export type { SourceMedia } from '../upload/sourceMedia'
+export type { Step, StepID } from '../upload/steps'
+
 export const FIELD_ARTISTS = 'artists'
 export const FIELD_ALBUM_ARTIST = 'albumArtist'
 export const FIELD_TITLE = 'title'
@@ -84,23 +94,6 @@ export interface Release {
   trackCount?: number
   tracks?: Track[]
   mixed?: Record<string, boolean>
-}
-
-export type StepID =
-  | 'files-check'
-  | 'spectrals'
-  | 'metadata'
-  | 'tags'
-  | 'transcode'
-  | 'upload'
-  | 'seed'
-
-export type SourceMedia = 'WEB' | 'CD'
-
-export interface Step {
-  id: StepID
-  title: string
-  body: string
 }
 
 export interface Draft {
@@ -271,7 +264,6 @@ export interface FilesSnapshot {
   apply: FilesApplySnapshot
 }
 
-export type Bitrate = 'V0' | '320'
 export type BitDepth = 16 | 24
 export type TranscodeEncoding = 'Lossless' | '24bit Lossless'
 export type TranscodeOptionAction = 'downconvert' | 'transcode'
@@ -382,8 +374,6 @@ export interface FilesCheckSnapshot {
   /** Set only when the check itself broke, as opposed to finding problems. */
   error?: string
 }
-
-export type UploadTrackerId = 'redacted' | 'orpheus'
 
 export type UploadPhase = 'idle' | 'ready' | 'submitting' | 'done' | 'failed'
 

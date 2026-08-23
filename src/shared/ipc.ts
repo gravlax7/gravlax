@@ -1,5 +1,14 @@
 import { z } from 'zod'
-import type { Config, NotifyPayload, SectionID, ValidationIssue } from './types/config'
+import {
+  CONFIG_SECTION_IDS,
+  type Config,
+  type NotifyPayload,
+  type SectionID,
+  type ValidationIssue
+} from './types/config'
+import { THEME_PREFERENCES } from './theme'
+import { UPLOAD_TRACKER_IDS } from './trackers'
+import { SOURCE_MEDIA_OPTIONS } from './upload/sourceMedia'
 import type { UploadStats } from './types/stats'
 import type { SalmonImportInput } from './config/salmonImport'
 import type { UpdateCheckResult } from './types/update'
@@ -107,24 +116,11 @@ const objectInput = <T>(): z.ZodType<T> =>
   z.object({}).passthrough().refine((value) => value !== null) as unknown as z.ZodType<T>
 
 const noArgs = z.tuple([])
-const trackerID = z.enum(['redacted', 'orpheus'])
+const trackerID = z.enum(UPLOAD_TRACKER_IDS)
 const stepIndex = z.number().int().min(0).max(WORKFLOW_STEPS.length - 1)
 const optionalOneArgument = <T>(schema: z.ZodType<T>): z.ZodType<[T?]> =>
   z.union([z.tuple([]), z.tuple([schema.optional()])]) as unknown as z.ZodType<[T?]>
-const sectionID = z.enum([
-  'appearance',
-  'directories',
-  'tools',
-  'trackers',
-  'metadataProviders',
-  'imageHosts',
-  'torrentClient',
-  'transfer',
-  'naming',
-  'spectral',
-  'cleanup',
-  'workflow'
-])
+const sectionID = z.enum(CONFIG_SECTION_IDS)
 const trackerConfig = z.object({
   enabled: z.boolean(),
   siteUrl: z.string(),
@@ -135,7 +131,7 @@ const trackerConfig = z.object({
 })
 const configInput: z.ZodType<Config> = z.object({
   appearance: z.object({
-    theme: z.enum(['system', 'dark', 'midnight', 'fjord', 'ember', 'phosphor', 'light', 'inkwell'])
+    theme: z.enum(THEME_PREFERENCES)
   }),
   directories: z.object({ source: z.string(), torrents: z.string(), seeding: z.string() }),
   tools: z.object({
@@ -219,7 +215,7 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'upload:listStartEntries': noArgs,
   'upload:startNew': z.tuple([z.string().min(1)]),
   'upload:resume': z.tuple([z.string().min(1)]),
-  'upload:selectSourceMedia': z.tuple([z.enum(['WEB', 'CD'])]),
+  'upload:selectSourceMedia': z.tuple([z.enum(SOURCE_MEDIA_OPTIONS)]),
   'upload:setLossyMaster': z.tuple([z.boolean()]),
   'upload:setLossyComment': z.tuple([z.string()]),
   'upload:resolveMetadataUrl': z.tuple([z.string().min(1)]),

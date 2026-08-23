@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import type { Config } from '@shared/types/config'
+import { COVER_IMAGE_HOST_IDS, type Config } from '@shared/types/config'
 import {
   coverImageHostOptions,
   enabledImageHostOptions,
   enabledSpectralImageHostOptions,
+  isCoverImageHostId,
   isValidCoverImageHost,
   sanitizeCoverImageHosts,
   supportsSpectralUpload
 } from '@shared/config/imageHosts'
+
+describe('image host catalog', () => {
+  it('recognizes every cover image host and rejects unknown hosts', () => {
+    for (const host of COVER_IMAGE_HOST_IDS) expect(isCoverImageHostId(host)).toBe(true)
+    expect(isCoverImageHostId('other')).toBe(false)
+  })
+})
 
 function baseConfig(overrides: Partial<Config> = {}): Config {
   return {

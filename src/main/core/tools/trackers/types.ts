@@ -1,4 +1,6 @@
-export type TrackerId = 'redacted' | 'orpheus'
+import type { UploadTrackerId } from '@shared/trackers'
+
+export type TrackerId = UploadTrackerId
 
 export interface GazelleEnvelope<T = unknown> {
   status: string

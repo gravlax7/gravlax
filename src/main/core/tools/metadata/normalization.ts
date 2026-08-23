@@ -31,6 +31,33 @@ export function mapReleaseTypeToken(value: string): string {
   return RELEASE_TYPE_MAP[normalized] ?? ''
 }
 
+export function normalizeProviderArtistRole(role: string): string {
+  const normalized = role.trim().toLowerCase()
+  if (!normalized || normalized === 'main' || normalized === 'primary') return 'main'
+  if (['featured', 'featuring', 'feat', 'ft', 'ft.'].includes(normalized)) return 'guest'
+  return normalizeArtistRole(normalized)
+}
+
+export function createProviderArtistList(): {
+  artists: Artist[]
+  add: (name: string, role: string) => void
+} {
+  const artists: Artist[] = []
+  const seen = new Set<string>()
+  return {
+    artists,
+    add(name, role) {
+      const trimmed = name.trim()
+      if (!trimmed) return
+      const normalizedRole = normalizeProviderArtistRole(role)
+      const key = `${trimmed.toLowerCase()}\0${normalizedRole}`
+      if (seen.has(key)) return
+      seen.add(key)
+      artists.push({ name: trimmed, role: normalizedRole })
+    }
+  }
+}
+
 export function finalizeNormalizedRelease(release: Release): Release {
   const next = { ...release }
   next.artists = mergeReleaseArtists(next.artists ?? [], next.tracks ?? [])

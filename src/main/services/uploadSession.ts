@@ -882,10 +882,6 @@ export class UploadSession {
       await removeUploadWorkspace(uploadWorkspaceRootForPath(workspacePath))
       return
     }
-    if (!this.stillOnSource(generation, sourcePath)) {
-      await removeUploadWorkspace(uploadWorkspaceRootForPath(workspacePath))
-      return
-    }
     this.apply(setWorkspacePath(this.state, workspacePath))
     try {
       await removeOtherUploadWorkspacesForSource(

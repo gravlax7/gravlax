@@ -1,15 +1,15 @@
-import type { Config, CoverImageHostId } from '@shared/types/config'
+import {
+  COVER_IMAGE_HOST_IDS,
+  type Config,
+  type CoverImageHostId
+} from '@shared/types/config'
 import { canEnableRedactedImageHost } from '@shared/config/trackers'
+import type { UploadTrackerId } from '@shared/trackers'
 
 const SPECTRAL_UPLOAD_HOSTS = new Set(['imgbb', 'catbox'])
-const COVER_IMAGE_HOSTS = new Set<CoverImageHostId>([
-  'thesungod',
-  'imgbb',
-  'catbox',
-  'redacted'
-])
+const COVER_IMAGE_HOSTS = new Set<CoverImageHostId>(COVER_IMAGE_HOST_IDS)
 
-export type TrackerImageHostTarget = 'redacted' | 'orpheus'
+export type TrackerImageHostTarget = UploadTrackerId
 
 export function supportsSpectralUpload(host: string): boolean {
   return SPECTRAL_UPLOAD_HOSTS.has(host)

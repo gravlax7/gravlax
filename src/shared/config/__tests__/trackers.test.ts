@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Config, TrackerConfig } from '@shared/types/config'
-import { canEnableRedactedImageHost, isTrackerConfigured } from '@shared/config/trackers'
+import {
+  canEnableRedactedImageHost,
+  enabledTrackerOptions,
+  isTrackerConfigured
+} from '@shared/config/trackers'
 
 const emptyTracker: TrackerConfig = {
   enabled: false,
@@ -78,6 +82,15 @@ function cfgWithRedacted(tracker: TrackerConfig): Config {
 }
 
 describe('trackers', () => {
+  it('returns enabled trackers in catalog order', () => {
+    const cfg = cfgWithRedacted({ ...emptyTracker, enabled: true })
+    cfg.trackers.orpheus.enabled = true
+    expect(enabledTrackerOptions(cfg)).toEqual(['redacted', 'orpheus'])
+
+    cfg.trackers.redacted.enabled = false
+    expect(enabledTrackerOptions(cfg)).toEqual(['orpheus'])
+  })
+
   it('treats a tracker as configured only when enabled with urls and credentials', () => {
     expect(isTrackerConfigured(emptyTracker)).toBe(false)
     expect(

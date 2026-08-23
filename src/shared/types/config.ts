@@ -1,26 +1,33 @@
-export type SectionID =
-  | 'appearance'
-  | 'directories'
-  | 'tools'
-  | 'trackers'
-  | 'metadataProviders'
-  | 'imageHosts'
-  | 'torrentClient'
-  | 'transfer'
-  | 'naming'
-  | 'spectral'
-  | 'cleanup'
-  | 'workflow'
+import type { UploadTrackerId } from '../trackers'
+import type { ThemePreference } from '../theme'
 
-export type ThemePreference =
-  | 'system'
-  | 'dark'
-  | 'midnight'
-  | 'fjord'
-  | 'ember'
-  | 'phosphor'
-  | 'light'
-  | 'inkwell'
+export type { ThemePreference } from '../theme'
+
+export const CONFIG_SECTION_IDS = [
+  'appearance',
+  'directories',
+  'tools',
+  'trackers',
+  'metadataProviders',
+  'imageHosts',
+  'torrentClient',
+  'transfer',
+  'naming',
+  'spectral',
+  'cleanup',
+  'workflow'
+] as const satisfies readonly (keyof Config)[]
+
+export type SectionID = (typeof CONFIG_SECTION_IDS)[number]
+
+export const COVER_IMAGE_HOST_IDS = [
+  'thesungod',
+  'imgbb',
+  'catbox',
+  'redacted'
+] as const satisfies readonly (keyof ImageHostsConfig)[]
+
+export type CoverImageHostId = (typeof COVER_IMAGE_HOST_IDS)[number]
 
 export type FieldType = 'bool' | 'string' | 'number' | 'enum' | 'path' | 'file' | 'url' | 'separator'
 
@@ -57,10 +64,7 @@ export interface ToolsConfig {
   lame: string
 }
 
-export interface TrackersConfig {
-  redacted: TrackerConfig
-  orpheus: TrackerConfig
-}
+export type TrackersConfig = Record<UploadTrackerId, TrackerConfig>
 
 export interface TrackerConfig {
   enabled: boolean
@@ -93,8 +97,6 @@ export interface ImageHostsConfig {
   catbox: ImageHostToggleConfig
   redacted: ImageHostToggleConfig
 }
-
-export type CoverImageHostId = keyof ImageHostsConfig
 
 export interface ImageHostAPIKeyConfig {
   enabled: boolean

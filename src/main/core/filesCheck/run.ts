@@ -14,7 +14,14 @@ import { checkLogsWorkspace, logcheckerSummaryDetail } from './logchecker'
 import { checkMQAWorkspace, mqaSummaryDetail } from './mqa'
 import { checkUpconvertWorkspace, upconvertSummaryDetail } from './upconvert'
 
-export type FilesCheckJob = 'integrity' | 'mqa' | 'upconvert' | 'logchecker'
+const JOB_LABELS = {
+  integrity: 'Integrity',
+  mqa: 'MQA',
+  upconvert: 'Upconvert',
+  logchecker: 'Logchecker'
+} as const
+
+export type FilesCheckJob = keyof typeof JOB_LABELS
 
 export interface RunFilesCheckOptions {
   workspacePath: string
@@ -43,13 +50,6 @@ export interface FilesCheckJobs {
   checkMqa: typeof checkMQAWorkspace
   checkUpconvert: typeof checkUpconvertWorkspace
   checkLogs: typeof checkLogsWorkspace
-}
-
-const JOB_LABELS: Record<FilesCheckJob, string> = {
-  integrity: 'Integrity',
-  mqa: 'MQA',
-  upconvert: 'Upconvert',
-  logchecker: 'Logchecker'
 }
 
 export async function runFilesCheck(options: RunFilesCheckOptions): Promise<FilesCheckRunResult> {

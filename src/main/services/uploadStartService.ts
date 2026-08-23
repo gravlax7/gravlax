@@ -1,19 +1,14 @@
 import { readdir, stat } from 'node:fs/promises'
-import { basename, join, normalize, resolve } from 'node:path'
+import { basename, join } from 'node:path'
 import type {
   StepID,
   UploadStartEntries,
   UploadStartResumeEntry,
   UploadedReleaseRecord
 } from '@shared/types'
-import { expandPath } from '@main/core/config/paths'
+import { expandPath, pathKey } from '@main/core/config/paths'
 import { listUploadWorkspaces } from '@main/core/appdata/workspace'
 import { readUploadHistory } from '@main/core/appdata/uploadHistory'
-
-function pathKey(path: string): string {
-  const key = normalize(resolve(path))
-  return process.platform === 'win32' ? key.toLowerCase() : key
-}
 
 function restoredStep(id: string | undefined): StepID {
   if (id === 'source' || id === undefined) return 'files-check'

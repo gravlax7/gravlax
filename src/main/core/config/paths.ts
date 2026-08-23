@@ -1,5 +1,10 @@
 import { homedir } from 'os'
-import { sep } from 'path'
+import { normalize, resolve, sep } from 'path'
+
+export function pathKey(path: string): string {
+  const key = normalize(resolve(path))
+  return process.platform === 'win32' ? key.toLowerCase() : key
+}
 
 export function expandPath(path: string): { path: string; ok: boolean } {
   if (path === '') {

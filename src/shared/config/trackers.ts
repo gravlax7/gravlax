@@ -1,14 +1,12 @@
 import type { Config, TrackerConfig } from '@shared/types/config'
+import { UPLOAD_TRACKER_IDS, type UploadTrackerId } from '@shared/trackers'
 
 export function anyTrackerEnabled(cfg: Config): boolean {
-  return cfg.trackers.redacted.enabled || cfg.trackers.orpheus.enabled
+  return UPLOAD_TRACKER_IDS.some((id) => cfg.trackers[id].enabled)
 }
 
-export function enabledTrackerOptions(cfg: Config): string[] {
-  const options: string[] = []
-  if (cfg.trackers.redacted.enabled) options.push('redacted')
-  if (cfg.trackers.orpheus.enabled) options.push('orpheus')
-  return options
+export function enabledTrackerOptions(cfg: Config): UploadTrackerId[] {
+  return UPLOAD_TRACKER_IDS.filter((id) => cfg.trackers[id].enabled)
 }
 
 export function isTrackerConfigured(tracker: TrackerConfig): boolean {

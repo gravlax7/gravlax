@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
-import { mkdir, readdir, rm } from 'node:fs/promises'
-import { dirname, join, relative, sep } from 'node:path'
+import { mkdir, rm } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import type { Bitrate } from '@shared/types'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
@@ -9,6 +9,7 @@ import { SOURCE_TORRENT_PLACEHOLDER } from '@main/core/tools/upload/descriptions
 import { SKIP_EXTENSIONS } from './audioInfo'
 import { copyExtraFiles } from './extras'
 import { buildMp3OutputPath } from './naming'
+import { inspectOutputFolder } from './outputFolder'
 import { processFiles, type ProcessProgress } from './processFiles'
 import { readFlacPictures, readPreparedFlacTags, writeMp3Tags } from './tags'
 
@@ -43,10 +44,13 @@ export async function transcodeFolder(
   const newPath = buildMp3OutputPath(path, bitrate)
   const items = await collectTranscodeItems(path, newPath)
 
-  if (await pathExists(newPath)) {
-    const expected = items.map((item) => outputKey(newPath, item.dst))
-    const existing = await collectOutputKeys(newPath, '.mp3')
-    if (expected.length > 0 && expected.every((name) => existing.has(name))) {
+  const outputState = await inspectOutputFolder(
+    newPath,
+    items.map((item) => item.dst),
+    '.mp3'
+  )
+  if (outputState !== 'missing') {
+    if (outputState === 'complete') {
       return { outputPath: newPath }
     }
     await rm(newPath, { recursive: true, force: true })
@@ -189,39 +193,4 @@ export async function resolveMp3Executables(
     tools.require('lame')
   ])
   return { flacExecutable, lameExecutable }
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await readdir(path)
-    return true
-  } catch {
-    return false
-  }
-}
-
-// Multi-disc releases nest their tracks, so comparing bare filenames both misses
-// existing output and collides across discs. Compare paths relative to the
-// output root instead.
-function outputKey(root: string, path: string): string {
-  return relative(root, path).split(sep).join('/').toLowerCase()
-}
-
-async function collectOutputKeys(root: string, extension: string): Promise<Set<string>> {
-  const keys = new Set<string>()
-  async function walk(dir: string): Promise<void> {
-    const entries = await readdir(dir, { withFileTypes: true })
-    for (const entry of entries) {
-      const path = join(dir, entry.name)
-      if (entry.isDirectory()) {
-        await walk(path)
-        continue
-      }
-      if (!entry.isFile()) continue
-      if (!entry.name.toLowerCase().endsWith(extension)) continue
-      keys.add(outputKey(root, path))
-    }
-  }
-  await walk(root)
-  return keys
 }

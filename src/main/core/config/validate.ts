@@ -1,5 +1,11 @@
 import path from 'node:path'
-import type { Config, SectionID, ValidationIssue } from '@shared/types/config'
+import type { Config, SectionID, TrackerConfig, ValidationIssue } from '@shared/types/config'
+import {
+  UPLOAD_TRACKER_IDS,
+  trackerName,
+  type UploadTrackerId
+} from '@shared/trackers'
+import { isThemePreference } from '@shared/theme'
 import {
   enabledSpectralImageHostOptions,
   isValidCoverImageHost
@@ -7,6 +13,7 @@ import {
 import { isHTTPSURL, isSafeQBittorrentURL } from '@shared/config/network'
 import { canEnableRedactedImageHost } from '@shared/config/trackers'
 import { listDescriptionTemplateIds } from '@shared/upload/templates'
+import { SPECTRAL_SELECTION_OPTIONS } from '@shared/upload/spectralIds'
 import { validateMultiDiscFolderTemplate, validateReleaseFolderTemplate, validateTrackFileTemplate } from '@shared/upload/naming'
 import { expandPath, normalizePath } from './paths'
 
@@ -16,24 +23,13 @@ export function validate(cfg: Config): ValidationIssue[] {
     issues.push({ section, field, message })
   }
 
-  if (
-    !oneOf(
-      cfg.appearance.theme,
-      'system',
-      'dark',
-      'midnight',
-      'fjord',
-      'ember',
-      'phosphor',
-      'light',
-      'inkwell'
-    )
-  ) {
+  if (!isThemePreference(cfg.appearance.theme)) {
     add('appearance', 'theme', 'theme is not supported')
   }
 
-  validateTracker(cfg.trackers.redacted, 'redacted', 'Redacted', add)
-  validateTracker(cfg.trackers.orpheus, 'orpheus', 'Orpheus', add)
+  for (const trackerId of UPLOAD_TRACKER_IDS) {
+    validateTracker(cfg.trackers[trackerId], trackerId, trackerName(trackerId), add)
+  }
   if (!isValidCoverImageHost(cfg, 'redacted', cfg.trackers.redacted.coverImageHost)) {
     add(
       'trackers',
@@ -176,10 +172,13 @@ export function validate(cfg: Config): ValidationIssue[] {
   ) {
     add('spectral', 'imageHost', 'image host must be one of the enabled spectral image hosts')
   }
-  if (!oneOf(cfg.spectral.defaultSpectralIds, 'All', 'Random', 'First track', 'None')) {
+  if (!oneOf(cfg.spectral.defaultSpectralIds, ...SPECTRAL_SELECTION_OPTIONS)) {
     add('spectral', 'defaultSpectralIds', 'default spectral ids must be All, Random, First track, or None')
   }
-  if (!oneOf(cfg.spectral.defaultSpectralIdsForLossyMasters, 'All', 'Random', 'First track', 'None')) {
+  if (!oneOf(
+    cfg.spectral.defaultSpectralIdsForLossyMasters,
+    ...SPECTRAL_SELECTION_OPTIONS
+  )) {
     add(
       'spectral',
       'defaultSpectralIdsForLossy',
@@ -220,8 +219,8 @@ function normalizeTrackerUrl(value: string): string {
 }
 
 function validateTracker(
-  tracker: Config['trackers']['redacted'],
-  prefix: 'redacted' | 'orpheus',
+  tracker: TrackerConfig,
+  prefix: UploadTrackerId,
   label: string,
   add: (section: SectionID, field: string, message: string) => void
 ): void {

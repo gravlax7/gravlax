@@ -1,39 +1,27 @@
-export type ThemePreference =
-  | 'system'
-  | 'dark'
-  | 'midnight'
-  | 'fjord'
-  | 'ember'
-  | 'phosphor'
-  | 'light'
-  | 'inkwell'
+export const THEME_PREFERENCES = [
+  'system',
+  'dark',
+  'midnight',
+  'fjord',
+  'ember',
+  'phosphor',
+  'light',
+  'inkwell'
+] as const
+
+export type ThemePreference = (typeof THEME_PREFERENCES)[number]
 export type ResolvedTheme = Exclude<ThemePreference, 'system'>
 
 export function resolveTheme(
   preference: ThemePreference | string | undefined,
   systemPrefersDark: boolean
 ): ResolvedTheme {
-  if (preference === 'light') return 'light'
-  if (preference === 'dark') return 'dark'
-  if (preference === 'midnight') return 'midnight'
-  if (preference === 'fjord') return 'fjord'
-  if (preference === 'ember') return 'ember'
-  if (preference === 'phosphor') return 'phosphor'
-  if (preference === 'inkwell') return 'inkwell'
+  if (isThemePreference(preference) && preference !== 'system') return preference
   return systemPrefersDark ? 'dark' : 'light'
 }
 
 export function isThemePreference(value: unknown): value is ThemePreference {
-  return (
-    value === 'system' ||
-    value === 'dark' ||
-    value === 'midnight' ||
-    value === 'fjord' ||
-    value === 'ember' ||
-    value === 'phosphor' ||
-    value === 'light' ||
-    value === 'inkwell'
-  )
+  return THEME_PREFERENCES.some((theme) => theme === value)
 }
 
 export function isLightTheme(theme: ResolvedTheme): boolean {

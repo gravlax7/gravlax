@@ -2,6 +2,7 @@ import { open, stat } from 'node:fs/promises'
 import { basename, extname } from 'node:path'
 import type { Artist, Release, Track } from '@shared/types'
 import { discoverFLACFiles, type FlacFile } from '@main/core/tools/flacFiles'
+import { readExact } from '@main/core/tools/readExact'
 import {
   FIELD_ALBUM_ARTIST,
   FIELD_ARTISTS,
@@ -144,21 +145,6 @@ export async function readFLACTags(path: string): Promise<FlacTags> {
     return { values, pictureCount }
   } finally {
     await handle.close()
-  }
-}
-
-async function readExact(
-  handle: Awaited<ReturnType<typeof open>>,
-  buf: Buffer,
-  position: number
-): Promise<void> {
-  let offset = 0
-  while (offset < buf.length) {
-    const { bytesRead } = await handle.read(buf, offset, buf.length - offset, position + offset)
-    if (bytesRead === 0) {
-      throw new Error('unexpected EOF')
-    }
-    offset += bytesRead
   }
 }
 

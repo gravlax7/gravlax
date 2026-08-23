@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { isUploadTrackerId, trackerCode, trackerName } from '@shared/trackers'
 import type { Config } from '@shared/types/config'
 import type {
   UploadFormatPayload,
@@ -23,16 +24,6 @@ import {
   wrapTranscodeLossyComment
 } from '@main/core/tools/upload/descriptions'
 
-const TRACKER_NAMES: Record<UploadTrackerId, string> = {
-  redacted: 'Redacted',
-  orpheus: 'Orpheus'
-}
-
-const TRACKER_SOURCES: Record<UploadTrackerId, string> = {
-  redacted: 'RED',
-  orpheus: 'OPS'
-}
-
 export function submissionId(trackerId: UploadTrackerId, formatId: string): string {
   return `${trackerId}:${formatId}`
 }
@@ -46,7 +37,7 @@ export function planSubmissions(upload: UploadSnapshot): UploadSubmission[] {
         id: submissionId(trackerId, format.id),
         trackerId,
         formatId: format.id,
-        label: `${TRACKER_NAMES[trackerId]} · ${format.label}`,
+        label: `${trackerName(trackerId)} · ${format.label}`,
         status: 'pending'
       })
     }
@@ -76,14 +67,18 @@ export interface RunSubmissionsOptions {
 
 export async function runSubmissions(options: RunSubmissionsOptions): Promise<void> {
   const { cfg, upload, submissions, signal, fresh, onPatch, onCommit, onGroupId } = options
-  const trackers = new Map(createTrackers(cfg).map((t) => [t.id as UploadTrackerId, t]))
+  const trackers = new Map(createTrackers(cfg).map((t) => [t.id, t]))
   const formats = new Map((upload.formats ?? []).map((f) => [f.id, f]))
   const groupIds = new Map<UploadTrackerId, number>()
   const sourceUrls = new Map<UploadTrackerId, string>()
 
   for (const [trackerId, existing] of Object.entries(upload.groupIds ?? {})) {
-    if (typeof existing === 'number' && Number.isFinite(existing)) {
-      groupIds.set(trackerId as UploadTrackerId, existing)
+    if (
+      isUploadTrackerId(trackerId) &&
+      typeof existing === 'number' &&
+      Number.isFinite(existing)
+    ) {
+      groupIds.set(trackerId, existing)
     }
   }
 
@@ -102,7 +97,7 @@ export async function runSubmissions(options: RunSubmissionsOptions): Promise<vo
     const tracker = trackers.get(trackerId)
     if (!tracker) {
       for (const sub of pending) {
-        onPatch(sub.id, { status: 'failed', error: `${TRACKER_NAMES[trackerId]} is not configured.` })
+        onPatch(sub.id, { status: 'failed', error: `${trackerName(trackerId)} is not configured.` })
       }
       continue
     }
@@ -182,7 +177,7 @@ async function uploadOneFormat(
 
   options.onPatch(submission.id, { status: 'running', error: undefined })
 
-  const source = TRACKER_SOURCES[trackerId]
+  const source = trackerCode(trackerId)
   const torrentPath =
     submission.torrentPath ??
     join(torrentDirectory(cfg, options.workspacePath), torrentFileName(format.folderPath, source))

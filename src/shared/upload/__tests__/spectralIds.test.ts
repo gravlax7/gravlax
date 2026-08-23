@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  SPECTRAL_SELECTION_OPTIONS,
   clampSpectralIds,
   parseSpectralIds,
   spectralIdsForRelease,
@@ -20,6 +21,7 @@ describe('parseSpectralIds', () => {
   })
 
   it('reads the names the settings screen writes', () => {
+    expect(SPECTRAL_SELECTION_OPTIONS).toEqual(['All', 'Random', 'First track', 'None'])
     expect(parseSpectralIds('All', 3)).toEqual([1, 2, 3])
     expect(parseSpectralIds('None', 3)).toEqual([])
     expect(parseSpectralIds('First track', 3)).toEqual([1])

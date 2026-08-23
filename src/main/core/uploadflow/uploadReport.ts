@@ -1,4 +1,5 @@
 import type { Config, CoverImageHostId } from '@shared/types/config'
+import { trackerName } from '@shared/trackers'
 import type {
   BitDepth,
   Bitrate,
@@ -119,9 +120,7 @@ export async function buildUploadSnapshot(
 ): Promise<UploadSnapshot> {
   const proposed = s.tags.proposed ?? {}
   const inspection = s.transcode.inspection
-  const trackerIds = enabledTrackerOptions(cfg).filter(
-    (id): id is UploadTrackerId => id === 'redacted' || id === 'orpheus'
-  )
+  const trackerIds = enabledTrackerOptions(cfg)
   const sourceUrl = s.metadata.selected?.url?.trim() || undefined
   const trackInputs = await collectTrackDescInputs(
     s.draft.workspacePath,
@@ -273,11 +272,6 @@ export interface HostCoverImagesResult {
   error?: string
 }
 
-const TRACKER_NAMES: Record<UploadTrackerId, string> = {
-  redacted: 'Redacted',
-  orpheus: 'Orpheus'
-}
-
 export async function hostCoverImagesForSubmit(
   s: State,
   cfg: Config,
@@ -309,7 +303,7 @@ export async function hostCoverImagesForSubmit(
     }
     if (!isCoverImageHostId(host)) {
       delete hostedCoverImages[trackerId]
-      errors.push(`${TRACKER_NAMES[trackerId]} has an invalid cover image host: ${host}.`)
+      errors.push(`${trackerName(trackerId)} has an invalid cover image host: ${host}.`)
       continue
     }
 
@@ -348,7 +342,7 @@ export async function hostCoverImagesForSubmit(
 }
 
 function coverHostError(trackers: readonly UploadTrackerId[], host: CoverImageHostId): string {
-  const names = trackers.map((trackerId) => TRACKER_NAMES[trackerId]).join(' and ')
+  const names = trackers.map(trackerName).join(' and ')
   return `Failed to upload ${names} cover to ${host}.`
 }
 

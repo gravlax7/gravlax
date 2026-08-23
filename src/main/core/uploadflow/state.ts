@@ -22,8 +22,6 @@ import { emptyUpload } from './upload'
 
 export const STEPS = WORKFLOW_STEPS
 
-export const SOURCE_MEDIA_OPTIONS: SourceMedia[] = ['WEB', 'CD']
-
 export interface State {
   currentStep: number
   draft: Draft
@@ -66,10 +64,6 @@ export function newState(): State {
 
 export function steps(): typeof WORKFLOW_STEPS[number][] {
   return STEPS.map((s) => ({ ...s }))
-}
-
-export function sourceMediaOptions(): SourceMedia[] {
-  return [...SOURCE_MEDIA_OPTIONS]
 }
 
 export function currentStepIndex(s: State): number {

@@ -1,7 +1,39 @@
 import { describe, expect, it } from 'vitest'
+import { CONFIG_SECTION_IDS, type Config } from '../types/config'
 import { parseIpcArguments } from '../ipc'
+import { THEME_PREFERENCES } from '../theme'
+import { UPLOAD_TRACKER_IDS } from '../trackers'
+import { SOURCE_MEDIA_OPTIONS } from '../upload/sourceMedia'
 
 describe('IPC argument contract', () => {
+  it('accepts every value from the shared domain catalogs', () => {
+    for (const trackerId of UPLOAD_TRACKER_IDS) {
+      expect(parseIpcArguments('upload:fetchTorrentGroup', [trackerId, 1])).toEqual([
+        trackerId,
+        1
+      ])
+    }
+    for (const media of SOURCE_MEDIA_OPTIONS) {
+      expect(parseIpcArguments('upload:selectSourceMedia', [media])).toEqual([media])
+    }
+    for (const section of CONFIG_SECTION_IDS) {
+      expect(parseIpcArguments('config:resetSection', [section])).toEqual([section])
+    }
+    for (const theme of THEME_PREFERENCES) {
+      const cfg = configInput()
+      cfg.appearance.theme = theme
+      expect(parseIpcArguments('config:save', [cfg])).toEqual([cfg])
+    }
+  })
+
+  it('rejects values outside shared domain catalogs', () => {
+    expect(() => parseIpcArguments('upload:selectSourceMedia', ['Vinyl'])).toThrow()
+    expect(() => parseIpcArguments('config:resetSection', ['other'])).toThrow()
+    const cfg = configInput()
+    ;(cfg.appearance as { theme: string }).theme = 'other'
+    expect(() => parseIpcArguments('config:save', [cfg])).toThrow()
+  })
+
   it('accepts a valid workflow transition index', () => {
     expect(parseIpcArguments('upload:setCurrentStep', [4])).toEqual([4])
   })
@@ -72,7 +104,7 @@ describe('IPC argument contract', () => {
   })
 })
 
-function configInput() {
+function configInput(): Config {
   const tracker = {
     enabled: false,
     siteUrl: '',

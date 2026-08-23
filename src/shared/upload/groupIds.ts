@@ -1,4 +1,5 @@
 import type { UploadSnapshot, UploadTrackerId } from '@shared/types'
+import { isUploadTrackerId } from '@shared/trackers'
 
 export function emptyGroupIds(): Partial<Record<UploadTrackerId, number | null>> {
   return {}
@@ -26,10 +27,9 @@ export function withGroupIdForTracker(
 export function selectedTrackersWithGroupIds(
   upload: Pick<UploadSnapshot, 'selectedTrackerIds' | 'groupIds'>
 ): UploadTrackerId[] {
-  return (upload.selectedTrackerIds ?? []).filter((id): id is UploadTrackerId => {
-    if (id !== 'redacted' && id !== 'orpheus') return false
-    return groupIdForTracker(upload, id) != null
-  })
+  return (upload.selectedTrackerIds ?? [])
+    .filter(isUploadTrackerId)
+    .filter((id) => groupIdForTracker(upload, id) != null)
 }
 
 export function anySelectedTrackerHasGroupId(
@@ -41,9 +41,7 @@ export function anySelectedTrackerHasGroupId(
 export function allSelectedTrackersHaveGroupId(
   upload: Pick<UploadSnapshot, 'selectedTrackerIds' | 'groupIds'>
 ): boolean {
-  const selected = (upload.selectedTrackerIds ?? []).filter(
-    (id): id is UploadTrackerId => id === 'redacted' || id === 'orpheus'
-  )
+  const selected = (upload.selectedTrackerIds ?? []).filter(isUploadTrackerId)
   if (selected.length === 0) return false
   return selected.every((id) => groupIdForTracker(upload, id) != null)
 }

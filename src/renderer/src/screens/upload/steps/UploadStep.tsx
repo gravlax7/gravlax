@@ -391,11 +391,7 @@ export function UploadStep(props: {
   healthLoading: boolean
 }) {
   const upload = () => props.state.upload
-  const enabledTrackers = createMemo(() =>
-    enabledTrackerOptions(props.config).filter(
-      (id): id is UploadTrackerId => id === 'redacted' || id === 'orpheus'
-    )
-  )
+  const enabledTrackers = createMemo(() => enabledTrackerOptions(props.config))
 
   onMount(() => {
     void window.gravlax.upload.ensureUploadReport()

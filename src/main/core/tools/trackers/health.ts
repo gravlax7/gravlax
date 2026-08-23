@@ -1,5 +1,6 @@
 import type { Config } from '@shared/types/config'
 import type { HealthRow, UploadTrackerId } from '@shared/types'
+import { TRACKER_AUTH_MODES } from '@shared/trackers'
 import {
   trackerHealthRowId,
   type TrackerAuthMode
@@ -12,7 +13,6 @@ import {
 } from './index'
 import { diagnosticError, logDiagnostic } from '@main/core/diagnosticLog'
 
-const AUTH_MODES: readonly TrackerAuthMode[] = ['api', 'session']
 const TRACKER_HEALTH_TIMEOUT_MS = 30_000
 let nextHealthRunId = 0
 
@@ -32,11 +32,11 @@ export async function healthcheckTrackers(
   const groups = await Promise.all(
     definitions.map(async (definition) => {
       const tracker = byId.get(definition.id)
-      for (const mode of AUTH_MODES) {
+      for (const mode of TRACKER_AUTH_MODES) {
         onRow?.(pendingTrackerRow(definition, mode))
       }
       const rows: HealthRow[] = []
-      for (const mode of AUTH_MODES) {
+      for (const mode of TRACKER_AUTH_MODES) {
         const row = await checkTrackerAuthentication({
           cfg,
           definition,

@@ -1,4 +1,9 @@
 import type { Config } from '@shared/types/config'
+import {
+  TRACKER_AUTH_MODES,
+  trackerName,
+  type TrackerAuthMode
+} from '@shared/trackers'
 import type {
   HealthRow,
   TranscodeSnapshot,
@@ -66,14 +71,7 @@ export function validatePreparedUploadFormats(
   return 'The upload list is still updating with the prepared formats.'
 }
 
-const TRACKER_NAMES: Record<UploadTrackerId, string> = {
-  redacted: 'Redacted',
-  orpheus: 'Orpheus'
-}
-
-export type TrackerAuthMode = 'api' | 'session'
-
-const TRACKER_AUTH_MODES: readonly TrackerAuthMode[] = ['api', 'session']
+export type { TrackerAuthMode } from '@shared/trackers'
 
 export function trackerHealthRowId(trackerId: UploadTrackerId, mode: TrackerAuthMode): string {
   return `trackers:${trackerId}:${mode}`
@@ -111,7 +109,7 @@ export function validateTrackerHealth(
         waiting = true
         continue
       }
-      const label = `${TRACKER_NAMES[trackerId]} ${mode === 'api' ? 'API' : 'Session'}`
+      const label = `${trackerName(trackerId)} ${mode === 'api' ? 'API' : 'Session'}`
       failures.push(`${label}: ${row.detail ?? 'Not checked'}`)
     }
   }
@@ -130,7 +128,7 @@ export function preflightTracker(
   cfg: Config,
   trackerId: UploadTrackerId
 ): string | null {
-  const name = TRACKER_NAMES[trackerId]
+  const name = trackerName(trackerId)
   const tracker = cfg.trackers[trackerId]
   const apiKey = tracker.apiKey.trim()
   const cookie = tracker.sessionCookie.trim()
@@ -160,7 +158,7 @@ export function validateUploadTargets(
     // Only a new group carries a release type; joining an existing one does not.
     const releaseType = effectiveReleaseType(upload, trackerId)
     if (!hasGroupId && releaseTypeId(trackerId, releaseType) === null) {
-      return `Release type "${releaseType}" is not valid on ${TRACKER_NAMES[trackerId]}.`
+      return `Release type "${releaseType}" is not valid on ${trackerName(trackerId)}.`
     }
   }
   return null

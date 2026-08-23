@@ -1,4 +1,6 @@
 import type { JSX } from 'solid-js'
+import type { CoverImageHostId } from '@shared/types/config'
+import { isCoverImageHostId } from '@shared/config/imageHosts'
 import redactedIcon from '../assets/trackers/redacted.png'
 
 const thesungodIcon =
@@ -8,7 +10,7 @@ const imgbbIcon =
 const catboxIcon =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAG/klEQVRYw+2XXYxdVRXHf3vvs8+599x7587c+ejH0BZbQMBWxYBGX4ygEeMDPhiMRj58NPVVQvQJERKfNAR80WhjMAYh+tBEBX0wgPUjKiA1ULBlbHtn2pnpzJ177/naZ3/4MKUWKU2xiQmJ6/Hstdf+7//6n7XWhneqFUU2WxRZ63LjyLfjnBsrc2O72XD9fdXG4Om6KO7+nwLQVDf5tZUXqzOrz8fZ+rXS1LsWj7y0u1xb2+1Nmb7uZ+uqfakxxcUWs9HG3ljHWVDyOHV132ix/3kt7O5IaeJGQpGXCATOC0TgZRvJgdJqQcTJRmdqZr/QibssAKvH/3FMx43vJ63ORrm8+HAkBcnEBPV4TNKdBgECBz4QqgyqCldXZEGfmdx11T4RJ0uvx6ors0cn8dG3lYLY1dtCWT5Qriw/LL2j2ZtGyghvDMQRIW1DawKfdgjtHjRTpFKgpCyr/AvnxyrL8v48z6+/ZADZav+2SKlGEklEmZFOzyKUJgggeEyeUy0vkfVPUpxeojYGmh2sbqGzcqo42b9vuLZy9Tn9xPoG59wtFwVgqjwpR6M9rsxvLDbGN+mkiW63SWdnEFoTAkjE5i3LIVop0naLZqII+QiEIm53aXQn0IloJEnzq7UxE5u5DruV4E5Tlcn5Z0ZvVIRMzXjjoMk3rtVKZUIqhI4QUQRBbApGKZKZLaAEQUhEkPiyQCiN8B6kRKYtknGt8tMn7wg6+VmVZVdYWynvubF2dh44dkEG4rix7kzxx2i8Lhppsy0aMaGy+DwHZ0EEEAqURgSF9ILgalyZI/TrdwkQKbTWtFzREKPVXxajwfdiKZTWmhDCxTWg0+baaJwRNZsEIdlYWGBw9FXKjQEgEAQkHh8cgYC3NabM0UlCkAIEBAFBCpQUBOfR3iEGG3hbL0dKD98SQFVmrdLYG156bQEbAh5IZmZJt+1CNlsQ/Lm/11QGHzzeQz4cU64NsabES7WZccBZB2WNX1shP7NMcPZAu9NZvaAGSltPnPjbi/f+4Lvf+dj111yFjmJCCKRTUwQAGcD/e+P64Ax1XlCNRqz3j/OB+XnqU0OqtEk62TsLISBdjS09ZWt6dSZOHjTGXAOIOI6P/KcIs9m53ofes30r23dfTXCACAhxtlqFs3UrCLwIjDYGPP/076jKgsHKKu+/+WaSuqQwJcI7hHUIIWkkCZVuE7UnupW1B/D5rc76j74pBY1IuyhtfOsjt3w8v3rfe/nFr59iXBRvKJpeiE0SRCAbZRx57jmOvPACIlJkK+tgPSKS4O2maL1DWAvFmNSMdeL9Z7SUDRUpc0ENRK3un7rbdq72l5a4/5vf4PDh58+thSD40aM/5v4HH8D7QLvd5Y6v7OfTt9/OXfv30409ZT4mTjtgDME5ggXnLaHKiUZDcA5TVgeTRuPlC9aBYpT16tLs3LJ1jr3Xz6NlfJZ7gfWWnz7xGEVV86WlU1x13bsRSHZdtxecxS+PCXGCQiFMQXA1wdYY73Fbt2WFVDrRERL5qNZJeUEAyodMCVbnur2ZRx46gNYxIWxSrqTmc5+9lWcP/Z65uRkIgoBHSAgyQrQnqU8uENpDhDXgDN6U1GjS2Su+ppr6FSnFGnD4LbvhsH/qbnf4xR/WAqY//EGch5Xl08zOzRApiQvgbE0ocnSzCTIga0MQCiEFxWvH8NLTbDYJZYnJK+zcjrK755rmW/WcNzAwHi4/PblzjlYcQ5nzk8ce58lfPckX77qLT976CYQIFMcXSfqrjHpNOjtnCVUN1uJFQCtJsTEiIHGlwdqAaLdPX/JENLl1C0aAtAVhtMxMqlk6/k/+/MxvIR9CPqI11SRsb5FONfBlRnAVvhhhTi1RDQYIDzbLcEWBC4K6qh+/5IHE2GpHtbryl6h/bDZup3ipWV4f0EobtJuNs84eAoggCDioLdXaCGsMKtKbpcIbbKu3prZsW4wne7clnYljl8RAHCUnvPVfX8sdxSiDOmPLVEonUUjrEM4RfEB4wHtCWVEPh3hrCATwllA7bNAku658uLPjyn0XO/zN7Rhoz80eaE/39OjkwkNusa8aSbzZklV0th44nHN453B1Dc7jpMKbEpOkFDiS4AnOX9JQ+iYAKm7WpasOdnbsWV0Z5g+GUwt7XBKTRPFmCgRYH1DeY+IWNokQWoNzRLOzi70t879Zeunvd9bZ+L8DANBQyQngxLFDh9adTp8SU72fh/ZUZa3rSS2Jgt/H4oltavv8ExPb5x8JQn5qaWHhHhXHBztp+uXGle9aak92s8t//YxHN778wl9fXVlcvOf876cXjn77lT88E870j98LUFVOZHkxMxwNkvMEnVz2uwCgNFVbIoljfY7To0dfS6OIvZPTvX633e3zf3sn278A2rWXuGGfrG8AAAAASUVORK5CYII='
 
-export type ImageHostIconId = 'thesungod' | 'imgbb' | 'catbox' | 'redacted'
+export type ImageHostIconId = CoverImageHostId
 
 const ICONS: Record<ImageHostIconId, string> = {
   thesungod: thesungodIcon,
@@ -26,15 +28,7 @@ const LABELS: Record<ImageHostIconId, string> = {
 
 export function imageHostIdFromFieldName(fieldName: string): ImageHostIconId | null {
   const prefix = fieldName.split('.')[0]
-  if (
-    prefix === 'thesungod' ||
-    prefix === 'imgbb' ||
-    prefix === 'catbox' ||
-    prefix === 'redacted'
-  ) {
-    return prefix
-  }
-  return null
+  return prefix && isCoverImageHostId(prefix) ? prefix : null
 }
 
 export function ImageHostIcon(props: {

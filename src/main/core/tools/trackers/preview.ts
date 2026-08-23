@@ -1,6 +1,7 @@
 import sanitizeHtml from 'sanitize-html'
 import { parse } from 'node-html-parser'
 import type { Config, TrackerConfig } from '@shared/types/config'
+import { UPLOAD_TRACKER_IDS, trackerName } from '@shared/trackers'
 import { createTrackers, type TrackerId } from './index'
 
 const PREVIEW_TAGS = [
@@ -44,11 +45,11 @@ export async function previewBbcode(
 
   const trackerId = previewTrackerId(cfg)
   const trackerConfig = cfg.trackers[trackerId]
-  const trackerName = trackerId === 'redacted' ? 'Redacted' : 'Orpheus'
-  validatePreviewConfig(trackerName, trackerConfig)
+  const name = trackerName(trackerId)
+  validatePreviewConfig(name, trackerConfig)
 
   const tracker = createTrackers(cfg).find((candidate) => candidate.id === trackerId)
-  if (!tracker) throw new Error(`${trackerName} preview is unavailable.`)
+  if (!tracker) throw new Error(`${name} preview is unavailable.`)
 
   try {
     const html = await tracker.client.previewBbcode(source, signal)
@@ -57,15 +58,15 @@ export async function previewBbcode(
     const message = error instanceof Error && error.message.trim()
       ? error.message.trim()
       : 'request failed'
-    throw new Error(`${trackerName} preview failed: ${message}`, {
+    throw new Error(`${name} preview failed: ${message}`, {
       cause: error instanceof Error ? error : undefined
     })
   }
 }
 
 function previewTrackerId(cfg: Config): TrackerId {
-  if (cfg.trackers.redacted.enabled) return 'redacted'
-  if (cfg.trackers.orpheus.enabled) return 'orpheus'
+  const trackerId = UPLOAD_TRACKER_IDS.find((id) => cfg.trackers[id].enabled)
+  if (trackerId) return trackerId
   throw new Error('Enable Redacted or Orpheus to preview BBCode.')
 }
 

@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { open } from 'node:fs/promises'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
+import { readExact } from '@main/core/tools/readExact'
 
 const MQA_MAGIC = 0xbe0498c88
 const MQA_MAGIC_BITS = 36
@@ -82,15 +83,6 @@ export async function readFLACStreamInfo(path: string): Promise<FlacStreamInfo> 
     }
   } finally {
     await handle.close()
-  }
-}
-
-async function readExact(handle: Awaited<ReturnType<typeof open>>, buf: Buffer): Promise<void> {
-  let offset = 0
-  while (offset < buf.length) {
-    const { bytesRead } = await handle.read(buf, offset, buf.length - offset, null)
-    if (bytesRead === 0) throw new Error('unexpected EOF')
-    offset += bytesRead
   }
 }
 

@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { UploadTrackerId } from '@shared/types'
 import type { UploadStats } from '@shared/types/stats'
+import { UPLOAD_TRACKER_IDS } from '@shared/trackers'
 
 const UPLOAD_STATS_FILE = 'upload-stats.json'
 
@@ -14,7 +15,7 @@ export function emptyUploadStats(): UploadStatsFile {
   return {
     version: 1,
     formats: {},
-    trackers: { redacted: 0, orpheus: 0 },
+    trackers: trackerCounts(() => 0),
     seenFormats: [],
     seenSubmissions: []
   }
@@ -66,13 +67,19 @@ function normalizeUploadStats(raw: unknown): UploadStatsFile {
   return {
     version: 1,
     formats: normalizeCounts(value.formats),
-    trackers: {
-      redacted: countFor(value.trackers, 'redacted'),
-      orpheus: countFor(value.trackers, 'orpheus')
-    },
+    trackers: trackerCounts((trackerId) => countFor(value.trackers, trackerId)),
     seenFormats: normalizeKeys(value.seenFormats),
     seenSubmissions: normalizeKeys(value.seenSubmissions)
   }
+}
+
+function trackerCounts(
+  count: (trackerId: UploadTrackerId) => number
+): Record<UploadTrackerId, number> {
+  return Object.fromEntries(UPLOAD_TRACKER_IDS.map((id) => [id, count(id)])) as Record<
+    UploadTrackerId,
+    number
+  >
 }
 
 function normalizeCounts(raw: unknown): Record<string, number> {

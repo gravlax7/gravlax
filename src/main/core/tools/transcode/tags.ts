@@ -1,6 +1,7 @@
 import { open } from 'node:fs/promises'
 import NodeID3 from 'node-id3'
 import { readFLACTags } from '@main/core/tags/extract'
+import { readExact } from '@main/core/tools/readExact'
 
 const VORBIS_TO_ID3: Record<string, string> = {
   title: 'title',
@@ -191,16 +192,4 @@ function pictureTypeName(type: number): string {
     4: 'back cover'
   }
   return names[type] ?? 'other'
-}
-
-async function readExact(
-  handle: Awaited<ReturnType<typeof open>>,
-  buf: Buffer
-): Promise<void> {
-  let offset = 0
-  while (offset < buf.length) {
-    const { bytesRead } = await handle.read(buf, offset, buf.length - offset, null)
-    if (bytesRead === 0) throw new Error('unexpected EOF')
-    offset += bytesRead
-  }
 }

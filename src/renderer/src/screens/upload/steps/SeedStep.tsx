@@ -6,11 +6,10 @@ import type {
   UploadFlowStateJSON,
   UploadSubmission
 } from '@shared/types'
+import { trackerCode } from '@shared/trackers'
 import { etaSeconds, formatByteSize, formatEta, formatTransferRate } from '@shared/format'
 import { TrackerIcon } from '../../../components/TrackerIcon'
 import { Badge, Button, Callout, EmptyState, Icon, ProgressBar, type BadgeTone } from '../../../ui'
-
-const TRACKER_LABELS: Record<string, string> = { redacted: 'RED', orpheus: 'OPS' }
 
 /** Transfers and copies both move the release; injects hand it to the client. */
 function isPlacement(task: SeedTask): boolean {
@@ -335,7 +334,7 @@ function SeedTaskRow(props: { task: SeedTask }) {
             {(id) => (
               <span class="seed-task-tracker">
                 <TrackerIcon trackerId={id()} size={18} alt="" />
-                <Badge tone="neutral">{TRACKER_LABELS[id()] ?? id()}</Badge>
+                <Badge tone="neutral">{trackerCode(id())}</Badge>
               </span>
             )}
           </Show>

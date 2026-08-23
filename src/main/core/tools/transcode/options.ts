@@ -1,10 +1,10 @@
 import { basename } from 'node:path'
 import type {
   BitDepth,
-  Bitrate,
   TranscodeEncoding,
   TranscodeOption
 } from '@shared/types'
+import { MP3_BITRATES, type Bitrate } from '@shared/upload/encodings'
 import { buildDownconvertOutputPath, buildMp3OutputPath, outputFolderName } from './naming'
 
 export function resolveSampleRateFamily(sampleRate: number): number {
@@ -47,7 +47,7 @@ export function getDownconversionOptions(
   }
 
   if (encoding === 'Lossless' || encoding === '24bit Lossless') {
-    for (const bitrate of ['320', 'V0'] as Bitrate[]) {
+    for (const bitrate of MP3_BITRATES) {
       const outputPath = buildMp3OutputPath(sourcePath, bitrate)
       options.push({
         id: `transcode-${bitrate}`,

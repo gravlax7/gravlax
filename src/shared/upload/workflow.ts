@@ -1,38 +1,13 @@
-import type { BackgroundTask, Step, StepID, TagsSnapshot, UploadFlowStateJSON } from '../types/upload'
+import type { BackgroundTask, StepID, TagsSnapshot, UploadFlowStateJSON } from '../types/upload'
+import { WORKFLOW_STEPS, type WorkflowStep } from './steps'
+
+export { WORKFLOW_STEPS, type WorkflowStep } from './steps'
 
 /**
  * The upload pipeline is shared by the main process and renderer. Keep its
  * order, labels, and navigation rules here so the renderer only presents the
  * rules that the main process enforces.
  */
-export const WORKFLOW_STEPS = [
-  { id: 'files-check', title: 'Files Check', body: '' },
-  {
-    id: 'spectrals',
-    title: 'Spectrals',
-    body: 'Review generated spectrals and decide whether the upload should be reported as lossy master.'
-  },
-  { id: 'metadata', title: 'Metadata', body: '' },
-  { id: 'tags', title: 'Tags & Filenames', body: '' },
-  {
-    id: 'transcode',
-    title: 'Transcode',
-    body: 'Prepare any downconversion work needed before upload.'
-  },
-  {
-    id: 'upload',
-    title: 'Upload',
-    body: 'Review the final payload and submit it to the target tracker.'
-  },
-  {
-    id: 'seed',
-    title: 'Seed',
-    body: 'Hand the finished torrent to the chosen client or remote target.'
-  }
-] as const satisfies readonly Step[]
-
-export type WorkflowStep = (typeof WORKFLOW_STEPS)[number]
-
 export type StepNavigation =
   | { ok: true; index: number; id: StepID }
   | { ok: false; error: string }

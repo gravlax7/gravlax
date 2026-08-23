@@ -1,4 +1,33 @@
-import type { SectionMetadata } from '@shared/types/config'
+import type { FieldMetadata, SectionMetadata } from '@shared/types/config'
+import { THEME_PREFERENCES } from '@shared/theme'
+import { UPLOAD_TRACKER_IDS, trackerName } from '@shared/trackers'
+import { SPECTRAL_SELECTION_OPTIONS } from '@shared/upload/spectralIds'
+
+function trackerFields(): FieldMetadata[] {
+  return UPLOAD_TRACKER_IDS.flatMap((id, index) => [
+    ...(index > 0 ? [{ name: 'separator', label: '', type: 'separator' as const }] : []),
+    { name: `${id}.enabled`, label: `${trackerName(id)} enabled`, type: 'bool' as const },
+    { name: `${id}.siteUrl`, label: `${trackerName(id)} site URL`, type: 'string' as const },
+    {
+      name: `${id}.announceUrl`,
+      label: `${trackerName(id)} announce URL`,
+      type: 'string' as const
+    },
+    {
+      name: `${id}.apiKey`,
+      label: `${trackerName(id)} API key`,
+      type: 'string' as const,
+      sensitive: true
+    },
+    {
+      name: `${id}.sessionCookie`,
+      label: `${trackerName(id)} session cookie`,
+      type: 'string' as const,
+      sensitive: true
+    },
+    { name: `${id}.coverImageHost`, label: 'Cover Image Host', type: 'enum' as const }
+  ])
+}
 
 export function sections(): SectionMetadata[] {
   return [
@@ -12,7 +41,7 @@ export function sections(): SectionMetadata[] {
           label: 'Theme',
           description: 'Follow the system or choose a color theme.',
           type: 'enum',
-          options: ['system', 'dark', 'midnight', 'fjord', 'ember', 'phosphor', 'light', 'inkwell']
+          options: [...THEME_PREFERENCES]
         }
       ]
     },
@@ -72,13 +101,13 @@ export function sections(): SectionMetadata[] {
           name: 'defaultSpectralIds',
           label: 'Default spectral ids',
           type: 'enum',
-          options: ['All', 'Random', 'First track', 'None']
+          options: [...SPECTRAL_SELECTION_OPTIONS]
         },
         {
           name: 'defaultSpectralIdsForLossy',
           label: 'Default spectral ids for lossy masters',
           type: 'enum',
-          options: ['All', 'Random', 'First track', 'None']
+          options: [...SPECTRAL_SELECTION_OPTIONS]
         }
       ]
     },
@@ -86,31 +115,7 @@ export function sections(): SectionMetadata[] {
       id: 'trackers',
       title: 'Trackers',
       description: 'Enable any combination of the supported trackers.',
-      fields: [
-        { name: 'redacted.enabled', label: 'Redacted enabled', type: 'bool' },
-        { name: 'redacted.siteUrl', label: 'Redacted site URL', type: 'string' },
-        { name: 'redacted.announceUrl', label: 'Redacted announce URL', type: 'string' },
-        { name: 'redacted.apiKey', label: 'Redacted API key', type: 'string', sensitive: true },
-        {
-          name: 'redacted.sessionCookie',
-          label: 'Redacted session cookie',
-          type: 'string',
-          sensitive: true
-        },
-        { name: 'redacted.coverImageHost', label: 'Cover Image Host', type: 'enum' },
-        { name: 'separator', label: '', type: 'separator' },
-        { name: 'orpheus.enabled', label: 'Orpheus enabled', type: 'bool' },
-        { name: 'orpheus.siteUrl', label: 'Orpheus site URL', type: 'string' },
-        { name: 'orpheus.announceUrl', label: 'Orpheus announce URL', type: 'string' },
-        { name: 'orpheus.apiKey', label: 'Orpheus API key', type: 'string', sensitive: true },
-        {
-          name: 'orpheus.sessionCookie',
-          label: 'Orpheus session cookie',
-          type: 'string',
-          sensitive: true
-        },
-        { name: 'orpheus.coverImageHost', label: 'Cover Image Host', type: 'enum' }
-      ]
+      fields: trackerFields()
     },
     {
       id: 'metadataProviders',

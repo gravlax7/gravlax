@@ -7,6 +7,7 @@ import type {
   UploadTrackerId
 } from '@shared/types'
 import { enabledTrackerOptions } from '@shared/config/trackers'
+import { isUploadTrackerId } from '@shared/trackers'
 import { parseTorrentPageRef } from '@shared/upload/dupeSearch'
 import {
   groupIdForTracker,
@@ -313,16 +314,10 @@ export function GroupSuggestions(props: {
   const upload = () => props.state.upload
   const groupSearch = () => upload().groupSearch
 
-  const enabledTrackers = createMemo(() =>
-    enabledTrackerOptions(props.config).filter(
-      (id): id is UploadTrackerId => id === 'redacted' || id === 'orpheus'
-    )
-  )
+  const enabledTrackers = createMemo(() => enabledTrackerOptions(props.config))
 
   const destinationTrackers = createMemo(() => {
-    const selected = (upload().selectedTrackerIds ?? []).filter(
-      (id): id is UploadTrackerId => id === 'redacted' || id === 'orpheus'
-    )
+    const selected = (upload().selectedTrackerIds ?? []).filter(isUploadTrackerId)
     return selected.filter((id) => enabledTrackers().includes(id))
   })
 

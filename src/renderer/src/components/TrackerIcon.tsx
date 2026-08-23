@@ -1,5 +1,6 @@
 import type { JSX } from 'solid-js'
 import type { UploadTrackerId } from '@shared/types'
+import { UPLOAD_TRACKER_IDS, trackerName } from '@shared/trackers'
 import redactedIcon from '../assets/trackers/redacted.png'
 import orpheusIcon from '../assets/trackers/orpheus.png'
 
@@ -8,19 +9,12 @@ const ICONS: Record<UploadTrackerId, string> = {
   orpheus: orpheusIcon
 }
 
-const LABELS: Record<UploadTrackerId, string> = {
-  redacted: 'Redacted',
-  orpheus: 'Orpheus'
-}
-
 export function trackerLabel(id: UploadTrackerId): string {
-  return LABELS[id]
+  return trackerName(id)
 }
 
 export function trackerIdFromFieldName(fieldName: string): UploadTrackerId | null {
-  if (fieldName.startsWith('redacted.')) return 'redacted'
-  if (fieldName.startsWith('orpheus.')) return 'orpheus'
-  return null
+  return UPLOAD_TRACKER_IDS.find((id) => fieldName.startsWith(`${id}.`)) ?? null
 }
 
 export function TrackerIcon(props: {
@@ -36,7 +30,7 @@ export function TrackerIcon(props: {
       src={ICONS[props.trackerId]}
       width={size()}
       height={size()}
-      alt={props.alt ?? LABELS[props.trackerId]}
+      alt={props.alt ?? trackerName(props.trackerId)}
       draggable={false}
     />
   )

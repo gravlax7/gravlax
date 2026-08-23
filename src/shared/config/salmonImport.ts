@@ -1,4 +1,5 @@
 import type { Config, SectionID } from '@shared/types/config'
+import { UPLOAD_TRACKER_IDS } from '@shared/trackers'
 import type { RcloneRemote } from '@shared/config/rcloneConf'
 import { sanitizeCoverImageHosts } from '@shared/config/imageHosts'
 import { canEnableRedactedImageHost } from '@shared/config/trackers'
@@ -226,7 +227,7 @@ export function buildSalmonImportPlan(
  * until the user fills in what smoked-salmon or rclone could not provide.
  */
 function leaveIncompleteEnablesUnchecked(builder: PlanBuilder, current: Config): void {
-  for (const trackerId of ['redacted', 'orpheus'] as const) {
+  for (const trackerId of UPLOAD_TRACKER_IDS) {
     const enabled = builder.rows.find((row) => row.id === `trackers.${trackerId}.enabled`)
     const preview = previewDefaultImport(builder, current)
     const tracker = preview.trackers[trackerId]

@@ -4,7 +4,6 @@ import packageJSON from '../../../../../package.json'
 import {
   applyFeaturedArtistsFromTitle,
   joinphraseIndicatesFeatured,
-  normalizeArtistRole,
   parseArtistCreditValues,
   stripFeaturedFromTitle
 } from '@shared/tags/editor'
@@ -18,7 +17,7 @@ import {
   toString
 } from './base'
 import { fetchJSON, HTTPStatusError } from './http'
-import { mapReleaseTypeToken } from './normalization'
+import { createProviderArtistList, mapReleaseTypeToken } from './normalization'
 import {
   type MusicBrainzRateLimiter,
   sharedMusicBrainzRateLimiter
@@ -216,23 +215,13 @@ function musicBrainzReleaseType(releaseGroup: Record<string, unknown>): string {
 }
 
 function mapMusicBrainzArtists(credits: unknown[]): Artist[] {
-  const artists: Artist[] = []
-  const seen = new Set<string>()
-  const push = (name: string, role: string): void => {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    const normalizedRole = musicBrainzArtistRole(role)
-    const key = `${trimmed.toLowerCase()}\0${normalizedRole}`
-    if (seen.has(key)) return
-    seen.add(key)
-    artists.push({ name: trimmed, role: normalizedRole })
-  }
+  const { artists, add } = createProviderArtistList()
 
   let featuredFromJoinphrase = false
   for (const credit of credits) {
     if (typeof credit === 'string' || typeof credit === 'number') {
       for (const artist of parseArtistCreditValues([toString(credit)])) {
-        push(artist.name ?? '', artist.role ?? '')
+        add(artist.name ?? '', artist.role ?? '')
       }
       featuredFromJoinphrase = false
       continue
@@ -241,17 +230,10 @@ function mapMusicBrainzArtists(credits: unknown[]): Artist[] {
     const mapped = mapValue(credit)
     const name = toString(mapped.name) || toString(mapValue(mapped.artist).name)
     const role = toString(mapped.role) || (featuredFromJoinphrase ? 'guest' : '')
-    if (name) push(name, role)
+    if (name) add(name, role)
     featuredFromJoinphrase = joinphraseIndicatesFeatured(toString(mapped.joinphrase))
   }
   return artists
-}
-
-function musicBrainzArtistRole(role: string): string {
-  const normalized = role.trim().toLowerCase()
-  if (!normalized || normalized === 'primary') return 'main'
-  if (['featured', 'featuring', 'feat', 'ft', 'ft.'].includes(normalized)) return 'guest'
-  return normalizeArtistRole(normalized)
 }
 
 function musicBrainzStrings(value: unknown): string[] {

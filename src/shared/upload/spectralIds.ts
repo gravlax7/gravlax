@@ -1,3 +1,5 @@
+export const SPECTRAL_SELECTION_OPTIONS = ['All', 'Random', 'First track', 'None'] as const
+
 /** Picks a one-based position out of `count` choices. Injected so tests can pin it. */
 export type TrackPicker = (count: number) => number
 

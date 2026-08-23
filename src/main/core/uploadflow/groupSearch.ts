@@ -1,4 +1,5 @@
 import type { Config } from '@shared/types/config'
+import { isUploadTrackerId } from '@shared/trackers'
 import type {
   TrackerGroupDetail,
   TrackerGroupSearchSnapshot,
@@ -29,12 +30,8 @@ export function resolveGroupSearchTrackerIds(
   upload: UploadSnapshot,
   cfg: Config
 ): UploadTrackerId[] {
-  const enabled = enabledTrackerOptions(cfg).filter(
-    (id): id is UploadTrackerId => id === 'redacted' || id === 'orpheus'
-  )
-  const selected = (upload.selectedTrackerIds ?? []).filter(
-    (id): id is UploadTrackerId => id === 'redacted' || id === 'orpheus'
-  )
+  const enabled = enabledTrackerOptions(cfg)
+  const selected = (upload.selectedTrackerIds ?? []).filter(isUploadTrackerId)
   const chosen = selected.length > 0 ? selected.filter((id) => enabled.includes(id)) : enabled
   return [...new Set(chosen)]
 }
@@ -215,7 +212,7 @@ export async function searchTrackerGroups(
   }
 
   const trackers = createEnabledTrackers(cfg).filter((t) =>
-    trackerIds.includes(t.id as UploadTrackerId)
+    trackerIds.includes(t.id)
   )
   const byKey = new Map<string, TrackerGroupSuggestion>()
 
@@ -261,7 +258,7 @@ async function browseTrackerGroups(
   for (const searchstr of queryStrings) {
     if (signal?.aborted) throw abortError()
     const raw = await client.browse({ searchstr }, signal)
-    for (const suggestion of mapBrowseResults(tracker.id as UploadTrackerId, client.siteUrl, raw)) {
+    for (const suggestion of mapBrowseResults(tracker.id, client.siteUrl, raw)) {
       byKey.set(suggestionKey(suggestion), suggestion)
     }
   }
@@ -297,4 +294,3 @@ function abortError(): Error {
   err.name = 'AbortError'
   return err
 }
-

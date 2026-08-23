@@ -1,4 +1,6 @@
-import type { Bitrate } from '@shared/types/upload'
+export const MP3_BITRATES = ['320', 'V0'] as const
+
+export type Bitrate = (typeof MP3_BITRATES)[number]
 
 /**
  * The name Gazelle's `bitrate` field expects for a transcode.
