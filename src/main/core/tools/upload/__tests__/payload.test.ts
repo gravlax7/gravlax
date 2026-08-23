@@ -81,6 +81,52 @@ describe('buildTrackerUploadData', () => {
     })
   })
 
+  it('uses the hosted cover for each tracker', () => {
+    const perTracker = upload({
+      selectedTrackerIds: ['redacted', 'orpheus'],
+      image: '',
+      hostedCoverImages: {
+        redacted: { host: 'redacted', url: 'https://red-image.example/cover.jpg' },
+        orpheus: { host: 'thesungod', url: 'https://ra-image.example/cover.jpg' }
+      }
+    })
+
+    expect(
+      buildTrackerUploadData({
+        upload: perTracker,
+        format: sourceFormat(),
+        trackerId: 'redacted'
+      }).image
+    ).toBe('https://red-image.example/cover.jpg')
+    expect(
+      buildTrackerUploadData({
+        upload: perTracker,
+        format: sourceFormat(),
+        trackerId: 'orpheus'
+      }).image
+    ).toBe('https://ra-image.example/cover.jpg')
+  })
+
+  it('uses a manual cover URL for every tracker', () => {
+    const manual = upload({
+      selectedTrackerIds: ['redacted', 'orpheus'],
+      image: ' https://manual-image.example/cover.jpg ',
+      hostedCoverImages: {
+        redacted: { host: 'redacted', url: 'https://red-image.example/cover.jpg' },
+        orpheus: { host: 'thesungod', url: 'https://ra-image.example/cover.jpg' }
+      }
+    })
+
+    expect(
+      buildTrackerUploadData({ upload: manual, format: sourceFormat(), trackerId: 'redacted' })
+        .image
+    ).toBe('https://manual-image.example/cover.jpg')
+    expect(
+      buildTrackerUploadData({ upload: manual, format: sourceFormat(), trackerId: 'orpheus' })
+        .image
+    ).toBe('https://manual-image.example/cover.jpg')
+  })
+
   it('keeps artists and importances aligned', () => {
     const data = buildTrackerUploadData({
       upload: upload({

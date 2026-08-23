@@ -1,6 +1,7 @@
 import type { Config } from '@shared/types/config'
+import type { CoverImageHostId } from '@shared/types/config'
 
-export type CoverImageHostId = 'thesungod' | 'imgbb' | 'catbox' | 'redacted'
+export type { CoverImageHostId } from '@shared/types/config'
 
 export class ImageHostUploadError extends Error {
   constructor(message: string) {

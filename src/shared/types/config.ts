@@ -94,6 +94,8 @@ export interface ImageHostsConfig {
   redacted: ImageHostToggleConfig
 }
 
+export type CoverImageHostId = keyof ImageHostsConfig
+
 export interface ImageHostAPIKeyConfig {
   enabled: boolean
   apiKey: string

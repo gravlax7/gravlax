@@ -17,8 +17,6 @@ export async function uploadImageToHost(
   }
 }
 
-export const uploadCoverImage = uploadImageToHost
-
 /** Concurrency for spectral uploads — the same figure salmon settled on. */
 const SPECTRAL_UPLOAD_BATCH = 4
 
@@ -46,22 +44,4 @@ export async function uploadSpectralImages(
     }
   }
   return results
-}
-
-export function selectCoverImageHost(
-  cfg: Config,
-  selectedTrackerIds: Array<'redacted' | 'orpheus'>
-): CoverImageHostId | null {
-  const hosts = selectedTrackerIds
-    .map((id) => cfg.trackers[id]?.coverImageHost?.trim() ?? '')
-    .filter(
-      (h): h is CoverImageHostId =>
-        h === 'thesungod' || h === 'imgbb' || h === 'catbox' || h === 'redacted'
-    )
-
-  if (hosts.length === 0) return null
-  if (selectedTrackerIds.length > 1) {
-    return hosts.find((host) => host !== 'redacted') ?? null
-  }
-  return hosts[0] ?? null
 }

@@ -54,6 +54,8 @@ export function buildTrackerUploadData(input: BuildUploadDataInput): TrackerUplo
   }
 
   const artists = upload.artists ?? []
+  const manualImage = (upload.image ?? '').trim()
+  const hostedImage = (upload.hostedCoverImages?.[trackerId]?.url ?? '').trim()
   return {
     ...common,
     title: upload.title ?? '',
@@ -64,7 +66,7 @@ export function buildTrackerUploadData(input: BuildUploadDataInput): TrackerUplo
     record_label: upload.remasterRecordLabel ?? '',
     catalogue_number: upload.remasterCatalogueNumber ?? '',
     tags: upload.tags ?? '',
-    image: upload.image ?? '',
+    image: manualImage || hostedImage,
     album_desc: upload.albumDesc ?? '',
     unknown: upload.unknown ?? false
   }

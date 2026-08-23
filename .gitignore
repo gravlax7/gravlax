@@ -12,3 +12,4 @@ red-*.md
 temp/
 .worktrees/
 graphify-out
+.cursor

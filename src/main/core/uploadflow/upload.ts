@@ -1,10 +1,12 @@
 import { isDeepStrictEqual } from 'node:util'
 import type { Config } from '@shared/types/config'
 import type {
+  HostedCoverImage,
   TrackerGroupSearchSnapshot,
   UploadFormatPayload,
   UploadSnapshot,
-  UploadSubmission
+  UploadSubmission,
+  UploadTrackerId
 } from '@shared/types'
 import { substituteSpectralBbcode } from '@main/core/tools/upload/descriptions'
 import { emptyGroupIds } from '@shared/upload/groupIds'
@@ -36,12 +38,21 @@ export function emptyUpload(): UploadSnapshot {
     tags: '',
     image: '',
     coverPath: '',
+    hostedCoverImages: {},
     albumDesc: '',
     groupIds: emptyGroupIds(),
     formats: [],
     groupSearch: emptyGroupSearch(),
     seededFrom: ''
   }
+}
+
+function copyHostedCoverImages(
+  images: Partial<Record<UploadTrackerId, HostedCoverImage>> | undefined
+): Partial<Record<UploadTrackerId, HostedCoverImage>> {
+  return Object.fromEntries(
+    Object.entries(images ?? {}).map(([trackerId, image]) => [trackerId, { ...image }])
+  )
 }
 
 function copyFormats(
@@ -82,6 +93,7 @@ export function restoreUpload(snapshot: UploadSnapshot | undefined): UploadSnaps
     formats: copyFormats(cloned.formats) ?? [],
     selectedTrackerIds: [...(cloned.selectedTrackerIds ?? [])],
     groupIds: { ...(cloned.groupIds ?? emptyGroupIds()) },
+    hostedCoverImages: copyHostedCoverImages(cloned.hostedCoverImages),
     groupSearch: copyGroupSearch(cloned.groupSearch)
   }
 }
@@ -103,6 +115,10 @@ function carryUserSelections(next: UploadSnapshot, previous: UploadSnapshot): Up
       hasPreviousReport ? [...selectedTrackerIds] : next.selectedTrackerIds,
     groupIds: { ...(previous.groupIds ?? emptyGroupIds()) },
     image: previous.image ?? next.image,
+    hostedCoverImages:
+      previous.coverPath === next.coverPath
+        ? copyHostedCoverImages(previous.hostedCoverImages)
+        : {},
     scene: previous.scene ?? next.scene,
     unknown: previous.unknown ?? next.unknown,
     orpheusSplit: previous.orpheusSplit ?? next.orpheusSplit,
@@ -139,6 +155,7 @@ export function mergeConcurrentUploadReport(
     'tags',
     'image',
     'coverPath',
+    'hostedCoverImages',
     'albumDesc',
     'groupIds',
     'groupSearch',
@@ -257,6 +274,9 @@ export function updateUploadReport(s: State, patch: Partial<UploadSnapshot>): St
         ? [...patch.selectedTrackerIds]
         : s.upload.selectedTrackerIds,
       groupIds: patch.groupIds ? { ...patch.groupIds } : s.upload.groupIds,
+      hostedCoverImages: patch.hostedCoverImages
+        ? copyHostedCoverImages(patch.hostedCoverImages)
+        : s.upload.hostedCoverImages,
       formats,
       groupSearch: patch.groupSearch ? copyGroupSearch(patch.groupSearch) : s.upload.groupSearch,
       phase: editable ? 'ready' : phase,

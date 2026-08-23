@@ -518,6 +518,11 @@ export type TorrentExportResult =
   | { ok: false; canceled: true }
   | { ok: false; error: string }
 
+export interface HostedCoverImage {
+  host: import('./config').CoverImageHostId
+  url: string
+}
+
 export interface UploadSnapshot {
   phase?: UploadPhase
   selectedTrackerIds?: UploadTrackerId[]
@@ -535,8 +540,10 @@ export interface UploadSnapshot {
   scene?: boolean
   media?: string
   tags?: string
+  /** A typed URL overrides automatic cover hosting for every tracker. */
   image?: string
   coverPath?: string
+  hostedCoverImages?: Partial<Record<UploadTrackerId, HostedCoverImage>>
   albumDesc?: string
   groupIds?: Partial<Record<UploadTrackerId, number | null>>
   formats?: UploadFormatPayload[]

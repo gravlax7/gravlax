@@ -89,4 +89,45 @@ describe('UploadSession tracker health gate', () => {
     expect(hostImages).not.toHaveBeenCalled()
     expect(session.getState().upload.phase).toBe('failed')
   })
+
+  it('stops before tracker submission when cover hosting fails', async () => {
+    const cfg = defaultConfig()
+    cfg.trackers.redacted = {
+      ...cfg.trackers.redacted,
+      enabled: true,
+      siteUrl: 'https://redacted.example',
+      announceUrl: 'https://announce.redacted.example',
+      apiKey: 'api-key',
+      sessionCookie: 'session-cookie',
+      coverImageHost: 'imgbb'
+    }
+    mocks.healthcheckTrackers.mockResolvedValue([
+      { id: 'trackers:redacted:api', name: 'Redacted API', status: 'available' },
+      { id: 'trackers:redacted:session', name: 'Redacted Session', status: 'available' }
+    ])
+
+    const session = new UploadSession({
+      appVersion: 'test',
+      userDataPath: '',
+      getConfig: () => cfg,
+      trashItem: async () => undefined,
+      tools: automaticToolResolver,
+      send: () => undefined
+    })
+    const runtime = (session as unknown as { runtime: { apply: (next: State) => void } }).runtime
+    runtime.apply(validState())
+    vi.spyOn(session, 'ensureUploadReport').mockResolvedValue()
+    const hostImages = vi
+      .fn()
+      .mockResolvedValue('Failed to upload Redacted cover to imgbb.')
+    ;(session as unknown as { hostImagesForSubmit: typeof hostImages }).hostImagesForSubmit = hostImages
+
+    await expect(session.submitUpload()).resolves.toEqual({
+      ok: false,
+      error: 'Failed to upload Redacted cover to imgbb.'
+    })
+    expect(hostImages).toHaveBeenCalledWith(cfg, ['redacted'], expect.any(Object))
+    expect(session.getState().upload.phase).toBe('failed')
+    expect(session.getState().upload.submissions).toBeUndefined()
+  })
 })

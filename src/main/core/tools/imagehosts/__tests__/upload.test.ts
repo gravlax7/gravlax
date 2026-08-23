@@ -7,7 +7,7 @@ import type { Config } from '@shared/types/config'
 import { defaultConfig } from '@main/core/config/defaults'
 import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 import { healthcheckImageHosts } from '../health'
-import { selectCoverImageHost, uploadCoverImage } from '../upload'
+import { uploadImageToHost } from '../upload'
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46])
 
@@ -32,42 +32,7 @@ function cfg(): Config {
   return c
 }
 
-describe('selectCoverImageHost', () => {
-  it('uses the single tracker cover host', () => {
-    const c = cfg()
-    expect(selectCoverImageHost(c, ['redacted'])).toBe('imgbb')
-    expect(selectCoverImageHost(c, ['orpheus'])).toBe('thesungod')
-  })
-
-  it('selects catbox as a tracker cover host', () => {
-    const c = cfg()
-    c.trackers.orpheus.coverImageHost = 'catbox'
-    expect(selectCoverImageHost(c, ['orpheus'])).toBe('catbox')
-  })
-
-  it('prefers a non-redacted host when multiple trackers are selected', () => {
-    const c = cfg()
-    c.trackers.redacted.coverImageHost = 'redacted'
-    c.trackers.orpheus.coverImageHost = 'imgbb'
-    expect(selectCoverImageHost(c, ['redacted', 'orpheus'])).toBe('imgbb')
-  })
-
-  it('does not use the redacted host for a multi-tracker upload', () => {
-    const c = cfg()
-    c.trackers.redacted.coverImageHost = 'redacted'
-    c.trackers.orpheus.coverImageHost = ''
-    expect(selectCoverImageHost(c, ['redacted', 'orpheus'])).toBeNull()
-  })
-
-  it('returns null when no host is configured', () => {
-    const c = cfg()
-    c.trackers.redacted.coverImageHost = ''
-    c.trackers.orpheus.coverImageHost = ''
-    expect(selectCoverImageHost(c, ['redacted', 'orpheus'])).toBeNull()
-  })
-})
-
-describe('uploadCoverImage', () => {
+describe('uploadImageToHost', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
@@ -87,7 +52,7 @@ describe('uploadCoverImage', () => {
       })
     )
 
-    expect(await uploadCoverImage(cfg(), 'imgbb', file)).toBe('https://i.ibb.co/x.jpg')
+    expect(await uploadImageToHost(cfg(), 'imgbb', file)).toBe('https://i.ibb.co/x.jpg')
   })
 
   it('uploads to thesungod', async () => {
@@ -105,7 +70,7 @@ describe('uploadCoverImage', () => {
       })
     )
 
-    expect(await uploadCoverImage(cfg(), 'thesungod', file)).toBe(
+    expect(await uploadImageToHost(cfg(), 'thesungod', file)).toBe(
       'https://cdn.thesungod.xyz/images/a.jpg'
     )
   })
@@ -129,7 +94,7 @@ describe('uploadCoverImage', () => {
       })
     )
 
-    expect(await uploadCoverImage(cfg(), 'catbox', file)).toBe(
+    expect(await uploadImageToHost(cfg(), 'catbox', file)).toBe(
       'https://files.catbox.moe/a.jpg'
     )
   })
@@ -155,7 +120,7 @@ describe('uploadCoverImage', () => {
       })
     )
 
-    expect(await uploadCoverImage(cfg(), 'redacted', file)).toBe(
+    expect(await uploadImageToHost(cfg(), 'redacted', file)).toBe(
       'https://redacted.example/img.jpg'
     )
   })
@@ -166,7 +131,7 @@ describe('uploadCoverImage', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(uploadCoverImage(c, 'redacted', '/tmp/unused-cover.jpg')).rejects.toThrow(
+    await expect(uploadImageToHost(c, 'redacted', '/tmp/unused-cover.jpg')).rejects.toThrow(
       'RED image host requires a tracker HTTPS URL.'
     )
     expect(fetchMock).not.toHaveBeenCalled()
@@ -182,7 +147,7 @@ describe('uploadCoverImage', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(uploadCoverImage(c, 'redacted', file)).rejects.toThrow(
+    await expect(uploadImageToHost(c, 'redacted', file)).rejects.toThrow(
       'RED image host requires a Redacted API key.'
     )
     expect(fetchMock).not.toHaveBeenCalled()
@@ -205,7 +170,7 @@ describe('uploadCoverImage', () => {
       )
     )
 
-    await expect(uploadCoverImage(cfg(), 'redacted', file)).rejects.toThrow(
+    await expect(uploadImageToHost(cfg(), 'redacted', file)).rejects.toThrow(
       'RED rejected the image: could not process image: image dimensions are too small'
     )
   })
@@ -280,7 +245,7 @@ describe('uploadCoverImage', () => {
     await writeFile(file, JPEG)
     vi.stubGlobal('fetch', vi.fn(async () => new Response('  \n')))
 
-    expect(await uploadCoverImage(cfg(), 'catbox', file)).toBeNull()
+    expect(await uploadImageToHost(cfg(), 'catbox', file)).toBeNull()
   })
 
   it('returns null on upload failure', async () => {
@@ -288,6 +253,6 @@ describe('uploadCoverImage', () => {
     const file = path.join(dir, 'cover.jpg')
     await writeFile(file, JPEG)
     vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 500 })))
-    expect(await uploadCoverImage(cfg(), 'imgbb', file)).toBeNull()
+    expect(await uploadImageToHost(cfg(), 'imgbb', file)).toBeNull()
   })
 })

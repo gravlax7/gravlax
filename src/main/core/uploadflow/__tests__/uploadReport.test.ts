@@ -8,7 +8,7 @@ import {
   buildUploadSnapshot,
   fingerprintUploadInputs,
   genresToTags,
-  hostCoverImageForSubmit,
+  hostCoverImagesForSubmit,
   parseYear,
   resolveCatalogueNumber,
   resolveCoverImage,
@@ -312,7 +312,7 @@ describe('cover image report work', () => {
     expect(result.image).toBe('')
   })
 
-  it('uploads cover to the image host on submit', async () => {
+  it('hosts a cover for one tracker on submit', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-cover-'))
     const coverPath = path.join(dir, 'cover.jpg')
     await writeFile(coverPath, JPEG)
@@ -329,11 +329,15 @@ describe('cover image report work', () => {
       image: ''
     }
 
-    const result = await hostCoverImageForSubmit(state, cfgWithCoverHost())
-    expect(result).toEqual({ image: 'https://i.ibb.co/cover.jpg' })
+    const result = await hostCoverImagesForSubmit(state, cfgWithCoverHost(), ['redacted'])
+    expect(result).toEqual({
+      hostedCoverImages: {
+        redacted: { host: 'imgbb', url: 'https://i.ibb.co/cover.jpg' }
+      }
+    })
   })
 
-  it('shows an image host rejection', async () => {
+  it('returns a tracker and host error when cover hosting fails', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-cover-'))
     const coverPath = path.join(dir, 'cover.jpg')
     await writeFile(coverPath, JPEG)
@@ -352,14 +356,14 @@ describe('cover image report work', () => {
       image: ''
     }
 
-    const result = await hostCoverImageForSubmit(state, cfgWithCoverHost())
+    const result = await hostCoverImagesForSubmit(state, cfgWithCoverHost(), ['redacted'])
     expect(result).toEqual({
-      image: '',
-      error: 'Image host rejected the cover.'
+      hostedCoverImages: {},
+      error: 'Failed to upload Redacted cover to imgbb. Image host rejected the cover.'
     })
   })
 
-  it('skips cover host upload on submit when image URL already set', async () => {
+  it('uses one manual image URL instead of hosting', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
@@ -371,12 +375,12 @@ describe('cover image report work', () => {
       image: 'https://example.com/manual.jpg'
     }
 
-    const result = await hostCoverImageForSubmit(state, cfgWithCoverHost())
-    expect(result).toEqual({ image: 'https://example.com/manual.jpg' })
+    const result = await hostCoverImagesForSubmit(state, cfgWithCoverHost(), ['redacted'])
+    expect(result).toEqual({ hostedCoverImages: {} })
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('skips cover host upload on submit when all destinations use existing groups', async () => {
+  it('does not host a cover for a tracker with an existing group', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
@@ -389,8 +393,164 @@ describe('cover image report work', () => {
       groupIds: { redacted: 99 }
     }
 
-    const result = await hostCoverImageForSubmit(state, cfgWithCoverHost())
-    expect(result).toEqual({ image: '' })
+    const result = await hostCoverImagesForSubmit(state, cfgWithCoverHost(), ['redacted'])
+    expect(result).toEqual({ hostedCoverImages: {} })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('hosts the cover on each tracker host', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-cover-'))
+    const coverPath = path.join(dir, 'cover.jpg')
+    await writeFile(coverPath, JPEG)
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      if (String(url).includes('upload_image')) {
+        return Response.json({
+          status: 'success',
+          response: { url: 'https://red-image.example/cover.jpg' }
+        })
+      }
+      return Response.json({ links: ['https://ra-image.example/cover.jpg'] })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const cfg = cfgWithTrackers(['redacted', 'orpheus'])
+    cfg.imageHosts.redacted.enabled = true
+    cfg.imageHosts.thesungod.enabled = true
+    cfg.imageHosts.thesungod.apiKey = 'ra-key'
+    cfg.trackers.redacted.siteUrl = 'https://redacted.example'
+    cfg.trackers.redacted.apiKey = 'red-key'
+    cfg.trackers.redacted.coverImageHost = 'redacted'
+    cfg.trackers.orpheus.coverImageHost = 'thesungod'
+    const state = newState()
+    state.upload = {
+      ...emptyUpload(),
+      selectedTrackerIds: ['redacted', 'orpheus'],
+      coverPath
+    }
+
+    const result = await hostCoverImagesForSubmit(state, cfg, ['redacted', 'orpheus'])
+
+    expect(result).toEqual({
+      hostedCoverImages: {
+        redacted: { host: 'redacted', url: 'https://red-image.example/cover.jpg' },
+        orpheus: { host: 'thesungod', url: 'https://ra-image.example/cover.jpg' }
+      }
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('uploads once when trackers share a cover host', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-cover-'))
+    const coverPath = path.join(dir, 'cover.jpg')
+    await writeFile(coverPath, JPEG)
+    const fetchMock = vi.fn(async () =>
+      Response.json({ data: { url: 'https://i.ibb.co/shared.jpg' } })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const cfg = cfgWithTrackers(['redacted', 'orpheus'])
+    cfg.imageHosts.imgbb.enabled = true
+    cfg.imageHosts.imgbb.apiKey = 'imgbb-key'
+    cfg.trackers.redacted.coverImageHost = 'imgbb'
+    cfg.trackers.orpheus.coverImageHost = 'imgbb'
+    const state = newState()
+    state.upload = {
+      ...emptyUpload(),
+      selectedTrackerIds: ['redacted', 'orpheus'],
+      coverPath
+    }
+
+    const result = await hostCoverImagesForSubmit(state, cfg, ['redacted', 'orpheus'])
+
+    expect(result.hostedCoverImages).toEqual({
+      redacted: { host: 'imgbb', url: 'https://i.ibb.co/shared.jpg' },
+      orpheus: { host: 'imgbb', url: 'https://i.ibb.co/shared.jpg' }
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('reuses a saved URL only while its host matches the setting', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-cover-'))
+    const coverPath = path.join(dir, 'cover.jpg')
+    await writeFile(coverPath, JPEG)
+    const fetchMock = vi.fn(async () =>
+      Response.json({ data: { url: 'https://i.ibb.co/new.jpg' } })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const cfg = cfgWithCoverHost()
+    const state = newState()
+    state.upload = {
+      ...emptyUpload(),
+      selectedTrackerIds: ['redacted'],
+      coverPath,
+      hostedCoverImages: {
+        redacted: { host: 'imgbb', url: 'https://i.ibb.co/saved.jpg' }
+      }
+    }
+
+    await expect(hostCoverImagesForSubmit(state, cfg, ['redacted'])).resolves.toEqual({
+      hostedCoverImages: {
+        redacted: { host: 'imgbb', url: 'https://i.ibb.co/saved.jpg' }
+      }
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    state.upload.hostedCoverImages = {
+      redacted: { host: 'thesungod', url: 'https://ra-image.example/old.jpg' }
+    }
+    await expect(hostCoverImagesForSubmit(state, cfg, ['redacted'])).resolves.toEqual({
+      hostedCoverImages: {
+        redacted: { host: 'imgbb', url: 'https://i.ibb.co/new.jpg' }
+      }
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    cfg.trackers.redacted.coverImageHost = ''
+    state.upload.hostedCoverImages = {
+      redacted: { host: 'imgbb', url: 'https://i.ibb.co/old.jpg' }
+    }
+    await expect(hostCoverImagesForSubmit(state, cfg, ['redacted'])).resolves.toEqual({
+      hostedCoverImages: {}
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps successful hosted URLs when another host fails', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-cover-'))
+    const coverPath = path.join(dir, 'cover.jpg')
+    await writeFile(coverPath, JPEG)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL | Request) => {
+        if (String(url).includes('imgbb')) {
+          return Response.json({ data: { url: 'https://i.ibb.co/saved.jpg' } })
+        }
+        return new Response('', { status: 500 })
+      })
+    )
+
+    const cfg = cfgWithTrackers(['redacted', 'orpheus'])
+    cfg.imageHosts.imgbb.enabled = true
+    cfg.imageHosts.imgbb.apiKey = 'imgbb-key'
+    cfg.imageHosts.thesungod.enabled = true
+    cfg.imageHosts.thesungod.apiKey = 'ra-key'
+    cfg.trackers.redacted.coverImageHost = 'imgbb'
+    cfg.trackers.orpheus.coverImageHost = 'thesungod'
+    const state = newState()
+    state.upload = {
+      ...emptyUpload(),
+      selectedTrackerIds: ['redacted', 'orpheus'],
+      coverPath
+    }
+
+    await expect(
+      hostCoverImagesForSubmit(state, cfg, ['redacted', 'orpheus'])
+    ).resolves.toEqual({
+      hostedCoverImages: {
+        redacted: { host: 'imgbb', url: 'https://i.ibb.co/saved.jpg' }
+      },
+      error: 'Failed to upload Orpheus cover to thesungod.'
+    })
   })
 })

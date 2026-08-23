@@ -9,6 +9,7 @@ import {
   failUploadReport,
   finishSubmit,
   patchSubmission,
+  restoreUpload,
   resumeGroupSearch,
   resumeSubmit,
   setGroupSearch,
@@ -34,6 +35,21 @@ function submission(patch: Partial<UploadSubmission> = {}): UploadSubmission {
 }
 
 describe('validate and submit', () => {
+  it('restores saved tracker cover URLs', () => {
+    const restored = restoreUpload({
+      ...emptyUpload(),
+      hostedCoverImages: {
+        redacted: { host: 'redacted', url: 'https://red-image.example/cover.jpg' },
+        orpheus: { host: 'thesungod', url: 'https://ra-image.example/cover.jpg' }
+      }
+    })
+
+    expect(restored.hostedCoverImages).toEqual({
+      redacted: { host: 'redacted', url: 'https://red-image.example/cover.jpg' },
+      orpheus: { host: 'thesungod', url: 'https://ra-image.example/cover.jpg' }
+    })
+  })
+
   it('clears a rejected submit on the next edit', () => {
     let state = newState()
     state = updateUploadReport(state, { title: 'Album' })
@@ -207,6 +223,34 @@ describe('resumeSubmit', () => {
     const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     expect(next.upload.groupIds?.redacted).toBe(99)
     expect(next.upload.albumDesc).toBe('hand written')
+  })
+
+  it('clears hosted cover URLs when the local cover path changes', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-cover-change-'))
+    await writeFile(path.join(dir, 'cover.jpg'), JPEG)
+    const state = newState()
+    state.draft.workspacePath = dir
+    state.draft.sourceMedia = 'WEB'
+    state.tags.proposed = {
+      title: 'Album',
+      artists: [{ name: 'A', role: 'main' }],
+      groupYear: '2020',
+      genres: ['electronic']
+    }
+    state.upload = {
+      ...emptyUpload(),
+      phase: 'ready',
+      coverPath: '/old/cover.jpg',
+      hostedCoverImages: {
+        redacted: { host: 'imgbb', url: 'https://i.ibb.co/old.jpg' }
+      },
+      seededFrom: 'stale'
+    }
+
+    const next = await ensureUploadReport(state, cfgWithCoverHost(), TEST_VERSION)
+
+    expect(next.upload.coverPath).toBe(path.join(dir, 'cover.jpg'))
+    expect(next.upload.hostedCoverImages).toEqual({})
   })
 
   it('rebuilds on an upstream change, carrying selections but regenerating text', async () => {

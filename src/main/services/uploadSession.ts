@@ -1,5 +1,6 @@
 import { access, rm } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 import type { Config } from '@shared/types/config'
 import type {
   MetadataSelection,
@@ -60,7 +61,7 @@ import {
   task as getTask,
   ensureUploadReport,
   fingerprintUploadInputs,
-  hostCoverImageForSubmit,
+  hostCoverImagesForSubmit,
   mergeConcurrentUploadReport,
   setUpload,
   updateUploadReport,
@@ -435,7 +436,7 @@ export class UploadSession {
 
         const workspacePath = this.state.draft.workspacePath
 
-        const hostingError = await this.hostImagesForSubmit(cfg, task)
+        const hostingError = await this.hostImagesForSubmit(cfg, pendingTrackerIds, task)
         if (!task.fresh()) return
         if (hostingError) {
           this.apply(failUploadReport(this.state, hostingError))
@@ -522,14 +523,22 @@ export class UploadSession {
     return outcome
   }
 
-  /** Cover and spectrals, hosted once before the first tracker call. */
-  private async hostImagesForSubmit(cfg: Config, task: TaskHandle): Promise<string | null> {
-    const hosted = await hostCoverImageForSubmit(this.state, cfg)
+  /** Cover and spectrals, hosted before the first tracker call. */
+  private async hostImagesForSubmit(
+    cfg: Config,
+    trackerIds: readonly UploadTrackerId[],
+    task: TaskHandle
+  ): Promise<string | null> {
+    const hosted = await hostCoverImagesForSubmit(this.state, cfg, trackerIds)
     if (!task.fresh()) return null
-    if (hosted.error) this.notify('warning', hosted.error)
-    if (hosted.image && hosted.image !== (this.state.upload.image ?? '').trim()) {
-      this.apply({ ...this.state, upload: { ...this.state.upload, image: hosted.image } })
+    if (!isDeepStrictEqual(hosted.hostedCoverImages, this.state.upload.hostedCoverImages ?? {})) {
+      this.apply(
+        updateUploadReport(this.state, { hostedCoverImages: hosted.hostedCoverImages }),
+        { persist: false }
+      )
+      await this.persistNow()
     }
+    if (hosted.error) return hosted.error
 
     if ((this.state.upload.spectralBbcode ?? '') !== '') return null
 

@@ -1,4 +1,4 @@
-export type { Config, SectionID, FieldMetadata, SectionMetadata, ValidationIssue, NotifyPayload, NotifyLevel } from './config'
+export type { Config, CoverImageHostId, SectionID, FieldMetadata, SectionMetadata, ValidationIssue, NotifyPayload, NotifyLevel } from './config'
 export type { UploadStats } from './stats'
 export { totalUploads } from './stats'
 export type { UpdateCheckResult } from './update'
@@ -74,6 +74,7 @@ export type {
   TrackerGroupSearchSnapshot,
   UploadSubmissionStatus,
   UploadSubmission,
+  HostedCoverImage,
   TorrentExportResult,
   UploadSnapshot,
   UploadFlowSnapshot,

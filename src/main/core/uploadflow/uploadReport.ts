@@ -1,7 +1,8 @@
-import type { Config } from '@shared/types/config'
+import type { Config, CoverImageHostId } from '@shared/types/config'
 import type {
   BitDepth,
   Bitrate,
+  HostedCoverImage,
   Release,
   Track,
   UploadArtist,
@@ -25,10 +26,11 @@ import {
   generateTranscodeDescription
 } from '@main/core/tools/transcode'
 import { downloadCoverIfNonexistent } from '@main/core/tools/upload/cover'
-import { selectCoverImageHost, uploadCoverImage } from '@main/core/tools/imagehosts/upload'
+import { uploadImageToHost } from '@main/core/tools/imagehosts/upload'
 import { artistRoleToImportance } from '@shared/upload/artists'
+import { isCoverImageHostId } from '@shared/config/imageHosts'
 import { trackerEncoding } from '@shared/upload/encodings'
-import { allSelectedTrackersHaveGroupId, emptyGroupIds } from '@shared/upload/groupIds'
+import { emptyGroupIds } from '@shared/upload/groupIds'
 import type { State } from './state'
 import { emptyGroupSearch } from './groupSearch'
 
@@ -239,6 +241,7 @@ export async function buildUploadSnapshot(
     tags: resolveUploadTags(s),
     image: cover.image,
     coverPath: cover.coverPath,
+    hostedCoverImages: {},
     albumDesc,
     groupIds: emptyGroupIds(),
     formats: sizedFormats,
@@ -265,34 +268,88 @@ export async function resolveCoverImage(options: {
   }
 }
 
-export async function hostCoverImageForSubmit(
+export interface HostCoverImagesResult {
+  hostedCoverImages: Partial<Record<UploadTrackerId, HostedCoverImage>>
+  error?: string
+}
+
+const TRACKER_NAMES: Record<UploadTrackerId, string> = {
+  redacted: 'Redacted',
+  orpheus: 'Orpheus'
+}
+
+export async function hostCoverImagesForSubmit(
   s: State,
-  cfg: Config
-): Promise<{ image: string; error?: string }> {
+  cfg: Config,
+  trackerIds: readonly UploadTrackerId[]
+): Promise<HostCoverImagesResult> {
   const upload = s.upload
-  const existing = (upload.image ?? '').trim()
-  if (existing) return { image: existing }
-  if (allSelectedTrackersHaveGroupId(upload)) return { image: '' }
+  const hostedCoverImages = structuredClone(upload.hostedCoverImages ?? {})
+  if ((upload.image ?? '').trim()) return { hostedCoverImages }
 
   const coverPath = (upload.coverPath ?? '').trim()
-  if (!coverPath) return { image: '' }
+  if (!coverPath) return { hostedCoverImages }
 
-  const trackerIds = (upload.selectedTrackerIds ?? []).filter(
-    (id): id is UploadTrackerId => id === 'redacted' || id === 'orpheus'
-  )
-  const host = selectCoverImageHost(cfg, trackerIds)
-  if (!host) return { image: '' }
-
-  try {
-    const image = await uploadCoverImage(cfg, host, coverPath)
-    if (!image) return { image: '', error: `Failed to upload cover to ${host}.` }
-    return { image }
-  } catch (error) {
-    return {
-      image: '',
-      error: error instanceof Error ? error.message : `Failed to upload cover to ${host}.`
+  const trackersByHost = new Map<CoverImageHostId, UploadTrackerId[]>()
+  const savedUrlByHost = new Map<CoverImageHostId, string>()
+  for (const image of Object.values(hostedCoverImages)) {
+    if (image && isCoverImageHostId(image.host) && image.url.trim()) {
+      savedUrlByHost.set(image.host, image.url.trim())
     }
   }
+  const errors: string[] = []
+  for (const trackerId of trackerIds) {
+    const groupId = upload.groupIds?.[trackerId]
+    if (typeof groupId === 'number' && Number.isFinite(groupId)) continue
+
+    const host = cfg.trackers[trackerId].coverImageHost.trim()
+    if (!host) {
+      delete hostedCoverImages[trackerId]
+      continue
+    }
+    if (!isCoverImageHostId(host)) {
+      delete hostedCoverImages[trackerId]
+      errors.push(`${TRACKER_NAMES[trackerId]} has an invalid cover image host: ${host}.`)
+      continue
+    }
+
+    const existing = hostedCoverImages[trackerId]
+    if (existing?.host === host && existing.url.trim()) continue
+    const savedUrl = savedUrlByHost.get(host)
+    if (savedUrl) {
+      hostedCoverImages[trackerId] = { host, url: savedUrl }
+      continue
+    }
+    const trackers = trackersByHost.get(host) ?? []
+    trackers.push(trackerId)
+    trackersByHost.set(host, trackers)
+  }
+
+  for (const [host, trackers] of trackersByHost) {
+    try {
+      const url = await uploadImageToHost(cfg, host, coverPath)
+      if (!url) {
+        errors.push(coverHostError(trackers, host))
+        continue
+      }
+      for (const trackerId of trackers) {
+        hostedCoverImages[trackerId] = { host, url }
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? ` ${error.message}` : ''
+      errors.push(`${coverHostError(trackers, host)}${detail}`)
+    }
+  }
+
+  return {
+    hostedCoverImages,
+    ...(errors.length > 0 ? { error: errors.join(' ') } : {})
+  }
+}
+
+function coverHostError(trackers: readonly UploadTrackerId[], host: CoverImageHostId): string {
+  const names = trackers.map((trackerId) => TRACKER_NAMES[trackerId]).join(' and ')
+  return `Failed to upload ${names} cover to ${host}.`
 }
 
 async function collectTrackDescInputs(
