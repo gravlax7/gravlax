@@ -47,7 +47,7 @@ export function Lightbox(props: {
           <span class="ui-lightbox-caption mono">{current()?.label}</span>
           <div class="ui-lightbox-actions">
             <IconButton
-              icon={zoomed() ? 'eye-off' : 'eye'}
+              icon="search"
               label={zoomed() ? 'Fit to view' : 'Zoom in'}
               size="sm"
               onClick={() => setZoomed((v) => !v)}
