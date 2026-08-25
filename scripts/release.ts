@@ -1,12 +1,24 @@
 import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline/promises'
 
+const releaseTypes = ['patch', 'minor', 'major'] as const
+type ReleaseType = (typeof releaseTypes)[number]
+
+const releaseType = process.argv[2]
+
+if (!releaseTypes.includes(releaseType as ReleaseType)) {
+  console.error(`Usage: bun run release <${releaseTypes.join('|')}>`)
+  process.exit(1)
+}
+
 const readline = createInterface({
   input: process.stdin,
   output: process.stdout
 })
 
-const answer = await readline.question('Release a new patch version and push its tag? [y/N] ')
+const answer = await readline.question(
+  `Release a new ${releaseType} version and push its tag? [y/N] `
+)
 readline.close()
 
 if (!['y', 'yes'].includes(answer.trim().toLowerCase())) {
@@ -29,5 +41,5 @@ async function run(command: string, args: string[]): Promise<void> {
   })
 }
 
-await run('npm', ['version', 'patch'])
+await run('npm', ['version', releaseType])
 await run('git', ['push', '--follow-tags'])

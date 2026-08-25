@@ -20,7 +20,7 @@
     "test:watch": "vitest",
     "install-electron": "node scripts/install-electron.cjs",
     "postinstall": "node scripts/install-electron.cjs",
-    "release-patch": "bun run scripts/release-patch.ts",
+    "release": "bun run scripts/release.ts",
     "dist": "bun run build && electron-builder",
     "dist:mac": "bun run build && electron-builder --mac",
     "dist:linux": "bun run build && electron-builder --linux",
