@@ -23,20 +23,20 @@ export function workflowStepAt(index: number): WorkflowStep | null {
 
 export function highestReachableStep(state: UploadFlowStateJSON): number {
   const index = (id: StepID): number => workflowStepIndex(id) ?? 0
-  let highest = index('files-check')
+  let highest = index('file-checks')
 
   if (
-    state.filesCheck.integrity.status !== 'passed' &&
+    state.fileChecks.integrity.status !== 'passed' &&
     state.upload.phase !== 'submitting' &&
     state.upload.phase !== 'done'
   ) {
     return highest
   }
-  if (!state.filesCheck.structure.ready) return highest
+  if (!state.fileChecks.structure.ready) return highest
 
-  const files = taskById(state.background.tasks, 'files-check')
+  const files = taskById(state.background.tasks, 'file-checks')
   if (files?.status === 'succeeded') highest = Math.max(highest, index('spectrals'))
-  // A failed files check does not gate: a tracker logchecker outage says
+  // A failed file checks does not gate: a tracker logchecker outage says
   // nothing about the release and can be retried from its own step.
 
   const spectrals = taskById(state.background.tasks, 'spectrals')
@@ -77,7 +77,7 @@ export function evaluateStepNavigation(
   if (
     goingForward &&
     targetIndex >= firstStepAfterMedia &&
-    !state.filesCheck.structure.ready &&
+    !state.fileChecks.structure.ready &&
     state.upload.phase !== 'submitting' &&
     state.upload.phase !== 'done'
   ) {
@@ -89,13 +89,13 @@ export function evaluateStepNavigation(
   if (
     goingForward &&
     targetIndex >= firstStepAfterMedia &&
-    state.filesCheck.integrity.status !== 'passed' &&
+    state.fileChecks.integrity.status !== 'passed' &&
     state.upload.phase !== 'submitting' &&
     state.upload.phase !== 'done'
   ) {
     return {
       ok: false,
-      error: state.filesCheck.integrity.status === 'idle'
+      error: state.fileChecks.integrity.status === 'idle'
         ? 'Wait for the FLAC integrity check to finish.'
         : 'Repair failed FLAC integrity checks before continuing.'
     }

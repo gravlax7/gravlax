@@ -5,17 +5,17 @@ import {
   finishFilesRestore,
   initializeFiles,
   newState,
-  setFilesCheck
+  setFileChecks
 } from '@main/core/uploadflow'
 
-describe('files-check paths', () => {
+describe('file-checks paths', () => {
   it('remaps upconvert results and errors when files are renamed and restored', () => {
     let state = initializeFiles(newState(), 'Album', ['01.flac', '02.flac'])
     state = beginFilesApply(state, [
       { id: 'track-1', relativePath: '01.flac' },
       { id: 'track-2', relativePath: '02.flac' }
     ])
-    state = setFilesCheck(state, {
+    state = setFileChecks(state, {
       status: 'ok',
       structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
       integrity: {
@@ -48,17 +48,17 @@ describe('files-check paths', () => {
       { changedFileCount: 2, strippedPictureCount: 0 },
       []
     )
-    expect(state.filesCheck.upconvert.results[0]?.relativePath).toBe('01 - First.flac')
-    expect(state.filesCheck.upconvert.errors[0]?.relativePath).toBe('02 - Second.flac')
-    expect(state.filesCheck.integrity.failures[0]?.relativePath).toBe('01 - First.flac')
-    expect(state.filesCheck.integrity.repairedPaths).toEqual(['02 - Second.flac'])
-    expect(state.filesCheck.integrity.repairErrors[0]?.relativePath).toBe('02 - Second.flac')
+    expect(state.fileChecks.upconvert.results[0]?.relativePath).toBe('01 - First.flac')
+    expect(state.fileChecks.upconvert.errors[0]?.relativePath).toBe('02 - Second.flac')
+    expect(state.fileChecks.integrity.failures[0]?.relativePath).toBe('01 - First.flac')
+    expect(state.fileChecks.integrity.repairedPaths).toEqual(['02 - Second.flac'])
+    expect(state.fileChecks.integrity.repairErrors[0]?.relativePath).toBe('02 - Second.flac')
 
     state = finishFilesRestore(state, '/workspace/Album')
-    expect(state.filesCheck.upconvert.results[0]?.relativePath).toBe('01.flac')
-    expect(state.filesCheck.upconvert.errors[0]?.relativePath).toBe('02.flac')
-    expect(state.filesCheck.integrity.failures[0]?.relativePath).toBe('01.flac')
-    expect(state.filesCheck.integrity.repairedPaths).toEqual(['02.flac'])
-    expect(state.filesCheck.integrity.repairErrors[0]?.relativePath).toBe('02.flac')
+    expect(state.fileChecks.upconvert.results[0]?.relativePath).toBe('01.flac')
+    expect(state.fileChecks.upconvert.errors[0]?.relativePath).toBe('02.flac')
+    expect(state.fileChecks.integrity.failures[0]?.relativePath).toBe('01.flac')
+    expect(state.fileChecks.integrity.repairedPaths).toEqual(['02.flac'])
+    expect(state.fileChecks.integrity.repairErrors[0]?.relativePath).toBe('02.flac')
   })
 })

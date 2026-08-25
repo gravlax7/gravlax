@@ -59,7 +59,7 @@ afterEach(async () => {
 })
 
 describe('source selection', () => {
-  it('moves to files check and reads the media off the folder', async () => {
+  it('moves to file checks and reads the media off the folder', async () => {
     const session = newSession()
     await session.startNew(await makeSource('album'))
 
@@ -67,7 +67,7 @@ describe('source selection', () => {
     expect(state.currentStep).toBe(0)
     expect(state.draft.sourceMedia).toBe('WEB')
     expect(state.background.tasks.map((t) => t.id).sort()).toEqual([
-      'files-check',
+      'file-checks',
       'metadata',
       'spectrals',
       'transcode'

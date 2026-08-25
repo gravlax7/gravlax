@@ -12,7 +12,7 @@ vi.mock('@main/core/tools/trackers/health', () => ({
 
 function validState(): State {
   const state = newState()
-  state.filesCheck.integrity = {
+  state.fileChecks.integrity = {
     status: 'passed',
     checkedCount: 1,
     failures: [],

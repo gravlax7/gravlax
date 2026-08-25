@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { IntegritySummary } from '@shared/types'
-import { runFilesCheck, type FilesCheckJobs } from '../run'
+import { runFileChecks, type FileChecksJobs } from '../run'
 
 const passedIntegrity: IntegritySummary = {
   status: 'passed',
@@ -10,7 +10,7 @@ const passedIntegrity: IntegritySummary = {
   repairErrors: []
 }
 
-function jobs(overrides: Partial<FilesCheckJobs> = {}): FilesCheckJobs {
+function jobs(overrides: Partial<FileChecksJobs> = {}): FileChecksJobs {
   return {
     checkStructure: vi.fn().mockResolvedValue({ ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] }),
     checkIntegrity: vi.fn().mockResolvedValue(passedIntegrity),
@@ -22,7 +22,7 @@ function jobs(overrides: Partial<FilesCheckJobs> = {}): FilesCheckJobs {
   }
 }
 
-describe('runFilesCheck', () => {
+describe('runFileChecks', () => {
   it('stops for unresolved folder rules before audio checks', async () => {
     const allJobs = jobs({
       checkStructure: vi.fn().mockResolvedValue({
@@ -41,7 +41,7 @@ describe('runFilesCheck', () => {
       })
     })
 
-    const result = await runFilesCheck({
+    const result = await runFileChecks({
       workspacePath: '/workspace',
       sourceMedia: 'WEB',
       trackers: [],
@@ -63,7 +63,7 @@ describe('runFilesCheck', () => {
       checkIntegrity: vi.fn().mockResolvedValue(failedIntegrity)
     })
 
-    const result = await runFilesCheck({
+    const result = await runFileChecks({
       workspacePath: '/workspace',
       sourceMedia: 'WEB',
       trackers: [],
@@ -107,7 +107,7 @@ describe('runFilesCheck', () => {
       })
     })
 
-    const result = await runFilesCheck({
+    const result = await runFileChecks({
       workspacePath: '/workspace',
       sourceMedia: 'CD',
       trackers: [],
@@ -122,7 +122,7 @@ describe('runFilesCheck', () => {
 
   it('uses one repair pass only when automatic repair is enabled and allowed', async () => {
     const onRepairStarting = vi.fn(async () => undefined)
-    const repairIntegrity = vi.fn<FilesCheckJobs['repairIntegrity']>(
+    const repairIntegrity = vi.fn<FileChecksJobs['repairIntegrity']>(
       async (_workspacePath, options) => {
         await options?.onRepairStarting?.()
         return passedIntegrity
@@ -130,7 +130,7 @@ describe('runFilesCheck', () => {
     )
     const allJobs = jobs({ repairIntegrity })
 
-    await runFilesCheck({
+    await runFileChecks({
       workspacePath: '/workspace',
       sourceMedia: 'WEB',
       trackers: [],

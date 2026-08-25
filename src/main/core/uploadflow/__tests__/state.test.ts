@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   backgroundWork,
   markBackgroundTaskCompleted,
-  emptyFilesCheck,
-  setFilesCheck,
+  emptyFileChecks,
+  setFileChecks,
   lossyComment,
   lossyMaster,
   newState,
@@ -42,7 +42,7 @@ describe('uploadflow', () => {
   it('steps use expected order', () => {
     const got = steps().map((s) => s.id)
     expect(got).toEqual([
-      'files-check',
+      'file-checks',
       'spectrals',
       'metadata',
       'tags',
@@ -72,7 +72,7 @@ describe('uploadflow', () => {
   })
 
   it('selectSourcePath drops the previous release results', () => {
-    let state = setFilesCheck(selectSourcePath(newState(), '/tmp/release'), {
+    let state = setFileChecks(selectSourcePath(newState(), '/tmp/release'), {
       status: 'ok',
       structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
       integrity: { status: 'passed', checkedCount: 2, failures: [], repairedPaths: [], repairErrors: [] },
@@ -81,7 +81,7 @@ describe('uploadflow', () => {
       logs: { logFiles: ['rip.log'], checks: [] }
     })
     state = selectSourcePath(state, '/tmp/other-release')
-    expect(state.filesCheck).toEqual(emptyFilesCheck())
+    expect(state.fileChecks).toEqual(emptyFileChecks())
   })
 
   it('selectSourcePath queues the media-independent work and leaves media unset', () => {
@@ -120,7 +120,7 @@ describe('uploadflow', () => {
     expect(currentStepIndex(state)).toBe(1)
   })
 
-  it('setSourceMedia adds files check and nothing else', () => {
+  it('setSourceMedia adds file checks and nothing else', () => {
     let state = selectSourcePath(newState(), '/tmp/release')
     expect(started(backgroundWork(state))).toBe(true)
     expect(taskCount(backgroundWork(state))).toBe(3)
@@ -132,20 +132,20 @@ describe('uploadflow', () => {
       'spectrals',
       'metadata',
       'transcode',
-      'files-check'
+      'file-checks'
     ])
     expect(queuedCount(background)).toBe(4)
   })
 
-  it('changing media re-queues only files check', () => {
+  it('changing media re-queues only file checks', () => {
     let state = setSourceMedia(selectSourcePath(newState(), '/tmp/release'), 'WEB')
     state = markBackgroundTaskCompleted(state, 'metadata', 'done')
-    state = markBackgroundTaskCompleted(state, 'files-check', 'done')
+    state = markBackgroundTaskCompleted(state, 'file-checks', 'done')
 
     state = setSourceMedia(state, 'CD')
     const byID = (id: string) => backgroundWork(state).tasks.find((t) => t.id === id)
-    expect(byID('files-check')?.status).toBe('queued')
-    expect(byID('files-check')?.detail).toBe('')
+    expect(byID('file-checks')?.status).toBe('queued')
+    expect(byID('file-checks')?.detail).toBe('')
     expect(byID('metadata')?.status).toBe('succeeded')
   })
 

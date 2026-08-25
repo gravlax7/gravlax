@@ -63,7 +63,7 @@ export interface IpcInvokeMap {
   'upload:setTagsCursor': { args: [number]; result: void }
   'upload:setSpectralIds': { args: [number[]]; result: void }
   'upload:regenerateSpectrals': { args: []; result: void }
-  'upload:refreshFilesCheck': { args: []; result: void }
+  'upload:refreshFileChecks': { args: []; result: void }
   'upload:resolveStructureItems': {
     args: [string[], 'keep' | 'quarantine' | 'restore']
     result: { ok: true } | { ok: false; error: string }
@@ -236,7 +236,7 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'upload:setTagsCursor': z.tuple([z.number().int().min(0)]),
   'upload:setSpectralIds': z.tuple([z.array(z.number().int().positive())]),
   'upload:regenerateSpectrals': noArgs,
-  'upload:refreshFilesCheck': noArgs,
+  'upload:refreshFileChecks': noArgs,
   'upload:resolveStructureItems': z.tuple([
     z.array(z.string().min(1)).min(1),
     z.enum(['keep', 'quarantine', 'restore'])

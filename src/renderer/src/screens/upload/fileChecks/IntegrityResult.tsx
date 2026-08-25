@@ -4,27 +4,27 @@ import {
   flacIntegrityRepairAllowed,
   integrityHeadline,
   integrityTone
-} from '@shared/upload/filesCheck'
+} from '@shared/upload/fileChecks'
 import { Button } from '../../../ui'
-import { FilesCheckResult } from './FilesCheckResult'
+import { FileChecksResult } from './FileChecksResult'
 
 export function IntegrityResult(props: { state: UploadFlowStateJSON }) {
-  const filesCheck = () => props.state.filesCheck
-  const integrity = () => filesCheck().integrity
-  const tone = () => integrityTone(filesCheck())
+  const fileChecks = () => props.state.fileChecks
+  const integrity = () => fileChecks().integrity
+  const tone = () => integrityTone(fileChecks())
   const repairAllowed = () => flacIntegrityRepairAllowed(props.state)
 
   return (
     <Show when={integrity().status !== 'idle'}>
-      <FilesCheckResult tone={tone()} icon={tone() === 'success' ? 'check' : 'alert-triangle'}>
-        <div class="files-check-headline">{integrityHeadline(filesCheck())}</div>
+      <FileChecksResult tone={tone()} icon={tone() === 'success' ? 'check' : 'alert-triangle'}>
+        <div class="file-checks-headline">{integrityHeadline(fileChecks())}</div>
         <Show when={integrity().failures.length > 0}>
-          <div class="files-check-integrity-list">
+          <div class="file-checks-integrity-list">
             <For each={integrity().failures}>
               {(failure) => (
-                <div class="files-check-integrity-item">
-                  <span class="files-check-score-file">{failure.relativePath}</span>
-                  <span class="files-check-sub">{failure.message}</span>
+                <div class="file-checks-integrity-item">
+                  <span class="file-checks-score-file">{failure.relativePath}</span>
+                  <span class="file-checks-sub">{failure.message}</span>
                 </div>
               )}
             </For>
@@ -37,17 +37,17 @@ export function IntegrityResult(props: { state: UploadFlowStateJSON }) {
             Repair failed FLACs
           </Button>
           <Show when={!repairAllowed()}>
-            <div class="files-check-sub">
+            <div class="file-checks-sub">
               Repair is unavailable after upload or seeding has started.
             </div>
           </Show>
         </Show>
         <Show when={integrity().repairErrors.length > 0}>
-          <div class="files-check-sub">
+          <div class="file-checks-sub">
             {integrity().repairErrors.length} repair attempt{integrity().repairErrors.length === 1 ? '' : 's'} failed. See the log for details.
           </div>
         </Show>
-      </FilesCheckResult>
+      </FileChecksResult>
     </Show>
   )
 }

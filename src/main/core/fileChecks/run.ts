@@ -1,5 +1,5 @@
 import type {
-  FilesCheckSnapshot,
+  FileChecksSnapshot,
   IntegritySummary,
   SourceMedia
 } from '@shared/types'
@@ -23,9 +23,9 @@ const JOB_LABELS = {
   logchecker: 'Logchecker'
 } as const
 
-export type FilesCheckJob = keyof typeof JOB_LABELS
+export type FileChecksJob = keyof typeof JOB_LABELS
 
-export interface RunFilesCheckOptions {
+export interface RunFileChecksOptions {
   workspacePath: string
   sourceMedia: SourceMedia
   trackers: Tracker[]
@@ -34,21 +34,21 @@ export interface RunFilesCheckOptions {
   repairRequested?: boolean
   autoRepair?: boolean
   repairAllowed?: boolean
-  jobs?: Partial<FilesCheckJobs>
+  jobs?: Partial<FileChecksJobs>
   onProgress?: (current: number, total: number, label: string) => void
   onRepairStarting?: () => void | Promise<void>
   onIntegrityPassed?: (integrity: IntegritySummary) => void
   approvedStructurePaths?: string[]
-  quarantinedStructureEntries?: FilesCheckSnapshot['structure']['quarantined']
+  quarantinedStructureEntries?: FileChecksSnapshot['structure']['quarantined']
 }
 
-export interface FilesCheckRunResult {
-  snapshot: FilesCheckSnapshot
+export interface FileChecksRunResult {
+  snapshot: FileChecksSnapshot
   detail: string
   taskFailed: boolean
 }
 
-export interface FilesCheckJobs {
+export interface FileChecksJobs {
   checkStructure: typeof checkReleaseStructure
   checkIntegrity: typeof checkFLACIntegrityWorkspace
   repairIntegrity: typeof repairFLACIntegrityWorkspace
@@ -57,7 +57,7 @@ export interface FilesCheckJobs {
   checkLogs: typeof checkLogsWorkspace
 }
 
-export async function runFilesCheck(options: RunFilesCheckOptions): Promise<FilesCheckRunResult> {
+export async function runFileChecks(options: RunFileChecksOptions): Promise<FileChecksRunResult> {
   const {
     workspacePath,
     sourceMedia,
@@ -65,10 +65,10 @@ export async function runFilesCheck(options: RunFilesCheckOptions): Promise<File
     tools,
     onProgress
   } = options
-  const progress = (job: FilesCheckJob) =>
+  const progress = (job: FileChecksJob) =>
     (current: number, total: number, label: string) =>
       onProgress?.(current, total, `${JOB_LABELS[job]} — ${label}`)
-  const jobs: FilesCheckJobs = {
+  const jobs: FileChecksJobs = {
     checkStructure: checkReleaseStructure,
     checkIntegrity: checkFLACIntegrityWorkspace,
     repairIntegrity: repairFLACIntegrityWorkspace,
@@ -153,7 +153,7 @@ export async function runFilesCheck(options: RunFilesCheckOptions): Promise<File
     : { logFiles: [], checks: [] }
   onProgress?.(1, 1, `${JOB_LABELS.logchecker} — Complete`)
   const taskFailed = logs.checks.some((check) => Boolean(check.error))
-  const snapshot: FilesCheckSnapshot = {
+  const snapshot: FileChecksSnapshot = {
     status: taskFailed ? 'failed' : 'ok',
     structure,
     integrity,

@@ -108,7 +108,7 @@ export function UploadStartMenu(props: {
                     path={entry.sourcePath}
                     icon="refresh-cw"
                     warning={!entry.sourceExists}
-                    badge={UPLOAD_STEPS.find((step) => step.id === entry.currentStepID)?.title ?? 'Files Check'}
+                    badge={UPLOAD_STEPS.find((step) => step.id === entry.currentStepID)?.title ?? 'File Checks'}
                     onClick={() => props.onResume(entry)}
                     action={
                       entry.sourceExists

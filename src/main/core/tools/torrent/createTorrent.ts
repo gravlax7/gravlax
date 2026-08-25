@@ -5,7 +5,7 @@ import { basename, dirname, join } from 'node:path'
 import bencode from 'bencode'
 import makeTorrent from 'create-torrent'
 import { enumerateReleaseFiles, totalSize, type ReleaseFile } from '@main/core/tools/releaseFiles'
-import { assertReleasePayloadReady } from '@main/core/filesCheck/structure'
+import { assertReleasePayloadReady } from '@main/core/fileChecks/structure'
 
 const MIN_PIECE_LENGTH = 16 * 1024
 const MAX_PIECE_LENGTH = 16 * 1024 * 1024

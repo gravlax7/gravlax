@@ -3,30 +3,30 @@ import type { SourceMedia, UploadFlowStateJSON } from '@shared/types'
 import { SOURCE_MEDIA_OPTIONS } from '@shared/upload/sourceMedia'
 import { Card, Icon, ProgressBar, Section, SegmentedControl } from '../../../ui'
 import {
-  FilesCheckResult,
+  FileChecksResult,
   IntegrityResult,
   LogcheckerResult,
   MqaResult,
   StructureResult,
   UpconvertResult
-} from '../filesCheck'
+} from '../fileChecks'
 
-export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
+export function FileChecksStep(props: { state: UploadFlowStateJSON }) {
   const [expanded, setExpanded] = createSignal(false)
 
-  const task = () => props.state.background.tasks.find((t) => t.id === 'files-check')
+  const task = () => props.state.background.tasks.find((t) => t.id === 'file-checks')
   const detail = () => task()?.detail ?? ''
   const status = () => task()?.status
-  const filesCheck = () => props.state.filesCheck
+  const fileChecks = () => props.state.fileChecks
   const media = () => props.state.draft.sourceMedia
-  const logCount = () => props.state.filesCheck.logs.logFiles.length
+  const logCount = () => props.state.fileChecks.logs.logFiles.length
   return (
     <Section>
       <Show when={media()}>
-        <Card class="files-check-media">
-          <div class="files-check-media-text">
-            <div class="files-check-media-label">Source media</div>
-            <div class="files-check-sub">
+        <Card class="file-checks-media">
+          <div class="file-checks-media-text">
+            <div class="file-checks-media-label">Source media</div>
+            <div class="file-checks-sub">
               {media() === 'CD'
                 ? logCount() > 0
                   ? `Read as a CD rip from ${logCount()} log file${logCount() === 1 ? '' : 's'}. Rip logs go to the tracker's logchecker.`
@@ -43,28 +43,28 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
       </Show>
 
       <Show when={!task()}>
-        <FilesCheckResult tone="info" icon={props.state.draft.sourcePath ? 'activity' : 'info'}>
+        <FileChecksResult tone="info" icon={props.state.draft.sourcePath ? 'activity' : 'info'}>
           <Show
             when={props.state.draft.sourcePath}
             fallback={
               <>
-                <div class="files-check-headline">Waiting for a source folder</div>
-                <div class="files-check-sub">Choose a release from the start menu to begin files check.</div>
+                <div class="file-checks-headline">Waiting for a source folder</div>
+                <div class="file-checks-sub">Choose a release from the start menu to begin file checks.</div>
               </>
             }
           >
-            <div class="files-check-headline">Preparing the working copy…</div>
-            <div class="files-check-sub">
+            <div class="file-checks-headline">Preparing the working copy…</div>
+            <div class="file-checks-sub">
               Copying the release, then reading it to work out WEB or CD.
             </div>
           </Show>
-        </FilesCheckResult>
+        </FileChecksResult>
       </Show>
 
       <Show when={task() && (status() === 'running' || status() === 'queued')}>
-        <FilesCheckResult tone="info" icon="activity">
-          <div class="files-check-headline">Checking files…</div>
-          <div class="files-check-sub">
+        <FileChecksResult tone="info" icon="activity">
+          <div class="file-checks-headline">Checking files…</div>
+          <div class="file-checks-sub">
             {task()?.progressTotal && task()!.progressTotal > 0
               ? `${task()!.progressCurrent}/${task()!.progressTotal}${task()!.progressLabel ? ` — ${task()!.progressLabel}` : ''}`
               : 'Scanning release files for issues…'}
@@ -73,34 +73,34 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
             <ProgressBar
               value={task()!.progressCurrent ?? 0}
               max={task()!.progressTotal ?? 0}
-              label="Files check progress"
+              label="File checks progress"
             />
           </Show>
-        </FilesCheckResult>
+        </FileChecksResult>
       </Show>
 
       <Show when={status() === 'failed'}>
-        <FilesCheckResult tone="error" icon="alert-triangle">
-          <div class="files-check-headline">Files check failed</div>
-          <Show when={filesCheck().error}>
-            {(message) => <div class="files-check-sub">{message()}</div>}
+        <FileChecksResult tone="error" icon="alert-triangle">
+          <div class="file-checks-headline">File checks failed</div>
+          <Show when={fileChecks().error}>
+            {(message) => <div class="file-checks-sub">{message()}</div>}
           </Show>
-        </FilesCheckResult>
+        </FileChecksResult>
       </Show>
 
       <Show when={status() === 'succeeded'}>
         <StructureResult state={props.state} />
         <IntegrityResult state={props.state} />
-        <MqaResult filesCheck={filesCheck()} />
-        <UpconvertResult filesCheck={filesCheck()} />
-        <LogcheckerResult filesCheck={filesCheck()} />
+        <MqaResult fileChecks={fileChecks()} />
+        <UpconvertResult fileChecks={fileChecks()} />
+        <LogcheckerResult fileChecks={fileChecks()} />
       </Show>
 
       <Show when={detail()}>
-        <Card class="files-check-log-card">
+        <Card class="file-checks-log-card">
           <button
             type="button"
-            class={`files-check-log-toggle ${expanded() ? 'is-open' : ''}`}
+            class={`file-checks-log-toggle ${expanded() ? 'is-open' : ''}`}
             aria-expanded={expanded()}
             onClick={() => setExpanded((v) => !v)}
           >
@@ -108,7 +108,7 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
             {expanded() ? 'Hide log' : 'Show log'}
           </button>
           <Show when={expanded()}>
-            <pre class="files-check-log mono">{detail()}</pre>
+            <pre class="file-checks-log mono">{detail()}</pre>
           </Show>
         </Card>
       </Show>

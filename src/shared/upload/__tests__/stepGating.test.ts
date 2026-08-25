@@ -30,7 +30,7 @@ function baseState(overrides: Partial<UploadFlowStateJSON> = {}): UploadFlowStat
       apply: { phase: 'idle', onDiskModified: false, stripEmbeddedCoverArt: true, renameReleaseFolder: true, currentFolderName: '', files: [] }
     },
     transcode: {},
-    filesCheck: {
+    fileChecks: {
       status: 'idle',
       structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
       integrity: { status: 'passed', checkedCount: 1, failures: [], repairedPaths: [], repairErrors: [] },
@@ -49,7 +49,7 @@ describe('highestReachableStep', () => {
     expect(highestReachableStep(baseState())).toBe(0)
   })
 
-  it('starts at files-check once a source folder is picked', () => {
+  it('starts at file-checks once a source folder is picked', () => {
     expect(
       highestReachableStep(
         baseState({
@@ -67,7 +67,7 @@ describe('highestReachableStep', () => {
     ).toBe(0)
   })
 
-  it('advances after files-check succeeds', () => {
+  it('advances after file-checks succeeds', () => {
     expect(
       highestReachableStep(
         baseState({
@@ -85,8 +85,8 @@ describe('highestReachableStep', () => {
             sourceMedia: 'WEB',
             tasks: [
               {
-                id: 'files-check',
-                step: 'files-check',
+                id: 'file-checks',
+                step: 'file-checks',
                 title: 'Files',
                 status: 'succeeded',
                 detail: 'ok',
@@ -113,8 +113,8 @@ describe('highestReachableStep', () => {
         spectralIds: [],
         spectralIdsAuto: true
       },
-      filesCheck: {
-        ...baseState().filesCheck,
+      fileChecks: {
+        ...baseState().fileChecks,
         integrity: {
           status: 'failed',
           checkedCount: 1,
@@ -129,7 +129,7 @@ describe('highestReachableStep', () => {
     expect(stepHasError(0, state)).toBe(true)
   })
 
-  it('does not gate on a failed files-check', () => {
+  it('does not gate on a failed file-checks', () => {
     const draft = {
       sourcePath: '/a',
       workspacePath: '/w',
@@ -146,8 +146,8 @@ describe('highestReachableStep', () => {
         sourceMedia: 'WEB',
         tasks: [
           {
-            id: 'files-check',
-            step: 'files-check',
+            id: 'file-checks',
+            step: 'file-checks',
             title: 'Files',
             status: 'failed',
             detail: 'logchecker unreachable',
@@ -168,7 +168,7 @@ describe('highestReachableStep', () => {
         ]
       }
     })
-    // Spectrals succeeded, so metadata is reachable despite the files-check error.
+    // Spectrals succeeded, so metadata is reachable despite the file-checks error.
     expect(highestReachableStep(state)).toBe(2)
     expect(stepHasError(0, state)).toBe(true)
   })
@@ -230,7 +230,7 @@ describe('highestReachableStep', () => {
 describe('stepIndexOf', () => {
   it('resolves ids against UPLOAD_STEPS', () => {
     expect(UPLOAD_STEPS).toHaveLength(7)
-    expect(stepIndexOf('files-check')).toBe(0)
+    expect(stepIndexOf('file-checks')).toBe(0)
     expect(stepIndexOf('upload')).toBe(5)
     expect(stepIndexOf('seed')).toBe(UPLOAD_STEPS.length - 1)
   })
@@ -329,8 +329,8 @@ describe('stepNodeStatus', () => {
         sourceMedia: '',
         tasks: [
           {
-            id: 'files-check',
-            step: 'files-check',
+            id: 'file-checks',
+            step: 'file-checks',
             title: 'Files',
             status: 'failed',
             detail: 'boom',
@@ -350,8 +350,8 @@ describe('activeBackgroundTasks', () => {
   it('filters to queued and running', () => {
     const tasks = activeBackgroundTasks([
       {
-        id: 'files-check',
-        step: 'files-check',
+        id: 'file-checks',
+        step: 'file-checks',
         title: 'A',
         status: 'running',
         detail: '',
@@ -380,6 +380,6 @@ describe('activeBackgroundTasks', () => {
         progressLabel: ''
       }
     ])
-    expect(tasks.map((t) => t.id)).toEqual(['files-check', 'metadata'])
+    expect(tasks.map((t) => t.id)).toEqual(['file-checks', 'metadata'])
   })
 })

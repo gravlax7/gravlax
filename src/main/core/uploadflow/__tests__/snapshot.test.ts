@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { setFilesCheck } from '../filesCheck'
+import { setFileChecks } from '../fileChecks'
 import { setSeed } from '../seed'
 import { restoreState, snapshot } from '../snapshot'
 import { beginSubmit, patchSubmission } from '../upload'
@@ -34,21 +34,21 @@ describe('snapshot round-trip', () => {
   it('restores an untouched source at step 0', () => {
     const state = selectSourcePath(newState(), '/music/album')
     const restored = restoreState('/workspace/upload-abc123', snapshot(state))
-    expect(currentStep(restored).id).toBe('files-check')
+    expect(currentStep(restored).id).toBe('file-checks')
   })
 
-  it('migrates a legacy Source snapshot to Files Check', () => {
+  it('migrates a legacy Source snapshot to File Checks', () => {
     const restored = restoreState('/workspace/upload-abc123', {
       sourcePath: '/music/album',
       currentStepID: 'source'
     })
-    expect(currentStep(restored).id).toBe('files-check')
+    expect(currentStep(restored).id).toBe('file-checks')
   })
 
-  it('carries files-check results across a restart', () => {
+  it('carries file-checks results across a restart', () => {
     let state = selectSourcePath(newState(), '/music/album')
     state = setSourceMedia(state, 'CD')
-    state = setFilesCheck(state, {
+    state = setFileChecks(state, {
       status: 'ok',
       structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
       integrity: { status: 'passed', checkedCount: 2, failures: [], repairedPaths: [], repairErrors: [] },
@@ -81,41 +81,41 @@ describe('snapshot round-trip', () => {
     })
 
     const restored = restoreState('/workspace/upload-abc123', snapshot(state))
-    expect(restored.filesCheck.status).toBe('ok')
-    expect(restored.filesCheck.mqa.mqaPaths).toEqual(['02.flac'])
-    expect(restored.filesCheck.upconvert.results[0]).toMatchObject({
+    expect(restored.fileChecks.status).toBe('ok')
+    expect(restored.fileChecks.mqa.mqaPaths).toEqual(['02.flac'])
+    expect(restored.fileChecks.upconvert.results[0]).toMatchObject({
       relativePath: '02.flac',
       wastedBits: 8,
       isUpconverted: true
     })
-    expect(restored.filesCheck.logs.checks[0]?.score).toBe(97)
-    expect(restored.filesCheck.logs.checks[0]?.issues).toEqual(['Test and copy was not used'])
+    expect(restored.fileChecks.logs.checks[0]?.score).toBe(97)
+    expect(restored.fileChecks.logs.checks[0]?.issues).toEqual(['Test and copy was not used'])
   })
 
-  it('restores an empty files-check from a snapshot written before it existed', () => {
+  it('restores an empty file-checks from a snapshot written before it existed', () => {
     const state = selectSourcePath(newState(), '/music/album')
     const snap = snapshot(state)
-    expect(snap.filesCheck).toBeUndefined()
-    expect(restoreState('/workspace/upload-abc123', snap).filesCheck.status).toBe('idle')
+    expect(snap.fileChecks).toBeUndefined()
+    expect(restoreState('/workspace/upload-abc123', snap).fileChecks.status).toBe('idle')
   })
 
-  it('fills in upconvert results for a files-check snapshot written before the check existed', () => {
+  it('fills in upconvert results for a file-checks snapshot written before the check existed', () => {
     const state = setSourceMedia(selectSourcePath(newState(), '/music/album'), 'WEB')
     const snap = snapshot(state)
-    snap.filesCheck = {
+    snap.fileChecks = {
       status: 'ok',
       mqa: { checkedCount: 1, mqaPaths: [], errors: [] },
       logs: { logFiles: [], checks: [] }
     } as never
 
-    expect(restoreState('/workspace/upload-abc123', snap).filesCheck.upconvert).toEqual({
+    expect(restoreState('/workspace/upload-abc123', snap).fileChecks.upconvert).toEqual({
       checkedCount: 0,
       results: [],
       errors: []
     })
     const restored = restoreState('/workspace/upload-abc123', snap)
-    expect(restored.filesCheck.integrity.status).toBe('idle')
-    expect(restored.background.tasks.find((task) => task.id === 'files-check')?.status).toBe('queued')
+    expect(restored.fileChecks.integrity.status).toBe('idle')
+    expect(restored.background.tasks.find((task) => task.id === 'file-checks')?.status).toBe('queued')
   })
 
   it('migrates the retired rules-check step to upload', () => {

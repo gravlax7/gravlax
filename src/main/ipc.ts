@@ -70,7 +70,7 @@ export function registerIpc(deps: IpcDeps): void {
   handle('upload:setTagsCursor', (cursor) => upload.setTagsCursor(cursor))
   handle('upload:setSpectralIds', (ids) => upload.setSpectralIds(ids))
   handle('upload:regenerateSpectrals', () => upload.regenerateSpectrals())
-  handle('upload:refreshFilesCheck', () => upload.refreshFilesCheck())
+  handle('upload:refreshFileChecks', () => upload.refreshFileChecks())
   handle('upload:resolveStructureItems', (ids, action) => upload.resolveStructureItems(ids, action))
   handle('upload:repairFlacIntegrity', () => upload.repairFlacIntegrity())
   handle('upload:refreshMetadata', () => upload.refreshMetadata())

@@ -33,7 +33,7 @@ function runtimeOf(session: UploadSession): SessionRuntime {
 
 function integrityReadyState(): State {
   const state = newState()
-  state.filesCheck.integrity = {
+  state.fileChecks.integrity = {
     status: 'passed',
     checkedCount: 1,
     failures: [],
@@ -92,14 +92,14 @@ describe('UploadSession', () => {
     const session = newSession()
     const internal = session as unknown as {
       scheduleReadyTasks: () => void
-      startFilesCheckIfReady: () => void
+      startFileChecksIfReady: () => void
       startSpectralsIfReady: () => void
       startMetadataIfReady: () => void
       startTranscodeInspectIfReady: () => void
       startTagsCurrentIfReady: () => Promise<void>
       startTagsReleaseIfNeeded: () => Promise<void>
     }
-    const files = vi.spyOn(internal, 'startFilesCheckIfReady').mockImplementation(() => undefined)
+    const files = vi.spyOn(internal, 'startFileChecksIfReady').mockImplementation(() => undefined)
     const spectrals = vi.spyOn(internal, 'startSpectralsIfReady').mockImplementation(() => undefined)
     const metadata = vi.spyOn(internal, 'startMetadataIfReady').mockImplementation(() => undefined)
     const transcode = vi.spyOn(internal, 'startTranscodeInspectIfReady').mockImplementation(() => undefined)

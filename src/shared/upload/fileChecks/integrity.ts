@@ -1,8 +1,8 @@
-import type { FilesCheckSnapshot, UploadFlowStateJSON } from '../../types/upload'
+import type { FileChecksSnapshot, UploadFlowStateJSON } from '../../types/upload'
 import type { CheckTone } from './types'
 
-export function integrityHeadline(filesCheck: FilesCheckSnapshot): string {
-  const integrity = filesCheck.integrity
+export function integrityHeadline(fileChecks: FileChecksSnapshot): string {
+  const integrity = fileChecks.integrity
   if (integrity.status === 'passed') {
     if (integrity.repairedPaths.length > 0) {
       return `FLAC integrity passed after repairing ${integrity.repairedPaths.length}`
@@ -14,9 +14,9 @@ export function integrityHeadline(filesCheck: FilesCheckSnapshot): string {
   return `${integrity.failures.length} FLACs failed integrity`
 }
 
-export function integrityTone(filesCheck: FilesCheckSnapshot): CheckTone {
-  if (filesCheck.integrity.status === 'passed') return 'success'
-  if (filesCheck.integrity.status === 'failed') return 'warning'
+export function integrityTone(fileChecks: FileChecksSnapshot): CheckTone {
+  if (fileChecks.integrity.status === 'passed') return 'success'
+  if (fileChecks.integrity.status === 'failed') return 'warning'
   return 'info'
 }
 

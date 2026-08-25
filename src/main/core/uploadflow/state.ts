@@ -2,7 +2,7 @@ import { basename } from 'node:path'
 import type {
   BackgroundWork,
   Draft,
-  FilesCheckSnapshot,
+  FileChecksSnapshot,
   FilesSnapshot,
   MetadataSearchSnapshot,
   SourceMedia,
@@ -14,7 +14,7 @@ import type {
 } from '@shared/types'
 import { WORKFLOW_STEPS, workflowStepAt, workflowStepIndex } from '@shared/upload/workflow'
 import { newBackgroundWork, withSourceMedia } from './background'
-import { emptyFilesCheck } from './filesCheck'
+import { emptyFileChecks } from './fileChecks'
 import { emptyFiles } from './files'
 import { emptySeed } from './seed'
 import { emptyTranscode } from './transcode'
@@ -30,7 +30,7 @@ export interface State {
   tags: TagsSnapshot
   files: FilesSnapshot
   transcode: TranscodeSnapshot
-  filesCheck: FilesCheckSnapshot
+  fileChecks: FileChecksSnapshot
   upload: UploadSnapshot
   seed: SeedSnapshot
 }
@@ -56,7 +56,7 @@ export function newState(): State {
     tags: {},
     files: emptyFiles(),
     transcode: emptyTranscode(),
-    filesCheck: emptyFilesCheck(),
+    fileChecks: emptyFileChecks(),
     upload: emptyUpload(),
     seed: emptySeed()
   }
@@ -136,7 +136,7 @@ export function selectSourcePath(s: State, path: string): State {
       tags: {},
       files: emptyFiles(),
       transcode: emptyTranscode(),
-      filesCheck: emptyFilesCheck(),
+      fileChecks: emptyFileChecks(),
       upload: emptyUpload(),
       seed: emptySeed()
     }

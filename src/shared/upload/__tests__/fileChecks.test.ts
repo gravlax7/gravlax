@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { FilesCheckSnapshot, LogCheck } from '../../types/upload'
+import type { FileChecksSnapshot, LogCheck } from '../../types/upload'
 import {
   hasLogErrors,
   hasLogIssues,
@@ -13,9 +13,9 @@ import {
   upconvertFindings,
   upconvertHeadline,
   upconvertTone
-} from '../filesCheck'
+} from '../fileChecks'
 
-function snapshot(overrides: Partial<FilesCheckSnapshot> = {}): FilesCheckSnapshot {
+function snapshot(overrides: Partial<FileChecksSnapshot> = {}): FileChecksSnapshot {
   return {
     status: 'ok',
     structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },

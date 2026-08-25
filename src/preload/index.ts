@@ -63,7 +63,7 @@ const api = {
     setTagsCursor: (cursor: number) => invoke('upload:setTagsCursor', cursor),
     setSpectralIds: (ids: number[]) => invoke('upload:setSpectralIds', ids),
     regenerateSpectrals: () => invoke('upload:regenerateSpectrals'),
-    refreshFilesCheck: () => invoke('upload:refreshFilesCheck'),
+    refreshFileChecks: () => invoke('upload:refreshFileChecks'),
     resolveStructureItems: (ids: string[], action: 'keep' | 'quarantine' | 'restore') =>
       invoke('upload:resolveStructureItems', ids, action),
     repairFlacIntegrity: () => invoke('upload:repairFlacIntegrity'),

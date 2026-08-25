@@ -1,4 +1,4 @@
-export * from './FilesCheckResult'
+export * from './FileChecksResult'
 export * from './IntegrityResult'
 export * from './LogcheckerResult'
 export * from './MqaResult'

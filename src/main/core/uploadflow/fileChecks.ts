@@ -1,5 +1,5 @@
 import type {
-  FilesCheckSnapshot,
+  FileChecksSnapshot,
   IntegritySummary,
   LogcheckerSummary,
   MQASummary,
@@ -25,7 +25,7 @@ export function emptyIntegritySummary(): IntegritySummary {
   }
 }
 
-export function emptyFilesCheck(): FilesCheckSnapshot {
+export function emptyFileChecks(): FileChecksSnapshot {
   return {
     status: 'idle',
     structure: {
@@ -42,32 +42,32 @@ export function emptyFilesCheck(): FilesCheckSnapshot {
   }
 }
 
-export function setFilesCheck(s: State, snapshot: FilesCheckSnapshot): State {
-  return { ...s, filesCheck: restoreFilesCheck(snapshot) }
+export function setFileChecks(s: State, snapshot: FileChecksSnapshot): State {
+  return { ...s, fileChecks: restoreFileChecks(snapshot) }
 }
 
-export function clearFilesCheck(s: State): State {
-  const empty = emptyFilesCheck()
+export function clearFileChecks(s: State): State {
+  const empty = emptyFileChecks()
   return {
     ...s,
-    filesCheck: {
+    fileChecks: {
       ...empty,
       structure: {
         ...empty.structure,
-        approvedPaths: [...s.filesCheck.structure.approvedPaths],
-        quarantined: s.filesCheck.structure.quarantined.map((item) => ({ ...item }))
+        approvedPaths: [...s.fileChecks.structure.approvedPaths],
+        quarantined: s.fileChecks.structure.quarantined.map((item) => ({ ...item }))
       }
     }
   }
 }
 
-export function setFilesCheckRunning(s: State): State {
-  return { ...s, filesCheck: { ...emptyFilesCheck(), status: 'running' } }
+export function setFileChecksRunning(s: State): State {
+  return { ...s, fileChecks: { ...emptyFileChecks(), status: 'running' } }
 }
 
 /** Fills the gaps in a snapshot read back off disk, which may predate any field. */
-export function restoreFilesCheck(snapshot: FilesCheckSnapshot | undefined): FilesCheckSnapshot {
-  if (!snapshot) return emptyFilesCheck()
+export function restoreFileChecks(snapshot: FileChecksSnapshot | undefined): FileChecksSnapshot {
+  if (!snapshot) return emptyFileChecks()
   const mqa = snapshot.mqa
   const integrity = snapshot.integrity
   const upconvert = snapshot.upconvert

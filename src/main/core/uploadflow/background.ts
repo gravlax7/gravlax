@@ -25,7 +25,7 @@ export function newBackgroundWork(sourcePath: string): BackgroundWork {
   }
 }
 
-// Files check is the one job that needs the media type, because only CD rips
+// File checks is the one job that needs the media type, because only CD rips
 // carry logs for the tracker's logchecker. Keep it alone here: anything else
 // queued off the media choice would be waiting on an answer it never needed,
 // and would be cancelled and rerun whenever the user corrects that answer.
@@ -34,7 +34,7 @@ export function withSourceMedia(w: BackgroundWork, media: SourceMedia): Backgrou
     return w
   }
   const next: BackgroundWork = { ...w, sourceMedia: media, tasks: w.tasks.map((t) => ({ ...t })) }
-  return withTask(next, queuedTask('files-check', 'files-check', 'Analyze release contents'))
+  return withTask(next, queuedTask('file-checks', 'file-checks', 'Analyze release contents'))
 }
 
 function queuedTask(id: BackgroundTaskID, step: StepID, title: string): BackgroundTask {

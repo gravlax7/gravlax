@@ -1,5 +1,5 @@
 export const WORKFLOW_STEPS = [
-  { id: 'files-check', title: 'Files Check', body: '' },
+  { id: 'file-checks', title: 'File Checks', body: '' },
   {
     id: 'spectrals',
     title: 'Spectrals',

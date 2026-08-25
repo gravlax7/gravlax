@@ -19,7 +19,7 @@ import type {
 } from '@shared/types'
 import {
   clearMetadataSelection,
-  clearFilesCheck,
+  clearFileChecks,
   clearTagsRelease,
   markBackgroundTaskCompleted,
   markBackgroundTaskFailed,
@@ -28,8 +28,8 @@ import {
   resetBackgroundTask,
   selectSourcePath,
   setCurrentStep,
-  setFilesCheck,
-  setFilesCheckRunning,
+  setFileChecks,
+  setFileChecksRunning,
   setLossyComment,
   setLossyMaster,
   setSpectralIds,
@@ -117,8 +117,8 @@ import {
   quarantineReleaseEntry,
   restoreQuarantinedReleaseEntry,
   assertReleasePayloadReady,
-  runFilesCheck
-} from '@main/core/filesCheck'
+  runFileChecks
+} from '@main/core/fileChecks'
 import { detectSourceMedia } from '@main/core/tools/diagnostics/sourceMedia'
 import { createEnabledTrackers } from '@main/core/tools/trackers'
 import { extractAlbumReleaseWithEmbeddedCoverArt } from '@main/core/tags/extract'
@@ -131,12 +131,12 @@ import { TaskScope, isAbortError, type TaskHandle } from '@main/services/taskSlo
 import { UploadSessionRuntime, type UploadSessionRuntimeDeps } from '@main/services/uploadSessionRuntime'
 import { UploadSessionFileChanges } from '@main/services/uploadSessionFileChanges'
 import { evaluateStepNavigation } from '@shared/upload/workflow'
-import { flacIntegrityRepairAllowed } from '@shared/upload/filesCheck'
+import { flacIntegrityRepairAllowed } from '@shared/upload/fileChecks'
 import { listUploadStartEntries } from '@main/services/uploadStartService'
 import type { UploadStatsRecord } from '@main/services/uploadStatsService'
 import type { ToolResolver } from '@main/core/tools/binaries'
 
-const FILES_CHECK_STEP = stepIndex('files-check') ?? 0
+const FILE_CHECKS_STEP = stepIndex('file-checks') ?? 0
 
 function pathIsInside(parent: string, candidate: string): boolean {
   const pathFromParent = relative(parent, candidate)
@@ -159,7 +159,7 @@ export class UploadSession {
   private readonly runtime: UploadSessionRuntime
   private tasks = new TaskScope()
   private spectrals = this.tasks.slot('spectrals')
-  private filesCheck = this.tasks.slot('files-check')
+  private fileChecks = this.tasks.slot('file-checks')
   private metadata = this.tasks.slot('metadata')
   private tags = this.tasks.slot('tags')
   private transcode = this.tasks.slot('transcode')
@@ -455,7 +455,7 @@ export class UploadSession {
         for (const format of this.state.upload.formats ?? []) {
           await assertReleasePayloadReady(
             format.folderPath,
-            this.state.filesCheck.structure.approvedPaths
+            this.state.fileChecks.structure.approvedPaths
           )
         }
         if (!task.fresh()) return
@@ -472,7 +472,7 @@ export class UploadSession {
           lossyComment: this.state.draft.lossyComment,
           sourceUrl: this.state.metadata.selected?.url?.trim() ?? '',
           spectralBbcode: this.state.upload.spectralBbcode ?? '',
-          approvedStructurePaths: this.state.filesCheck.structure.approvedPaths,
+          approvedStructurePaths: this.state.fileChecks.structure.approvedPaths,
           signal: task.signal,
           fresh: () => task.fresh(),
           onPatch: (id, patch) => {
@@ -839,7 +839,7 @@ export class UploadSession {
     await this.persistNow()
     this.cancelAll()
     const generation = this.tasks.generation
-    this.apply(setCurrentStep(selectSourcePath(newState(), path), FILES_CHECK_STEP))
+    this.apply(setCurrentStep(selectSourcePath(newState(), path), FILE_CHECKS_STEP))
     await this.copyFresh(path, generation)
   }
 
@@ -856,7 +856,7 @@ export class UploadSession {
       await access(workspacePath)
     } catch {
       this.notify('warning', 'The saved working copy was incomplete. Creating a fresh one from the source folder.')
-      this.apply(setCurrentStep(selectSourcePath(newState(), sourcePath), FILES_CHECK_STEP))
+      this.apply(setCurrentStep(selectSourcePath(newState(), sourcePath), FILE_CHECKS_STEP))
       await this.copyFresh(sourcePath, generation)
       return
     }
@@ -864,7 +864,7 @@ export class UploadSession {
       const snap = await readUploadFlow(workspaceRootPath)
       this.apply(restoreState(workspacePath, snap))
     } catch {
-      this.notify('warning', 'Could not restore all saved upload progress. Continuing from Files Check.')
+      this.notify('warning', 'Could not restore all saved upload progress. Continuing from File Checks.')
       this.apply(setWorkspacePath(selectSourcePath(newState(), sourcePath), workspacePath))
     }
     const stillOnWorkspace = (): boolean => this.stillOnWorkspace(generation, workspacePath)
@@ -925,7 +925,7 @@ export class UploadSession {
 
   // The answer comes from the folder itself — logs mean a CD rip — so the user
   // is only ever correcting a reading, never supplying one from nothing. This
-  // is what lets files check start on its own for the ordinary WEB release.
+  // is what lets file checks start on its own for the ordinary WEB release.
   private async maybeAutoDetectSourceMedia(
     folderPath: string,
     stillCurrent: () => boolean = () => true
@@ -1027,8 +1027,8 @@ export class UploadSession {
 
   selectSourceMedia(media: SourceMedia): void {
     if (media === this.state.draft.sourceMedia) return
-    // Only files check reads the media type, so only files check is thrown away.
-    this.filesCheck.cancel()
+    // Only file checks reads the media type, so only file checks is thrown away.
+    this.fileChecks.cancel()
     this.apply(setSourceMedia(this.state, media))
     this.scheduleReadyTasks()
   }
@@ -1130,10 +1130,10 @@ export class UploadSession {
     this.startSpectralsIfReady()
   }
 
-  async refreshFilesCheck(): Promise<void> {
-    this.filesCheck.cancel()
-    this.apply(resetBackgroundTask(clearFilesCheck(this.state), 'files-check'))
-    this.startFilesCheckIfReady()
+  async refreshFileChecks(): Promise<void> {
+    this.fileChecks.cancel()
+    this.apply(resetBackgroundTask(clearFileChecks(this.state), 'file-checks'))
+    this.startFileChecksIfReady()
   }
 
   async resolveStructureItems(
@@ -1144,7 +1144,7 @@ export class UploadSession {
     if (!workspacePath) return { ok: false, error: 'Workspace is not ready.' }
     try {
       const selected = new Set(ids)
-      let structure = this.state.filesCheck.structure
+      let structure = this.state.fileChecks.structure
       if (action === 'keep') {
         const keepable = structure.issues.filter(
           (item) => selected.has(item.id) && item.canKeep
@@ -1207,8 +1207,8 @@ export class UploadSession {
           quarantined: structure.quarantined.filter((item) => !selected.has(item.id))
         }
       }
-      this.apply({ ...this.state, filesCheck: { ...this.state.filesCheck, structure } })
-      await this.refreshFilesCheck()
+      this.apply({ ...this.state, fileChecks: { ...this.state.fileChecks, structure } })
+      await this.refreshFileChecks()
       return { ok: true }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -1222,9 +1222,9 @@ export class UploadSession {
       this.notify('error', 'FLACs cannot be repaired after upload or seeding has started.')
       return
     }
-    this.filesCheck.cancel()
-    this.apply(resetBackgroundTask(clearFilesCheck(this.state), 'files-check'))
-    this.startFilesCheckIfReady(true)
+    this.fileChecks.cancel()
+    this.apply(resetBackgroundTask(clearFileChecks(this.state), 'file-checks'))
+    this.startFileChecksIfReady(true)
   }
 
   async refreshMetadata(): Promise<void> {
@@ -1450,7 +1450,7 @@ export class UploadSession {
   }
 
   private scheduleReadyTasks(): void {
-    this.startFilesCheckIfReady()
+    this.startFileChecksIfReady()
     this.startSpectralsIfReady()
     this.startMetadataIfReady()
     this.startTranscodeInspectIfReady()
@@ -1556,19 +1556,19 @@ export class UploadSession {
     )
   }
 
-  private startFilesCheckIfReady(repairRequested = false): void {
+  private startFileChecksIfReady(repairRequested = false): void {
     if (!this.state.draft.workspacePath || !this.state.draft.sourceMedia) return
-    const t = getTask(this.state.background, 'files-check')
+    const t = getTask(this.state.background, 'file-checks')
     if (!t || t.status !== 'queued') return
 
     const workspacePath = this.state.draft.workspacePath
     const sourceMedia = this.state.draft.sourceMedia
-    this.apply(markBackgroundTaskRunning(setFilesCheckRunning(this.state), 'files-check'))
+    this.apply(markBackgroundTaskRunning(setFileChecksRunning(this.state), 'file-checks'))
 
-    void this.filesCheck.run(
+    void this.fileChecks.run(
       async (task) => {
         const canRepair = this.integrityRepairAllowed()
-        const result = await runFilesCheck({
+        const result = await runFileChecks({
           workspacePath,
           sourceMedia,
           trackers: createEnabledTrackers(this.deps.getConfig()),
@@ -1577,15 +1577,15 @@ export class UploadSession {
           repairRequested,
           autoRepair: this.deps.getConfig().workflow.autoRepairFlacIntegrity,
           repairAllowed: canRepair,
-          approvedStructurePaths: this.state.filesCheck.structure.approvedPaths,
-          quarantinedStructureEntries: this.state.filesCheck.structure.quarantined,
+          approvedStructurePaths: this.state.fileChecks.structure.approvedPaths,
+          quarantinedStructureEntries: this.state.fileChecks.structure.quarantined,
           onRepairStarting: () => this.stopSpectralsForRepair(task),
           onProgress: (current, total, label) => {
             if (!task.fresh()) return
             this.apply(
               markBackgroundTaskProgress(
                 this.state,
-                'files-check',
+                'file-checks',
                 current,
                 total,
                 label
@@ -1595,9 +1595,9 @@ export class UploadSession {
           },
           onIntegrityPassed: (integrity) => {
             if (!task.fresh()) return
-            this.apply(setFilesCheck(this.state, {
+            this.apply(setFileChecks(this.state, {
               status: 'running',
-              structure: this.state.filesCheck.structure,
+              structure: this.state.fileChecks.structure,
               integrity,
               mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
               upconvert: { checkedCount: 0, results: [], errors: [] },
@@ -1610,31 +1610,31 @@ export class UploadSession {
 
         const payload = await enumerateReleasePaths(workspacePath)
         if (!task.fresh()) return
-        const next = setFilesCheck(reconcilePayloadPaths(this.state, payload), result.snapshot)
+        const next = setFileChecks(reconcilePayloadPaths(this.state, payload), result.snapshot)
         this.apply(
           result.taskFailed
-            ? markBackgroundTaskFailed(next, 'files-check', result.detail)
-            : markBackgroundTaskCompleted(next, 'files-check', result.detail)
+            ? markBackgroundTaskFailed(next, 'file-checks', result.detail)
+            : markBackgroundTaskCompleted(next, 'file-checks', result.detail)
         )
         this.scheduleReadyTasks()
       },
       {
         guard: this.stillOn(workspacePath),
         onError: (err) => {
-          const integrity = this.state.filesCheck.integrity.status === 'idle'
+          const integrity = this.state.fileChecks.integrity.status === 'idle'
             ? {
-                ...this.state.filesCheck.integrity,
+                ...this.state.fileChecks.integrity,
                 status: 'failed' as const,
                 error: String(err)
               }
-            : this.state.filesCheck.integrity
-          const next = setFilesCheck(this.state, {
-            ...this.state.filesCheck,
+            : this.state.fileChecks.integrity
+          const next = setFileChecks(this.state, {
+            ...this.state.fileChecks,
             status: 'failed',
             integrity,
             error: String(err)
           })
-          this.apply(markBackgroundTaskFailed(next, 'files-check', String(err)))
+          this.apply(markBackgroundTaskFailed(next, 'file-checks', String(err)))
         }
       }
     )
@@ -1652,7 +1652,7 @@ export class UploadSession {
   }
 
   private flacIntegrityPassed(): boolean {
-    return this.state.filesCheck.integrity.status === 'passed'
+    return this.state.fileChecks.integrity.status === 'passed'
   }
 
   private startMetadataIfReady(): void {

@@ -5,7 +5,7 @@ describe('workflow step catalog', () => {
   it('defines the upload pipeline in order without repeated ids', () => {
     const ids = WORKFLOW_STEPS.map((step) => step.id)
     expect(ids).toEqual([
-      'files-check',
+      'file-checks',
       'spectrals',
       'metadata',
       'tags',

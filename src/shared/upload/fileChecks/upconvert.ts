@@ -1,4 +1,4 @@
-import type { FilesCheckSnapshot } from '../../types/upload'
+import type { FileChecksSnapshot } from '../../types/upload'
 import { fileNameOf, type CheckTone } from './types'
 
 export interface UpconvertFinding {
@@ -7,8 +7,8 @@ export interface UpconvertFinding {
   bitDepth: number
 }
 
-export function upconvertFindings(filesCheck: FilesCheckSnapshot): UpconvertFinding[] {
-  return filesCheck.upconvert.results
+export function upconvertFindings(fileChecks: FileChecksSnapshot): UpconvertFinding[] {
+  return fileChecks.upconvert.results
     .filter((result) => result.isUpconverted)
     .map((result) => ({
       fileName: fileNameOf(result.relativePath),
@@ -17,13 +17,13 @@ export function upconvertFindings(filesCheck: FilesCheckSnapshot): UpconvertFind
     }))
 }
 
-export function hasUpconvertResults(filesCheck: FilesCheckSnapshot): boolean {
-  return filesCheck.upconvert.checkedCount > 0 || filesCheck.upconvert.errors.length > 0
+export function hasUpconvertResults(fileChecks: FileChecksSnapshot): boolean {
+  return fileChecks.upconvert.checkedCount > 0 || fileChecks.upconvert.errors.length > 0
 }
 
-export function upconvertHeadline(filesCheck: FilesCheckSnapshot): string {
-  const upconvert = filesCheck.upconvert
-  const findings = upconvertFindings(filesCheck)
+export function upconvertHeadline(fileChecks: FileChecksSnapshot): string {
+  const upconvert = fileChecks.upconvert
+  const findings = upconvertFindings(fileChecks)
   if (findings.length === 1) return 'Possible 24-bit upconvert detected'
   if (findings.length > 1) return `Possible 24-bit upconverts detected (${findings.length})`
   if (upconvert.errors.length > 0) return 'Upconvert check incomplete'
@@ -31,9 +31,9 @@ export function upconvertHeadline(filesCheck: FilesCheckSnapshot): string {
   return 'No likely 24-bit upconverts found'
 }
 
-export function upconvertTone(filesCheck: FilesCheckSnapshot): CheckTone {
-  const upconvert = filesCheck.upconvert
-  if (upconvertFindings(filesCheck).length > 0 || upconvert.errors.length > 0) return 'warning'
+export function upconvertTone(fileChecks: FileChecksSnapshot): CheckTone {
+  const upconvert = fileChecks.upconvert
+  if (upconvertFindings(fileChecks).length > 0 || upconvert.errors.length > 0) return 'warning'
   if (upconvert.checkedCount === 0) return 'info'
   return 'success'
 }

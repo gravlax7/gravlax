@@ -41,7 +41,7 @@ describe('TaskSlot', () => {
 
   it('invalidates a run started before the scope turned over, even in a fresh slot', () => {
     const scope = new TaskScope()
-    const handle = scope.slot('files-check').begin()
+    const handle = scope.slot('file-checks').begin()
     scope.invalidateAll()
     // Same slot, but the handle predates the turnover.
     expect(handle.fresh()).toBe(false)

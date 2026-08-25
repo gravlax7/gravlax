@@ -272,40 +272,40 @@ export function finishFilesApply(
         progressLabel: undefined
       }
     },
-    filesCheck: {
-      ...s.filesCheck,
+    fileChecks: {
+      ...s.fileChecks,
       structure: {
-        ...s.filesCheck.structure,
-        issues: s.filesCheck.structure.issues.map((item) => ({
+        ...s.fileChecks.structure,
+        issues: s.fileChecks.structure.issues.map((item) => ({
           ...item,
           relativePath: payloadPathMap.get(item.relativePath) ?? item.relativePath
         })),
-        approvedPaths: s.filesCheck.structure.approvedPaths.map(
+        approvedPaths: s.fileChecks.structure.approvedPaths.map(
           (path) => payloadPathMap.get(path) ?? path
         ),
         emptyDirectories: []
       },
-      integrity: remapIntegrityPaths(s.filesCheck.integrity, pathMap),
+      integrity: remapIntegrityPaths(s.fileChecks.integrity, pathMap),
       mqa: {
-        ...s.filesCheck.mqa,
-        mqaPaths: s.filesCheck.mqa.mqaPaths.map((path) => pathMap.get(path) ?? path),
-        errors: s.filesCheck.mqa.errors.map((error) => ({ ...error, relativePath: pathMap.get(error.relativePath) ?? error.relativePath }))
+        ...s.fileChecks.mqa,
+        mqaPaths: s.fileChecks.mqa.mqaPaths.map((path) => pathMap.get(path) ?? path),
+        errors: s.fileChecks.mqa.errors.map((error) => ({ ...error, relativePath: pathMap.get(error.relativePath) ?? error.relativePath }))
       },
       upconvert: {
-        ...s.filesCheck.upconvert,
-        results: s.filesCheck.upconvert.results.map((result) => ({
+        ...s.fileChecks.upconvert,
+        results: s.fileChecks.upconvert.results.map((result) => ({
           ...result,
           relativePath: pathMap.get(result.relativePath) ?? result.relativePath
         })),
-        errors: s.filesCheck.upconvert.errors.map((error) => ({
+        errors: s.fileChecks.upconvert.errors.map((error) => ({
           ...error,
           relativePath: pathMap.get(error.relativePath) ?? error.relativePath
         }))
       },
       logs: {
-        ...s.filesCheck.logs,
-        logFiles: s.filesCheck.logs.logFiles.map((path) => payloadPathMap.get(path) ?? path),
-        checks: s.filesCheck.logs.checks.map((check) => ({
+        ...s.fileChecks.logs,
+        logFiles: s.fileChecks.logs.logFiles.map((path) => payloadPathMap.get(path) ?? path),
+        checks: s.fileChecks.logs.checks.map((check) => ({
           ...check,
           relativePath: payloadPathMap.get(check.relativePath) ?? check.relativePath
         }))
@@ -378,40 +378,40 @@ export function finishFilesRestore(s: State, workspacePath: string): State {
         }))
       }
     },
-    filesCheck: {
-      ...s.filesCheck,
+    fileChecks: {
+      ...s.fileChecks,
       structure: {
-        ...s.filesCheck.structure,
-        issues: s.filesCheck.structure.issues.map((item) => ({
+        ...s.fileChecks.structure,
+        issues: s.fileChecks.structure.issues.map((item) => ({
           ...item,
           relativePath: payloadPathMap.get(item.relativePath) ?? item.relativePath
         })),
-        approvedPaths: s.filesCheck.structure.approvedPaths.map(
+        approvedPaths: s.fileChecks.structure.approvedPaths.map(
           (path) => payloadPathMap.get(path) ?? path
         ),
         emptyDirectories: []
       },
-      integrity: remapIntegrityPaths(s.filesCheck.integrity, pathMap),
+      integrity: remapIntegrityPaths(s.fileChecks.integrity, pathMap),
       mqa: {
-        ...s.filesCheck.mqa,
-        mqaPaths: s.filesCheck.mqa.mqaPaths.map((path) => pathMap.get(path) ?? path),
-        errors: s.filesCheck.mqa.errors.map((error) => ({ ...error, relativePath: pathMap.get(error.relativePath) ?? error.relativePath }))
+        ...s.fileChecks.mqa,
+        mqaPaths: s.fileChecks.mqa.mqaPaths.map((path) => pathMap.get(path) ?? path),
+        errors: s.fileChecks.mqa.errors.map((error) => ({ ...error, relativePath: pathMap.get(error.relativePath) ?? error.relativePath }))
       },
       upconvert: {
-        ...s.filesCheck.upconvert,
-        results: s.filesCheck.upconvert.results.map((result) => ({
+        ...s.fileChecks.upconvert,
+        results: s.fileChecks.upconvert.results.map((result) => ({
           ...result,
           relativePath: pathMap.get(result.relativePath) ?? result.relativePath
         })),
-        errors: s.filesCheck.upconvert.errors.map((error) => ({
+        errors: s.fileChecks.upconvert.errors.map((error) => ({
           ...error,
           relativePath: pathMap.get(error.relativePath) ?? error.relativePath
         }))
       },
       logs: {
-        ...s.filesCheck.logs,
-        logFiles: s.filesCheck.logs.logFiles.map((path) => payloadPathMap.get(path) ?? path),
-        checks: s.filesCheck.logs.checks.map((check) => ({
+        ...s.fileChecks.logs,
+        logFiles: s.fileChecks.logs.logFiles.map((path) => payloadPathMap.get(path) ?? path),
+        checks: s.fileChecks.logs.checks.map((check) => ({
           ...check,
           relativePath: payloadPathMap.get(check.relativePath) ?? check.relativePath
         }))
@@ -454,9 +454,9 @@ function payloadId(kind: string, path: string): string {
 }
 
 function remapIntegrityPaths(
-  integrity: State['filesCheck']['integrity'],
+  integrity: State['fileChecks']['integrity'],
   pathMap: Map<string, string>
-): State['filesCheck']['integrity'] {
+): State['fileChecks']['integrity'] {
   const remap = (path: string): string => pathMap.get(path) ?? path
   return {
     ...integrity,

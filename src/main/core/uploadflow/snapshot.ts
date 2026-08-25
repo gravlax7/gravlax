@@ -1,6 +1,6 @@
 import type { UploadFlowSnapshot } from '@shared/types'
 import { resetBackgroundTask, withTaskSnapshotStatuses } from './background'
-import { setFilesCheck } from './filesCheck'
+import { setFileChecks } from './fileChecks'
 import { setFiles } from './files'
 import { setMetadata } from './metadata'
 import {
@@ -58,8 +58,8 @@ export function snapshot(s: State): UploadFlowSnapshot {
   result.tags = s.tags
   result.files = s.files
   result.transcode = s.transcode
-  if (s.filesCheck.status !== 'idle') {
-    result.filesCheck = s.filesCheck
+  if (s.fileChecks.status !== 'idle') {
+    result.fileChecks = s.fileChecks
   }
   if (s.upload.phase && s.upload.phase !== 'idle') {
     result.upload = s.upload
@@ -95,7 +95,7 @@ export function restoreState(workspacePath: string, snap: UploadFlowSnapshot): S
     (snap.currentStepID as string) === 'rules-check'
       ? 'upload'
       : snap.currentStepID === 'source'
-        ? 'files-check'
+        ? 'file-checks'
         : snap.currentStepID
   const index = stepIndex(migratedStepID)
   if (index === null) {
@@ -113,10 +113,10 @@ export function restoreState(workspacePath: string, snap: UploadFlowSnapshot): S
   state = setTags(state, snap.tags ?? {})
   if (snap.files) state = setFiles(state, snap.files)
   state = setTranscode(state, snap.transcode ?? {})
-  if (snap.filesCheck) {
-    state = setFilesCheck(state, snap.filesCheck)
-    if (!('integrity' in snap.filesCheck)) {
-      state = resetBackgroundTask(state, 'files-check')
+  if (snap.fileChecks) {
+    state = setFileChecks(state, snap.fileChecks)
+    if (!('integrity' in snap.fileChecks)) {
+      state = resetBackgroundTask(state, 'file-checks')
     }
   }
   if (snap.upload) {

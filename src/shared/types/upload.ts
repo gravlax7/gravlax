@@ -109,7 +109,7 @@ export interface Draft {
 }
 
 export type BackgroundTaskID =
-  | 'files-check'
+  | 'file-checks'
   | 'spectrals'
   | 'metadata'
   | 'transcode'
@@ -320,7 +320,7 @@ export interface TranscodeSnapshot {
   error?: string
 }
 
-export type FilesCheckStatus = 'idle' | 'running' | 'ok' | 'failed'
+export type FileChecksStatus = 'idle' | 'running' | 'ok' | 'failed'
 
 export type IntegrityStatus = 'idle' | 'passed' | 'failed'
 
@@ -404,8 +404,8 @@ export interface ReleaseStructureSummary {
   quarantined: QuarantinedReleaseEntry[]
 }
 
-export interface FilesCheckSnapshot {
-  status: FilesCheckStatus
+export interface FileChecksSnapshot {
+  status: FileChecksStatus
   structure: ReleaseStructureSummary
   integrity: IntegritySummary
   mqa: MQASummary
@@ -599,7 +599,7 @@ export interface UploadFlowSnapshot {
   tags?: TagsSnapshot
   files?: FilesSnapshot
   transcode?: TranscodeSnapshot
-  filesCheck?: FilesCheckSnapshot
+  fileChecks?: FileChecksSnapshot
   upload?: UploadSnapshot
   seed?: SeedSnapshot
 }
@@ -656,7 +656,7 @@ export interface UploadFlowStateJSON {
   tags: TagsSnapshot
   files: FilesSnapshot
   transcode: TranscodeSnapshot
-  filesCheck: FilesCheckSnapshot
+  fileChecks: FileChecksSnapshot
   upload: UploadSnapshot
   seed: SeedSnapshot
 }

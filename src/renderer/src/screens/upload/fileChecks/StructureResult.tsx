@@ -1,11 +1,11 @@
 import { For, Show, createSignal } from 'solid-js'
 import type { ReleaseStructureIssue, UploadFlowStateJSON } from '@shared/types'
 import { Button } from '../../../ui'
-import { FilesCheckResult } from './FilesCheckResult'
+import { FileChecksResult } from './FileChecksResult'
 
 export function StructureResult(props: { state: UploadFlowStateJSON }) {
   const [busyIds, setBusyIds] = createSignal<string[]>([])
-  const structure = () => props.state.filesCheck.structure
+  const structure = () => props.state.fileChecks.structure
   const suspicious = () => structure().issues.filter((item) => item.rule === 'suspicious-extension')
   const blockers = () => structure().issues.filter((item) => item.rule !== 'suspicious-extension')
   const pendingSuspicious = () => suspicious().filter((item) => item.decision === 'pending')
@@ -37,27 +37,27 @@ export function StructureResult(props: { state: UploadFlowStateJSON }) {
   return (
     <>
       <Show when={structure().issues.length === 0 && structure().ready}>
-        <FilesCheckResult tone="success" icon="check">
-          <div class="files-check-headline">Folder and file rules passed</div>
-        </FilesCheckResult>
+        <FileChecksResult tone="success" icon="check">
+          <div class="file-checks-headline">Folder and file rules passed</div>
+        </FileChecksResult>
       </Show>
 
       <Show when={suspicious().length > 0}>
-        <FilesCheckResult tone="warning" icon="alert-triangle">
-          <div class="files-check-headline">Suspicious files</div>
-          <div class="files-check-sub">
+        <FileChecksResult tone="warning" icon="alert-triangle">
+          <div class="file-checks-headline">Suspicious files</div>
+          <div class="file-checks-sub">
             These file types are not normally included in a release. Choose whether each file belongs in the upload.
           </div>
-          <div class="files-check-structure-list">
+          <div class="file-checks-structure-list">
             <For each={suspicious()}>
               {(item) => (
-                <div class="files-check-structure-row">
-                  <span class="mono files-check-structure-path">{item.relativePath}</span>
+                <div class="file-checks-structure-row">
+                  <span class="mono file-checks-structure-path">{item.relativePath}</span>
                   <Show
                     when={item.decision === 'pending'}
-                    fallback={<span class="files-check-structure-kept">Kept</span>}
+                    fallback={<span class="file-checks-structure-kept">Kept</span>}
                   >
-                    <div class="files-check-structure-actions">
+                    <div class="file-checks-structure-actions">
                       <Button size="sm" disabled={busy(item.id)} onClick={() => void resolve([item], 'keep')}>Keep</Button>
                       <Button size="sm" variant="danger" disabled={busy(item.id)} onClick={() => void resolve([item], 'quarantine')}>Remove</Button>
                     </div>
@@ -67,23 +67,23 @@ export function StructureResult(props: { state: UploadFlowStateJSON }) {
             </For>
           </div>
           <Show when={pendingSuspicious().length > 1}>
-            <div class="files-check-structure-bulk">
+            <div class="file-checks-structure-bulk">
               <Button size="sm" onClick={() => void resolve(pendingSuspicious(), 'keep')}>Keep all</Button>
               <Button size="sm" variant="danger" onClick={() => void resolve(pendingSuspicious(), 'quarantine')}>Remove all</Button>
             </div>
           </Show>
-        </FilesCheckResult>
+        </FileChecksResult>
       </Show>
 
       <Show when={blockers().length > 0}>
-        <FilesCheckResult tone="error" icon="alert-triangle">
-          <div class="files-check-headline">Items must be removed</div>
-          <div class="files-check-sub">Links, @eaDir, and non-FLAC audio cannot be part of this release.</div>
-          <div class="files-check-structure-list">
+        <FileChecksResult tone="error" icon="alert-triangle">
+          <div class="file-checks-headline">Items must be removed</div>
+          <div class="file-checks-sub">Links, @eaDir, and non-FLAC audio cannot be part of this release.</div>
+          <div class="file-checks-structure-list">
             <For each={blockers()}>
               {(item) => (
-                <div class="files-check-structure-row">
-                  <span class="mono files-check-structure-path">{item.relativePath}</span>
+                <div class="file-checks-structure-row">
+                  <span class="mono file-checks-structure-path">{item.relativePath}</span>
                   <Button size="sm" variant="danger" disabled={busy(item.id)} onClick={() => void resolve([item], 'quarantine')}>Remove</Button>
                 </div>
               )}
@@ -92,34 +92,34 @@ export function StructureResult(props: { state: UploadFlowStateJSON }) {
           <Show when={blockers().length > 1}>
             <Button size="sm" variant="danger" onClick={() => void resolve(blockers(), 'quarantine')}>Remove all</Button>
           </Show>
-        </FilesCheckResult>
+        </FileChecksResult>
       </Show>
 
       <Show when={structure().emptyDirectories.length > 0}>
-        <FilesCheckResult tone="info" icon="info">
-          <div class="files-check-headline">Empty folders will be omitted</div>
-          <div class="files-check-structure-list">
+        <FileChecksResult tone="info" icon="info">
+          <div class="file-checks-headline">Empty folders will be omitted</div>
+          <div class="file-checks-structure-list">
             <For each={structure().emptyDirectories}>
-              {(path) => <span class="mono files-check-structure-path">{path}</span>}
+              {(path) => <span class="mono file-checks-structure-path">{path}</span>}
             </For>
           </div>
-        </FilesCheckResult>
+        </FileChecksResult>
       </Show>
 
       <Show when={structure().quarantined.length > 0}>
-        <FilesCheckResult tone="info" icon="folder">
-          <div class="files-check-headline">Removed from this upload</div>
-          <div class="files-check-structure-list">
+        <FileChecksResult tone="info" icon="folder">
+          <div class="file-checks-headline">Removed from this upload</div>
+          <div class="file-checks-structure-list">
             <For each={structure().quarantined}>
               {(item) => (
-                <div class="files-check-structure-row">
-                  <span class="mono files-check-structure-path">{item.relativePath}</span>
+                <div class="file-checks-structure-row">
+                  <span class="mono file-checks-structure-path">{item.relativePath}</span>
                   <Button size="sm" disabled={busy(item.id)} onClick={() => void restore(item.id)}>Undo</Button>
                 </div>
               )}
             </For>
           </div>
-        </FilesCheckResult>
+        </FileChecksResult>
       </Show>
     </>
   )

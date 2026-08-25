@@ -30,7 +30,7 @@ import { Button, Icon, ProgressBar, Spinner } from '../../ui'
 import { basename } from './pathUtil'
 import { Lightbox } from './Lightbox'
 import { Stepper } from './Stepper'
-import { FilesCheckStep } from './steps/FilesCheckStep'
+import { FileChecksStep } from './steps/FileChecksStep'
 import { MetadataStep } from './steps/MetadataStep'
 import { SeedStep } from './steps/SeedStep'
 import { SpectralsStep } from './steps/SpectralsStep'
@@ -250,21 +250,21 @@ export function UploadScreen(props: {
       (b) => b.kind === 'lossy' || b.kind === 'empty'
     )
 
-  const filesCheckTask = () => props.state.background.tasks.find((t) => t.id === 'files-check')
-  const filesCheckBusy = (): boolean => {
-    const status = filesCheckTask()?.status
+  const fileChecksTask = () => props.state.background.tasks.find((t) => t.id === 'file-checks')
+  const fileChecksBusy = (): boolean => {
+    const status = fileChecksTask()?.status
     return status === 'running' || status === 'queued'
   }
 
   const actionLabel = (): { back: string; mid: string; continue: string; midVariant: 'secondary' | 'danger' } => {
     const id = stepId()
-    if (id === 'files-check') {
-      if (!filesCheckTask()) {
+    if (id === 'file-checks') {
+      if (!fileChecksTask()) {
         return { back: 'Back', mid: '', continue: 'Continue', midVariant: 'secondary' }
       }
       return {
         back: 'Back',
-        mid: filesCheckTask()?.status === 'failed' ? 'Retry' : 'Re-check',
+        mid: fileChecksTask()?.status === 'failed' ? 'Retry' : 'Re-check',
         continue: 'Continue',
         midVariant: 'secondary'
       }
@@ -304,7 +304,7 @@ export function UploadScreen(props: {
 
   const runMidAction = (): void => {
     const id = stepId()
-    if (id === 'files-check') void window.gravlax.upload.refreshFilesCheck()
+    if (id === 'file-checks') void window.gravlax.upload.refreshFileChecks()
     if (id === 'spectrals') void window.gravlax.upload.regenerateSpectrals()
     if (id === 'metadata') void window.gravlax.upload.refreshMetadata()
     if (id === 'tags') {
@@ -357,8 +357,8 @@ export function UploadScreen(props: {
 
       <div class="upload-body">
         <div class="content-frame">
-          <Show when={stepId() === 'files-check'}>
-            <FilesCheckStep state={props.state} />
+          <Show when={stepId() === 'file-checks'}>
+            <FileChecksStep state={props.state} />
           </Show>
           <Show when={stepId() === 'spectrals'}>
             <SpectralsStep
@@ -476,7 +476,7 @@ export function UploadScreen(props: {
           <Button
             variant={actionLabel().midVariant}
             disabled={
-              (stepId() === 'files-check' && filesCheckBusy()) ||
+              (stepId() === 'file-checks' && fileChecksBusy()) ||
               (stepId() === 'transcode' &&
                 (isTranscodeBusy(props.state.transcode) ||
                   (actionLabel().mid === 'Generate' && transcodeHardBlocked())))

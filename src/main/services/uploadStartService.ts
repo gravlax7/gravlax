@@ -11,10 +11,10 @@ import { listUploadWorkspaces } from '@main/core/appdata/workspace'
 import { readUploadHistory } from '@main/core/appdata/uploadHistory'
 
 function restoredStep(id: string | undefined): StepID {
-  if (id === 'source' || id === undefined) return 'files-check'
+  if (id === 'source' || id === undefined) return 'file-checks'
   if (id === 'rules-check') return 'upload'
   if (
-    id === 'files-check' ||
+    id === 'file-checks' ||
     id === 'spectrals' ||
     id === 'metadata' ||
     id === 'tags' ||
@@ -22,7 +22,7 @@ function restoredStep(id: string | undefined): StepID {
     id === 'upload' ||
     id === 'seed'
   ) return id
-  return 'files-check'
+  return 'file-checks'
 }
 
 async function exists(path: string): Promise<boolean> {
