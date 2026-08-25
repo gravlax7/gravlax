@@ -9,7 +9,7 @@ Break any of these rules sooner than say anything outright barbarous.
 
 ## What this is
 
-Gravlax is an Electron desktop app that walks a music release through an 7-step upload pipeline to Gazelle-based music trackers: file checks → spectrals → metadata → tags → transcode → upload → seed. It is a TypeScript/Solid.js project.
+Gravlax is an Electron desktop app that walks a music release through a 7-step upload pipeline to Gazelle-based music trackers: file checks → spectrals → metadata → tags → transcode → upload → seed. It is a TypeScript/Solid.js project.
 Inspired by `smoked-salmon` (the Python original lives at `../smoked-salmon` and is a useful reference for tracker/tooling behaviour).
 
 ## Commands

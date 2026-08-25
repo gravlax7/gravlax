@@ -12,7 +12,7 @@ seeding.
 2. Install the required command-line tools listed below. Put them on your `PATH`,
    or set their paths in **Settings → Tools**.
 3. Open **Settings** and set up your folders, a tracker, and an image host. Then
-   open **Healthcheck** and fix any items marked missing or failing.
+   open **Healthchecks** and fix any items marked missing or failing.
 4. Choose a release folder from the start screen and work through the seven
    steps.
 
@@ -117,11 +117,11 @@ package from your distribution or from the [FLAC project](https://xiph.org/flac/
 - **Directories:** Set **Source** to the folder that holds releases before you
   upload them. Set **Torrents** if you want to keep created torrent files, and
   **Seeding** when you seed with a local client.
-- **Trackers:**   Tracker URLs are not included in the application's code, you need to find them yourself and enter them in settings.
+- **Trackers:** Site and announce URLs are not included in the application's code. You have to add them in Settings.
   Enable each tracker you use and enter an API key and session cookie. Both are required for Gravlax to work properly.
 - **Image Hosts:** Enable an image host and add its API key where needed. Pick
   the host for spectrals and each tracker.
-  Redacted IH and Ra cannot be used for spectrals upload.
+  Redacted Image Host and Ra cannot be used for spectral uploads.
 - **Torrent Client:** Set this up if you seed through qBittorrent's Web UI.
 - **Seedbox:** Turn this on only when you want Gravlax to send release folders
   over SFTP before it adds the torrent.
@@ -129,7 +129,7 @@ package from your distribution or from the [FLAC project](https://xiph.org/flac/
   To search Discogs, enable it and add a personal access token. Direct Discogs
   release URLs also work while its search is disabled.
 
-Use **Healthcheck** after any change. Gravlax is ready when it reports that the
+Use **Healthchecks** after any change. Gravlax is ready when it reports that the
 required tools, at least one image host, and every enabled tracker are available.
 
 ## AI disclaimer
