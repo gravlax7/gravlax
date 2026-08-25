@@ -1,4 +1,6 @@
 import { execFile } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import type { ToolId } from './binaries'
 
 const VERSION_ARGS: Record<ToolId, string[]> = {
@@ -25,6 +27,9 @@ type VersionExecutor = (executable: string, args: string[]) => Promise<string>
 export async function probeToolVersion(id: ToolId, executable: string, run: VersionExecutor = execute): Promise<ToolVersion> {
   const output = await run(executable, VERSION_ARGS[id])
   let parsed = parseToolVersion(id, output)
+  if (!parsed && id === 'sox') {
+    parsed = await probeSoxPkgConfigVersion(executable, output)
+  }
   if (!parsed && id === 'metaflac') {
     parsed = parseToolVersion(id, await run(executable, ['--help']))
   }
@@ -37,9 +42,30 @@ export function parseToolVersion(id: ToolId, output: string): ToolVersion | null
   if (!match) return null
   const product = match[1]!
   return {
-    product: product.toLowerCase() === 'sox_ng' ? 'SoX_ng' : displayProduct(id),
+    product: soxProduct(product) ?? displayProduct(id),
     version: match[2]!
   }
+}
+
+async function probeSoxPkgConfigVersion(executable: string, output: string): Promise<ToolVersion | null> {
+  const product = /\b(SoX(?:_ng)?)\s+v?\s*$/im.exec(output)?.[1]
+  if (!product) return null
+
+  try {
+    const prefix = resolve(dirname(executable), '..')
+    const pkgConfig = await readFile(resolve(prefix, 'lib', 'pkgconfig', 'sox.pc'), 'utf8')
+    const version = /^Version:\s*(\d+(?:\.\d+){1,3})\s*$/im.exec(pkgConfig)?.[1]
+    if (!version) return null
+    return { product: soxProduct(product)!, version }
+  } catch {
+    return null
+  }
+}
+
+function soxProduct(product: string): 'SoX' | 'SoX_ng' | null {
+  if (product.toLowerCase() === 'sox_ng') return 'SoX_ng'
+  if (product.toLowerCase() === 'sox') return 'SoX'
+  return null
 }
 
 export function compareToolVersions(left: string, right: string): number {

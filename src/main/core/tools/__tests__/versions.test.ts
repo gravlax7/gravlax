@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { compareToolVersions, parseToolVersion, probeToolVersion } from '../versions'
 
@@ -40,6 +43,36 @@ describe('tool versions', () => {
 
     await expect(probeToolVersion('metaflac', 'metaflac', run)).resolves.toEqual({ product: 'metaflac', version: '1.5.0' })
     expect(run).toHaveBeenCalledOnce()
+  })
+
+  it('reads the package version when SoX omits it from its output', async () => {
+    const prefix = await mkdtemp(join(tmpdir(), 'gravlax-sox-version-'))
+    const executable = join(prefix, 'bin', 'sox')
+    const pkgConfigDirectory = join(prefix, 'lib', 'pkgconfig')
+    await mkdir(pkgConfigDirectory, { recursive: true })
+    await writeFile(join(pkgConfigDirectory, 'sox.pc'), 'Name: SoX\nVersion: 14.4.2\n')
+    const run = vi
+      .fn<(executable: string, args: string[]) => Promise<string>>()
+      .mockResolvedValue('sox:      SoX v')
+
+    try {
+      await expect(probeToolVersion('sox', executable, run)).resolves.toEqual({
+        product: 'SoX',
+        version: '14.4.2'
+      })
+    } finally {
+      await rm(prefix, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects blank SoX output when no package version is available', async () => {
+    const run = vi
+      .fn<(executable: string, args: string[]) => Promise<string>>()
+      .mockResolvedValue('sox:      SoX v')
+
+    await expect(probeToolVersion('sox', '/missing/bin/sox', run)).rejects.toThrow(
+      'Could not read sox version.'
+    )
   })
 
   it('compares versions with different part counts', () => {
