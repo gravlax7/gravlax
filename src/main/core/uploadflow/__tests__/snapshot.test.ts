@@ -50,6 +50,7 @@ describe('snapshot round-trip', () => {
     state = setSourceMedia(state, 'CD')
     state = setFilesCheck(state, {
       status: 'ok',
+      structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
       integrity: { status: 'passed', checkedCount: 2, failures: [], repairedPaths: [], repairErrors: [] },
       mqa: { checkedCount: 2, mqaPaths: ['02.flac'], errors: [] },
       upconvert: {

@@ -54,6 +54,7 @@ export interface IpcInvokeMap {
   'upload:selectMetadataMatch': { args: [MetadataSelection | null]; result: void }
   'upload:updateTagsProposed': { args: [Release]; result: void }
   'upload:setFilenameOverride': { args: [string, string?]; result: void }
+  'upload:setPayloadNameOverride': { args: [string, string?]; result: void }
   'upload:setFolderNameOverride': { args: [string?]; result: void }
   'upload:setRenameReleaseFolder': { args: [boolean]; result: void }
   'upload:setStripEmbeddedCoverArt': { args: [boolean]; result: void }
@@ -63,6 +64,10 @@ export interface IpcInvokeMap {
   'upload:setSpectralIds': { args: [number[]]; result: void }
   'upload:regenerateSpectrals': { args: []; result: void }
   'upload:refreshFilesCheck': { args: []; result: void }
+  'upload:resolveStructureItems': {
+    args: [string[], 'keep' | 'quarantine' | 'restore']
+    result: { ok: true } | { ok: false; error: string }
+  }
   'upload:repairFlacIntegrity': { args: []; result: void }
   'upload:refreshMetadata': { args: []; result: void }
   'upload:refreshTags': { args: []; result: void }
@@ -222,6 +227,7 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'upload:selectMetadataMatch': z.tuple([objectInput<MetadataSelection>().nullable()]),
   'upload:updateTagsProposed': z.tuple([objectInput<Release>()]),
   'upload:setFilenameOverride': z.tuple([z.string().min(1), z.string().optional()]),
+  'upload:setPayloadNameOverride': z.tuple([z.string().min(1), z.string().optional()]),
   'upload:setFolderNameOverride': optionalOneArgument(z.string()),
   'upload:setRenameReleaseFolder': z.tuple([z.boolean()]),
   'upload:setStripEmbeddedCoverArt': z.tuple([z.boolean()]),
@@ -231,6 +237,10 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'upload:setSpectralIds': z.tuple([z.array(z.number().int().positive())]),
   'upload:regenerateSpectrals': noArgs,
   'upload:refreshFilesCheck': noArgs,
+  'upload:resolveStructureItems': z.tuple([
+    z.array(z.string().min(1)).min(1),
+    z.enum(['keep', 'quarantine', 'restore'])
+  ]),
   'upload:repairFlacIntegrity': noArgs,
   'upload:refreshMetadata': noArgs,
   'upload:refreshTags': noArgs,

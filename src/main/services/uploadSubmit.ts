@@ -54,6 +54,7 @@ export interface RunSubmissionsOptions {
   lossyComment: string
   sourceUrl: string
   spectralBbcode: string
+  approvedStructurePaths?: string[]
   signal?: AbortSignal
   /** False once the workspace or session moved on; stops before any further writes. */
   fresh: () => boolean
@@ -187,6 +188,7 @@ async function uploadOneFormat(
     announceUrl: tracker.client.announce,
     source,
     createdBy: `create-torrent`,
+    approvedPaths: options.approvedStructurePaths ?? [],
     signal
   })
   await writeTorrentFile(torrent.meta, torrentPath)

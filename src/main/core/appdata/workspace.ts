@@ -299,20 +299,33 @@ export async function writeUploadFlow(
 }
 
 async function copyDirectory(sourcePath: string, destinationPath: string): Promise<void> {
+  await copyDirectoryContents(sourcePath, destinationPath)
   await mkdir(destinationPath, { recursive: true })
+}
+
+async function copyDirectoryContents(
+  sourcePath: string,
+  destinationPath: string
+): Promise<boolean> {
   const entries = await readdir(sourcePath, { withFileTypes: true })
+  let copied = false
   for (const entry of entries) {
     const path = join(sourcePath, entry.name)
     const targetPath = join(destinationPath, entry.name)
     if (entry.isDirectory()) {
-      await copyDirectory(path, targetPath)
+      if (await copyDirectoryContents(path, targetPath)) copied = true
     } else if (entry.isSymbolicLink()) {
+      await mkdir(destinationPath, { recursive: true })
       const linkTarget = await readlink(path)
       await symlink(linkTarget, targetPath)
+      copied = true
     } else if (entry.isFile()) {
+      await mkdir(destinationPath, { recursive: true })
       await copyFile(path, targetPath)
+      copied = true
     } else {
       throw new Error(`copy "${path}": unsupported file mode`)
     }
   }
+  return copied
 }

@@ -28,6 +28,13 @@ export function emptyIntegritySummary(): IntegritySummary {
 export function emptyFilesCheck(): FilesCheckSnapshot {
   return {
     status: 'idle',
+    structure: {
+      ready: false,
+      issues: [],
+      approvedPaths: [],
+      emptyDirectories: [],
+      quarantined: []
+    },
     integrity: emptyIntegritySummary(),
     mqa: emptyMQASummary(),
     upconvert: emptyUpconvertSummary(),
@@ -40,7 +47,18 @@ export function setFilesCheck(s: State, snapshot: FilesCheckSnapshot): State {
 }
 
 export function clearFilesCheck(s: State): State {
-  return { ...s, filesCheck: emptyFilesCheck() }
+  const empty = emptyFilesCheck()
+  return {
+    ...s,
+    filesCheck: {
+      ...empty,
+      structure: {
+        ...empty.structure,
+        approvedPaths: [...s.filesCheck.structure.approvedPaths],
+        quarantined: s.filesCheck.structure.quarantined.map((item) => ({ ...item }))
+      }
+    }
+  }
 }
 
 export function setFilesCheckRunning(s: State): State {
@@ -54,8 +72,16 @@ export function restoreFilesCheck(snapshot: FilesCheckSnapshot | undefined): Fil
   const integrity = snapshot.integrity
   const upconvert = snapshot.upconvert
   const logs = snapshot.logs
+  const structure = snapshot.structure
   return {
     status: snapshot.status ?? 'idle',
+    structure: {
+      ready: structure?.ready ?? false,
+      issues: (structure?.issues ?? []).map((item) => ({ ...item })),
+      approvedPaths: [...(structure?.approvedPaths ?? [])],
+      emptyDirectories: [...(structure?.emptyDirectories ?? [])],
+      quarantined: (structure?.quarantined ?? []).map((item) => ({ ...item }))
+    },
     integrity: {
       status: integrity?.status ?? 'idle',
       checkedCount: integrity?.checkedCount ?? 0,

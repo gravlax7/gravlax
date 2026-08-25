@@ -1,8 +1,9 @@
-import { chmod, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, sep } from 'node:path'
-import type { FilesRenamePlan, PlannedFileName } from '@shared/upload/naming'
-import type { OriginalFileSnapshot, Release } from '@shared/types'
+import type { FilesRenamePlan, PlannedFileName, PlannedPayloadPath } from '@shared/upload/naming'
+import type { OriginalFileSnapshot, PayloadPathState, Release } from '@shared/types'
 import { automaticToolResolver, type ToolResolver } from '../binaries'
+import { removeEmptyDirectories } from '../directories'
 import { runCommand } from '../runCommand'
 import { finishStagedFolderRename, prepareStagedFolderRename, uploadWorkspaceRootForPath } from '../../appdata/workspace'
 
@@ -18,6 +19,7 @@ export interface ApplyFilesResult {
   workspacePath: string
   folderName: string
   currentPaths: Array<{ id: string; currentPath: string }>
+  payloadPaths: Array<{ id: string; currentPath: string }>
   originals: OriginalFileSnapshot[]
   changedFileCount: number
   strippedPictureCount: number
@@ -85,8 +87,9 @@ export async function applyTagsAndRenames(input: {
     throw new Error('Track count changed before the files could be written.')
   }
   const progressTotal = plan.files.length + 1
+  const payloadFiles = plan.payloadFiles ?? plan.files.map(trackAsPayload)
   input.onProgress?.(0, progressTotal, 'Checking filenames…')
-  await preflightFileRenames(input.workspacePath, plan.files)
+  await preflightFileRenames(input.workspacePath, payloadFiles)
   if (plan.folderName !== basename(input.workspacePath)) {
     await assertMissingOrSame(join(uploadWorkspaceRootForPath(input.workspacePath), plan.folderName), input.workspacePath)
   }
@@ -109,7 +112,7 @@ export async function applyTagsAndRenames(input: {
   }
 
   input.onProgress?.(plan.files.length, progressTotal, 'Renaming files…')
-  await renameFiles(input.workspacePath, plan.files)
+  await renameFiles(input.workspacePath, payloadFiles)
   let workspacePath = input.workspacePath
   if (plan.folderName !== basename(workspacePath)) {
     const root = uploadWorkspaceRootForPath(workspacePath)
@@ -131,8 +134,9 @@ export async function applyTagsAndRenames(input: {
     workspacePath,
     folderName: basename(workspacePath),
     currentPaths: plan.files.map((file) => ({ id: file.id, currentPath: file.targetPath })),
+    payloadPaths: payloadFiles.map((file) => ({ id: file.id, currentPath: file.targetPath })),
     originals,
-    changedFileCount: plan.files.filter((file) => file.changed).length,
+    changedFileCount: payloadFiles.filter((file) => file.changed).length,
     strippedPictureCount
   }
 }
@@ -141,6 +145,7 @@ export async function restoreOriginalFiles(input: {
   workspacePath: string
   originals: OriginalFileSnapshot[]
   currentFiles: Array<{ id: string; currentPath: string }>
+  currentPayload?: PayloadPathState[]
   originalFolderName: string
   signal?: AbortSignal
   tools?: ToolResolver
@@ -150,7 +155,18 @@ export async function restoreOriginalFiles(input: {
     if (!original) throw new Error(`Missing original-state backup for ${current.currentPath}.`)
     return { id: current.id, currentPath: current.currentPath, targetPath: original.relativePath, targetFilename: basename(original.relativePath), changed: current.currentPath !== original.relativePath }
   })
-  await renameFiles(input.workspacePath, plans)
+  const payloadPlans: PlannedPayloadPath[] = (input.currentPayload ?? []).filter(
+    (item) => item.kind === 'file'
+  ).map((item) => ({
+    id: item.id,
+    kind: 'file',
+    currentPath: item.currentPath,
+    targetPath: item.originalPath,
+    targetName: basename(item.originalPath),
+    changed: item.currentPath !== item.originalPath,
+    track: plans.some((plan) => plan.id === item.id)
+  }))
+  await renameFiles(input.workspacePath, payloadPlans.length > 0 ? payloadPlans : plans)
   for (const original of input.originals) {
     const values = commentsToValues(original.managedComments ?? [])
     await addLegacyCoverValues(values, original, uploadWorkspaceRootForPath(input.workspacePath))
@@ -182,7 +198,7 @@ async function rewriteFlac(
 ): Promise<void> {
   const sourceInfo = await stat(sourcePath)
   const workDir = await mkdtemp(join(dirname(sourcePath), '.gravlax-tags-'))
-  const temporary = join(dirname(sourcePath), `.${basename(sourcePath)}.gravlax-${Date.now()}.flac`)
+  const temporary = join(workDir, 'output.flac')
   try {
     const args = ['--no-utf8-convert', `--output-name=${temporary}`, ...MANAGED_KEYS.map((key) => `--remove-tag=${key}`)]
     let valueIndex = 0
@@ -210,7 +226,6 @@ async function rewriteFlac(
     await rename(temporary, sourcePath)
   } finally {
     await rm(workDir, { recursive: true, force: true })
-    await rm(temporary, { force: true })
   }
 }
 
@@ -293,7 +308,7 @@ function one(value?: string): string[] { return value ? [value] : [] }
 function cleanValues(values: Map<string, string[]>): Map<string, string[]> {
   const result = new Map<string, string[]>()
   for (const [key, items] of values) {
-    const kept = items.filter((item) => item !== '')
+    const kept = items.map((item) => item.normalize('NFC')).filter((item) => item !== '')
     if (kept.length > 0) result.set(key, kept)
   }
   return result
@@ -321,26 +336,26 @@ async function addLegacyCoverValues(values: Map<string, string[]>, original: Ori
   }
 }
 function sameComments(a: string[], b: string[]): boolean {
-  const normalize = (items: string[]) => items.map((item) => `${item.slice(0, item.indexOf('=')).toUpperCase()}${item.slice(item.indexOf('='))}`).sort()
+  const normalize = (items: string[]) => items.map((item) => `${item.slice(0, item.indexOf('=')).toUpperCase()}${item.slice(item.indexOf('=')).normalize('NFC')}`).sort()
   return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b))
 }
 
-async function renameFiles(root: string, files: PlannedFileName[]): Promise<void> {
+type RenamePlan = Pick<PlannedFileName, 'id' | 'currentPath' | 'targetPath' | 'changed'>
+
+async function renameFiles(root: string, files: RenamePlan[]): Promise<void> {
   const changed = files.filter((file) => file.changed)
-  const sidecarMoves = await planSidecarMoves(root, files)
-  const sources = new Set(changed.map((file) => join(root, fromPosix(file.currentPath)).toLocaleLowerCase()))
+  const sources = new Set(changed.map((file) => filesystemPathKey(join(root, fromPosix(file.currentPath)))))
   for (const file of changed) {
     const target = join(root, fromPosix(file.targetPath))
     await mkdir(dirname(target), { recursive: true })
     try {
       await assertMissingOrSame(target, join(root, fromPosix(file.currentPath)))
     } catch (err) {
-      if (!sources.has(target.toLocaleLowerCase())) throw err
+      if (!sources.has(filesystemPathKey(target))) throw err
     }
   }
   const temporary = new Map<string, string>()
-  const placed: PlannedFileName[] = []
-  const movedSidecars: Array<{ source: string; target: string }> = []
+  const placed: RenamePlan[] = []
   try {
     for (const [index, file] of changed.entries()) {
       const source = join(root, fromPosix(file.currentPath))
@@ -353,16 +368,7 @@ async function renameFiles(root: string, files: PlannedFileName[]): Promise<void
       temporary.delete(file.id)
       placed.push(file)
     }
-    for (const move of sidecarMoves) {
-      await mkdir(dirname(move.target), { recursive: true })
-      await rename(move.source, move.target)
-      movedSidecars.push(move)
-    }
   } catch (err) {
-    for (const move of movedSidecars.reverse()) {
-      await mkdir(dirname(move.source), { recursive: true })
-      await rename(move.target, move.source).catch(() => undefined)
-    }
     for (const file of placed.reverse()) {
       const source = join(root, fromPosix(file.currentPath))
       await mkdir(dirname(source), { recursive: true })
@@ -380,9 +386,9 @@ async function renameFiles(root: string, files: PlannedFileName[]): Promise<void
   await removeEmptyDirectories(root)
 }
 
-async function preflightFileRenames(root: string, files: PlannedFileName[]): Promise<void> {
+async function preflightFileRenames(root: string, files: RenamePlan[]): Promise<void> {
   const changed = files.filter((file) => file.changed)
-  const sources = new Set(changed.map((file) => join(root, fromPosix(file.currentPath)).toLocaleLowerCase()))
+  const sources = new Set(changed.map((file) => filesystemPathKey(join(root, fromPosix(file.currentPath)))))
   for (const file of changed) {
     const source = join(root, fromPosix(file.currentPath))
     await accessFile(source)
@@ -390,40 +396,25 @@ async function preflightFileRenames(root: string, files: PlannedFileName[]): Pro
     try {
       await assertMissingOrSame(target, source)
     } catch (err) {
-      if (!sources.has(target.toLocaleLowerCase())) throw err
+      if (!sources.has(filesystemPathKey(target))) throw err
     }
   }
-  await planSidecarMoves(root, files)
 }
 
-async function planSidecarMoves(root: string, files: PlannedFileName[]): Promise<Array<{ source: string; target: string }>> {
-  const mapping = new Map<string, Set<string>>()
-  for (const file of files) {
-    const sourceDir = dirname(file.currentPath).split(sep).join('/')
-    const targetDir = dirname(file.targetPath).split(sep).join('/')
-    if (sourceDir === '.' || sourceDir === targetDir) continue
-    const targets = mapping.get(sourceDir) ?? new Set<string>()
-    targets.add(targetDir)
-    mapping.set(sourceDir, targets)
+function trackAsPayload(file: PlannedFileName): PlannedPayloadPath {
+  return {
+    id: file.id,
+    kind: 'file',
+    currentPath: file.currentPath,
+    targetPath: file.targetPath,
+    targetName: file.targetFilename,
+    changed: file.changed,
+    track: true
   }
-  const moves: Array<{ source: string; target: string }> = []
-  for (const [sourceDir, targets] of mapping) {
-    if (targets.size !== 1) continue
-    const targetDir = [...targets][0]!
-    const entries = await readdir(join(root, fromPosix(sourceDir)), { withFileTypes: true })
-    for (const entry of entries) {
-      if (!entry.isFile() || extname(entry.name).toLowerCase() === '.flac') continue
-      const source = join(root, fromPosix(sourceDir), entry.name)
-      const target = join(root, fromPosix(targetDir), entry.name)
-      await assertMissingOrSame(target, source)
-      moves.push({ source, target })
-    }
-  }
-  return moves
 }
 
 async function assertMissingOrSame(target: string, source: string): Promise<void> {
-  if (target.toLocaleLowerCase() === source.toLocaleLowerCase()) return
+  if (filesystemPathKey(target) === filesystemPathKey(source)) return
   try { await stat(target) } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
     throw err
@@ -437,7 +428,7 @@ async function accessFile(path: string): Promise<void> {
 }
 
 async function renameCaseSafe(source: string, target: string): Promise<void> {
-  if (source !== target && source.toLocaleLowerCase() === target.toLocaleLowerCase()) {
+  if (source !== target && filesystemPathKey(source) === filesystemPathKey(target)) {
     const temporary = `${source}.gravlax-case-${Date.now()}`
     await rename(source, temporary)
     await rename(temporary, target)
@@ -446,14 +437,8 @@ async function renameCaseSafe(source: string, target: string): Promise<void> {
   await rename(source, target)
 }
 
-async function removeEmptyDirectories(root: string): Promise<void> {
-  const entries = await readdir(root, { withFileTypes: true })
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue
-    const path = join(root, entry.name)
-    await removeEmptyDirectories(path)
-    if ((await readdir(path)).length === 0) await rm(path, { recursive: true })
-  }
+function filesystemPathKey(path: string): string {
+  return path.normalize('NFC').toLocaleLowerCase()
 }
 
 function fromPosix(path: string): string { return path.split('/').join(sep) }

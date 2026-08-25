@@ -35,12 +35,13 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 
-const create = (folderPath = release) =>
+const create = (folderPath = release, approvedPaths: string[] = []) =>
   createTorrent({
     folderPath,
     announceUrl: 'https://flacsfor.me/abc123/announce',
     source: 'RED',
-    createdBy: 'gravlax/test'
+    createdBy: 'gravlax/test',
+    approvedPaths
   })
 
 describe('choosePieceLength', () => {
@@ -168,14 +169,22 @@ describe('createTorrent', () => {
     expect(ops.infoHash).not.toBe(red.infoHash)
   })
 
-  it('excludes OS junk files', async () => {
+  it('requires a choice for suspect files and includes kept files', async () => {
     await writeFile(join(release, 'a.flac'), 'hello')
     await writeFile(join(release, '.DS_Store'), 'junk')
     await writeFile(join(release, 'Thumbs.db'), 'junk')
     await writeFile(join(release, 'desktop.ini'), 'junk')
     await writeFile(join(release, '._a.flac'), 'junk')
 
-    expect(filePaths((await create()).meta)).toEqual(['a.flac'])
+    await expect(create()).rejects.toThrow('.DS_Store')
+    const kept = await create(release, ['.DS_Store', 'Thumbs.db', 'desktop.ini'])
+    expect(filePaths(kept.meta)).toEqual([
+      '.DS_Store',
+      '._a.flac',
+      'Thumbs.db',
+      'a.flac',
+      'desktop.ini'
+    ])
   })
 
   it('keeps multi-disc structure and orders by path components', async () => {
@@ -216,15 +225,13 @@ describe('createTorrent', () => {
     expect(filePaths(torrent.meta)).toEqual(['01 Only.flac'])
   })
 
-  it('follows a symlinked track rather than dropping it', async () => {
+  it('rejects a symlinked track', async () => {
     const outside = join(root, 'elsewhere.flac')
     await writeFile(outside, 'linked-audio')
     await writeFile(join(release, '01.flac'), 'plain')
     await symlink(outside, join(release, '02.flac'))
 
-    const torrent = await create()
-    expect(filePaths(torrent.meta)).toEqual(['01.flac', '02.flac'])
-    expect(torrent.meta.info.files?.map((f) => f.length)).toEqual([5, 'linked-audio'.length])
+    await expect(create()).rejects.toThrow('symbolic links are not allowed')
   })
 
   it('rejects an empty folder', async () => {

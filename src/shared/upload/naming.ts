@@ -1,5 +1,5 @@
 import type { NamingConfig } from '../types/config'
-import type { FilesSnapshot, Release, SourceMedia, TranscodeEncoding } from '../types/upload'
+import type { FilesSnapshot, PayloadPathState, Release, SourceMedia, TranscodeEncoding } from '../types/upload'
 
 export interface PlannedFileName {
   id: string
@@ -9,9 +9,21 @@ export interface PlannedFileName {
   changed: boolean
 }
 
+export interface PlannedPayloadPath {
+  id: string
+  kind: 'file' | 'directory'
+  currentPath: string
+  targetPath: string
+  targetName: string
+  changed: boolean
+  track: boolean
+}
+
 export interface FilesRenamePlan {
   folderName: string
   files: PlannedFileName[]
+  payloadFiles?: PlannedPayloadPath[]
+  folders?: PlannedPayloadPath[]
   errors: string[]
   warnings: string[]
   hash: string
@@ -113,7 +125,7 @@ export function buildFilesRenamePlan(input: {
     errors.push(`The release has ${trackTotal} tracks but the folder has ${files.apply.files.length} FLAC files.`)
   }
   const discTotal = Math.max(1, ...(release.tracks ?? []).map((track) => numberValue(track.discNumber)))
-  const proposed = files.apply.files.map((file, index): PlannedFileName => {
+  const proposedTracks = files.apply.files.map((file, index): PlannedFileName => {
     const track = release.tracks?.[index] ?? {}
     const manual = file.filenameOverride
     const generated = renderTemplate(naming.trackFileTemplate, {
@@ -139,14 +151,6 @@ export function buildFilesRenamePlan(input: {
       : discFolder ? `${discFolder}/${targetFilename}` : targetFilename
     return { id: file.id, currentPath: file.currentPath, targetPath, targetFilename, changed: file.currentPath !== targetPath }
   })
-  const lowered = new Map<string, string>()
-  for (const file of proposed) {
-    const key = file.targetPath.toLocaleLowerCase()
-    const prior = lowered.get(key)
-    if (prior && prior !== file.currentPath) errors.push(`Two tracks would be named ${file.targetPath}.`)
-    lowered.set(key, file.currentPath)
-  }
-
   const year = release.year || release.groupYear || ''
   const catNo = release.catNo ?? ''
   const upc = release.upc ?? ''
@@ -174,13 +178,125 @@ export function buildFilesRenamePlan(input: {
   const folderError = files.apply.folderNameOverride ? validateManualName(files.apply.folderNameOverride) : undefined
   if (folderError) errors.push(`Release folder: ${folderError}`)
   if (!folderName) errors.push('The release folder name is empty.')
-  for (const file of proposed) {
-    const length = `${folderName}/${file.targetPath}`.length
-    if (length > 250) errors.push(`${file.targetPath}: Path is longer than 250 characters.`)
-    else if (length > 180) warnings.push(`${file.targetPath}: Path is longer than 180 characters.`)
+  const payloadState: PayloadPathState[] = files.apply.payloadPaths ?? proposedTracks.map((file) => ({
+    id: file.id,
+    kind: 'file' as const,
+    currentPath: file.currentPath,
+    originalPath: file.currentPath
+  }))
+  const sourceDirTargets = new Map<string, Set<string>>()
+  for (const track of proposedTracks) {
+    const sourceDir = dirnamePosix(track.currentPath)
+    const targetDir = dirnamePosix(track.targetPath)
+    if (!sourceDir || sourceDir === targetDir) continue
+    const targets = sourceDirTargets.get(sourceDir) ?? new Set<string>()
+    targets.add(targetDir)
+    sourceDirTargets.set(sourceDir, targets)
   }
-  const hash = stableHash(JSON.stringify({ folderName, files: proposed.map((file) => [file.id, file.targetPath]), strip: files.apply.stripEmbeddedCoverArt, release }))
-  return { folderName, files: proposed, errors: [...new Set(errors)], warnings: [...new Set(warnings)], hash }
+
+  const folderStates = payloadState
+    .filter((item) => item.kind === 'directory')
+    .sort((a, b) => pathDepth(a.currentPath) - pathDepth(b.currentPath))
+  const folderTargets = new Map<string, string>()
+  const folders: PlannedPayloadPath[] = []
+  for (const folder of folderStates) {
+    const parent = dirnamePosix(folder.currentPath)
+    const mapped = sourceDirTargets.get(folder.currentPath)
+    const defaultTarget = mapped?.size === 1
+      ? [...mapped][0]!
+      : joinPosix(folderTargets.get(parent) ?? parent, basenamePosix(folder.currentPath))
+    if (!defaultTarget) {
+      folderTargets.set(folder.currentPath, '')
+      continue
+    }
+    const targetName = folder.nameOverride
+      ? normalizeManualName(folder.nameOverride)
+      : basenamePosix(defaultTarget)
+    const manualError = folder.nameOverride ? validateManualName(folder.nameOverride) : undefined
+    if (manualError) errors.push(`${folder.currentPath}: ${manualError}`)
+    const targetPath = joinPosix(dirnamePosix(defaultTarget), targetName)
+    folderTargets.set(folder.currentPath, targetPath)
+    folders.push({
+      id: folder.id,
+      kind: 'directory',
+      currentPath: folder.currentPath,
+      targetPath,
+      targetName,
+      changed: folder.currentPath !== targetPath,
+      track: false
+    })
+  }
+
+  const trackById = new Map(proposedTracks.map((file) => [file.id, file]))
+  const payloadFiles = payloadState.filter((item) => item.kind === 'file').map((item): PlannedPayloadPath => {
+    const track = trackById.get(item.id)
+    if (track) {
+      const sourceDir = dirnamePosix(item.currentPath)
+      const targetDir = folderTargets.get(sourceDir) ?? dirnamePosix(track.targetPath)
+      const targetPath = joinPosix(targetDir, track.targetFilename)
+      return {
+        id: item.id,
+        kind: 'file',
+        currentPath: item.currentPath,
+        targetPath,
+        targetName: track.targetFilename,
+        changed: item.currentPath !== targetPath,
+        track: true
+      }
+    }
+    const manual = item.nameOverride
+    const targetName = manual ? normalizeManualName(manual) : basenamePosix(item.currentPath)
+    const manualError = manual ? validateManualName(manual) : undefined
+    if (manualError) errors.push(`${item.currentPath}: ${manualError}`)
+    const sourceDir = dirnamePosix(item.currentPath)
+    const targetPath = joinPosix(folderTargets.get(sourceDir) ?? sourceDir, targetName)
+    return {
+      id: item.id,
+      kind: 'file',
+      currentPath: item.currentPath,
+      targetPath,
+      targetName,
+      changed: item.currentPath !== targetPath,
+      track: false
+    }
+  })
+  const targetById = new Map(payloadFiles.filter((item) => item.track).map((item) => [item.id, item.targetPath]))
+  const proposed = proposedTracks.map((file) => {
+    const targetPath = targetById.get(file.id) ?? file.targetPath
+    return { ...file, targetPath, changed: file.currentPath !== targetPath }
+  })
+
+  const lowered = new Map<string, string>()
+  for (const file of payloadFiles) {
+    const key = unicodePathKey(file.targetPath)
+    const prior = lowered.get(key)
+    if (prior && prior !== file.currentPath) errors.push(`Two files would be named ${file.targetPath}.`)
+    lowered.set(key, file.currentPath)
+  }
+  const projectedFolders = projectedOutputFolderNames(folderName)
+  for (const file of payloadFiles) {
+    const longest = Math.max(...projectedFolders.map((name) => unicodeLength(`${name}/${file.targetPath}`)))
+    if (longest > 180) {
+      errors.push(`${file.targetPath}: Path would be ${longest} characters; the limit is 180.`)
+    }
+  }
+  const hash = stableHash(JSON.stringify({
+    folderName,
+    files: proposed.map((file) => [file.id, file.targetPath]),
+    payloadFiles: payloadFiles.map((file) => [file.id, file.targetPath]),
+    folders: folders.map((folder) => [folder.id, folder.targetPath]),
+    strip: files.apply.stripEmbeddedCoverArt,
+    release
+  }))
+  return {
+    folderName,
+    files: proposed,
+    payloadFiles,
+    folders,
+    errors: [...new Set(errors)],
+    warnings: [...new Set(warnings)],
+    hash
+  }
 }
 
 function renderTemplate(template: string, values: Record<string, string>): string {
@@ -231,6 +347,7 @@ export function isMultiDisc(discNumbers: Array<string | undefined>): boolean {
 
 function sanitize(value: string): string {
   return value
+    .normalize('NFC')
     .replace(UNICODE_FORMAT_CHARACTERS, '')
     .replace(/[\u0000-\u001f:?<>\\*|"/]/g, '_')
     .replace(/\s+/g, ' ')
@@ -250,11 +367,71 @@ function validateManualName(value: string): string | undefined {
 }
 
 function normalizeManualName(value: string): string {
-  return value.replace(UNICODE_FORMAT_CHARACTERS, '').trim()
+  return value.normalize('NFC').replace(UNICODE_FORMAT_CHARACTERS, '').trim()
 }
 
 function normalizeManualFlacName(value: string): string {
   return `${normalizeManualName(value).replace(/\.flac$/i, '')}.flac`
+}
+
+function dirnamePosix(path: string): string {
+  const index = path.lastIndexOf('/')
+  return index < 0 ? '' : path.slice(0, index)
+}
+
+function basenamePosix(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1)
+}
+
+function joinPosix(parent: string, child: string): string {
+  return parent ? `${parent}/${child}` : child
+}
+
+function pathDepth(path: string): number {
+  return path ? path.split('/').length : 0
+}
+
+function unicodeLength(value: string): number {
+  return [...value].length
+}
+
+function unicodePathKey(value: string): string {
+  return value.normalize('NFC').toLocaleLowerCase()
+}
+
+/** Every folder form a later transcode can create from the base FLAC name. */
+function projectedOutputFolderNames(folderName: string): string[] {
+  const values = new Set([folderName])
+  for (const bitrate of ['V0', '320']) values.add(projectMp3FolderName(folderName, bitrate))
+  values.add(projectDownconvertFolderName(folderName, 16, null))
+  values.add(projectDownconvertFolderName(folderName, 24, 88))
+  values.add(projectDownconvertFolderName(folderName, 24, 96))
+  return [...values]
+}
+
+export function projectMp3FolderName(folderName: string, bitrate: string): string {
+  const flac = /(24 ?bit )?FLAC/i
+  const lossless = /Lossless/i
+  let value = folderName
+  if (flac.test(value)) {
+    if (lossless.test(value)) return value.replace(flac, 'MP3').replace(lossless, bitrate)
+    return value.replace(flac, `MP3 ${bitrate}`)
+  }
+  if (lossless.test(value)) return `${value.replace(lossless, bitrate)} [MP3]`
+  return `${value} [MP3 ${bitrate}]`
+}
+
+export function projectDownconvertFolderName(
+  folderName: string,
+  bitDepth: number,
+  sampleRateKhz: number | null
+): string {
+  let value = folderName
+  if (/(24 ?bit )FLAC/i.test(value)) value = value.replace(/(24 ?bit )FLAC/i, 'FLAC')
+  else if (/FLAC/i.test(value)) value = value.replace(/FLAC/i, '16bit FLAC')
+  else value += ' [FLAC]'
+  if (sampleRateKhz && bitDepth === 24) value = value.replace(/FLAC/i, `24-${sampleRateKhz}`)
+  return value
 }
 
 function stableHash(value: string): string {

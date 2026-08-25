@@ -54,6 +54,7 @@ const api = {
     updateTagsProposed: (release: IpcInvokeArgs<'upload:updateTagsProposed'>[0]) =>
       invoke('upload:updateTagsProposed', release),
     setFilenameOverride: (id: string, value?: string) => invoke('upload:setFilenameOverride', id, value),
+    setPayloadNameOverride: (id: string, value?: string) => invoke('upload:setPayloadNameOverride', id, value),
     setFolderNameOverride: (value?: string) => invoke('upload:setFolderNameOverride', value),
     setRenameReleaseFolder: (value: boolean) => invoke('upload:setRenameReleaseFolder', value),
     setStripEmbeddedCoverArt: (value: boolean) => invoke('upload:setStripEmbeddedCoverArt', value),
@@ -63,6 +64,8 @@ const api = {
     setSpectralIds: (ids: number[]) => invoke('upload:setSpectralIds', ids),
     regenerateSpectrals: () => invoke('upload:regenerateSpectrals'),
     refreshFilesCheck: () => invoke('upload:refreshFilesCheck'),
+    resolveStructureItems: (ids: string[], action: 'keep' | 'quarantine' | 'restore') =>
+      invoke('upload:resolveStructureItems', ids, action),
     repairFlacIntegrity: () => invoke('upload:repairFlacIntegrity'),
     refreshMetadata: () => invoke('upload:refreshMetadata'),
     refreshTags: () => invoke('upload:refreshTags'),

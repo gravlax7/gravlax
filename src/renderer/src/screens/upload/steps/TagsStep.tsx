@@ -20,6 +20,7 @@ import {
   isMultiDiscTracks,
   setFieldEditorValue,
   setTrackFieldEditorValue,
+  textValueLinesEqual,
   trackHeading
 } from '@shared/tags/editor'
 import { Button, Callout, IconButton, Spinner, StatusDot } from '../../../ui'
@@ -60,6 +61,12 @@ export function TagsStep(props: {
     props.state.upload.phase === 'submitting' || props.state.seed.phase !== 'idle'
   const busy = (): boolean =>
     props.state.files.apply.phase === 'applying' || props.state.files.apply.phase === 'restoring'
+  const payloadState = (id: string) =>
+    (props.state.files.apply.payloadPaths ?? []).find((item) => item.id === id)
+  const pathErrors = (currentPath: string, targetPath: string): string[] =>
+    plan().errors.filter((error) =>
+      error.startsWith(`${currentPath}:`) || error.startsWith(`${targetPath}:`)
+    )
 
   const revertField = (field: string): void => {
     const currentValue = editorValue(props.state.tags.current ?? {}, field)
@@ -150,7 +157,7 @@ export function TagsStep(props: {
                   displayValueLines(props.state.tags.current ?? {}, field)
                 const proposed = (): string[] =>
                   displayValueLines(props.state.tags.proposed ?? {}, field)
-                const changed = (): boolean => current().join('\n') !== proposed().join('\n')
+                const changed = (): boolean => !textValueLinesEqual(current(), proposed())
                 const editing = (): boolean =>
                   props.editingTrackIndex == null && props.editingField === field
                 return (
@@ -267,7 +274,7 @@ export function TagsStep(props: {
                           const proposed = (): string[] =>
                             displayTrackValueLines(proposedTrack(), field)
                           const changed = (): boolean =>
-                            current().join('\n') !== proposed().join('\n')
+                            !textValueLinesEqual(current(), proposed())
                           const editing = (): boolean =>
                             props.editingTrackIndex === trackIndex &&
                             props.editingField === field
@@ -385,46 +392,132 @@ export function TagsStep(props: {
           </div>
         </Show>
 
+        <Show when={(plan().folders?.length ?? 0) > 0}>
+          <div class="filename-group-label">Folders</div>
+          <div class="filename-list">
+            <For each={plan().folders ?? []}>
+              {(folder) => (
+                <div class="filename-entry">
+                  <div class="filename-edit-row">
+                    <span class="mono filename-current">{folder.currentPath}</span>
+                    <span>→</span>
+                    <div class="filename-target">
+                      <Show when={folder.targetPath.slice(0, -folder.targetName.length)}>
+                        <span class="mono filename-directory">
+                          {folder.targetPath.slice(0, -folder.targetName.length)}
+                        </span>
+                      </Show>
+                      <input
+                        class="mono filename-input"
+                        disabled={busy() || locked()}
+                        value={payloadState(folder.id)?.nameOverride ?? folder.targetName}
+                        onChange={(event) => void window.gravlax.upload.setPayloadNameOverride(folder.id, event.currentTarget.value)}
+                        aria-label={`Folder name for ${folder.currentPath}`}
+                      />
+                    </div>
+                    <IconButton
+                      icon="refresh-cw"
+                      label="Reset folder name"
+                      size="sm"
+                      disabled={!payloadState(folder.id)?.nameOverride || busy() || locked()}
+                      onClick={() => void window.gravlax.upload.setPayloadNameOverride(folder.id)}
+                    />
+                  </div>
+                  <For each={pathErrors(folder.currentPath, folder.targetPath)}>
+                    {(error) => <div class="filename-row-error">{error}</div>}
+                  </For>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
+
+        <div class="filename-group-label">FLAC tracks</div>
         <div class="filename-list">
           <Index each={plan().files}>
             {(file) => {
               const stateFile = () =>
                 props.state.files.apply.files.find((item) => item.id === file().id)
               return (
-                <div class="filename-edit-row">
-                  <span class="mono filename-current">{file().currentPath}</span>
-                  <span>→</span>
-                  <div class="filename-target">
-                    <Show when={file().targetPath.slice(0, -file().targetFilename.length)}>
-                      <span class="mono filename-directory">
-                        {file().targetPath.slice(0, -file().targetFilename.length)}
-                      </span>
-                    </Show>
-                    <input
-                      class="mono filename-input"
-                      disabled={busy() || locked()}
-                      value={stateFile()?.filenameOverride ?? file().targetFilename}
-                      onChange={(event) =>
-                        void window.gravlax.upload.setFilenameOverride(
-                          file().id,
-                          event.currentTarget.value
-                        )
-                      }
-                      aria-label={`Filename for ${file().currentPath}`}
+                <div class="filename-entry">
+                  <div class="filename-edit-row">
+                    <span class="mono filename-current">{file().currentPath}</span>
+                    <span>→</span>
+                    <div class="filename-target">
+                      <Show when={file().targetPath.slice(0, -file().targetFilename.length)}>
+                        <span class="mono filename-directory">
+                          {file().targetPath.slice(0, -file().targetFilename.length)}
+                        </span>
+                      </Show>
+                      <input
+                        class="mono filename-input"
+                        disabled={busy() || locked()}
+                        value={stateFile()?.filenameOverride ?? file().targetFilename}
+                        onChange={(event) =>
+                          void window.gravlax.upload.setFilenameOverride(
+                            file().id,
+                            event.currentTarget.value
+                          )
+                        }
+                        aria-label={`Filename for ${file().currentPath}`}
+                      />
+                    </div>
+                    <IconButton
+                      icon="refresh-cw"
+                      label="Reset filename"
+                      size="sm"
+                      disabled={!stateFile()?.filenameOverride || busy() || locked()}
+                      onClick={() => void window.gravlax.upload.setFilenameOverride(file().id)}
                     />
                   </div>
-                  <IconButton
-                    icon="refresh-cw"
-                    label="Reset filename"
-                    size="sm"
-                    disabled={!stateFile()?.filenameOverride || busy() || locked()}
-                    onClick={() => void window.gravlax.upload.setFilenameOverride(file().id)}
-                  />
+                  <For each={pathErrors(file().currentPath, file().targetPath)}>
+                    {(error) => <div class="filename-row-error">{error}</div>}
+                  </For>
                 </div>
               )
             }}
           </Index>
         </div>
+
+        <Show when={(plan().payloadFiles ?? []).some((file) => !file.track)}>
+          <div class="filename-group-label">Other files</div>
+          <div class="filename-list">
+            <For each={(plan().payloadFiles ?? []).filter((file) => !file.track)}>
+              {(file) => (
+                <div class="filename-entry">
+                  <div class="filename-edit-row">
+                    <span class="mono filename-current">{file.currentPath}</span>
+                    <span>→</span>
+                    <div class="filename-target">
+                      <Show when={file.targetPath.slice(0, -file.targetName.length)}>
+                        <span class="mono filename-directory">
+                          {file.targetPath.slice(0, -file.targetName.length)}
+                        </span>
+                      </Show>
+                      <input
+                        class="mono filename-input"
+                        disabled={busy() || locked()}
+                        value={payloadState(file.id)?.nameOverride ?? file.targetName}
+                        onChange={(event) => void window.gravlax.upload.setPayloadNameOverride(file.id, event.currentTarget.value)}
+                        aria-label={`Filename for ${file.currentPath}`}
+                      />
+                    </div>
+                    <IconButton
+                      icon="refresh-cw"
+                      label="Reset filename"
+                      size="sm"
+                      disabled={!payloadState(file.id)?.nameOverride || busy() || locked()}
+                      onClick={() => void window.gravlax.upload.setPayloadNameOverride(file.id)}
+                    />
+                  </div>
+                  <For each={pathErrors(file.currentPath, file.targetPath)}>
+                    {(error) => <div class="filename-row-error">{error}</div>}
+                  </For>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
 
         <Show when={plan().errors.length > 0}>
           <div class="filename-errors">

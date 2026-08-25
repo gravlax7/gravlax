@@ -240,6 +240,14 @@ export interface FileNameState {
   filenameOverride?: string
 }
 
+export interface PayloadPathState {
+  id: string
+  kind: 'file' | 'directory'
+  currentPath: string
+  originalPath: string
+  nameOverride?: string
+}
+
 export interface FilesApplySnapshot {
   phase: FilesApplyPhase
   progressCurrent?: number
@@ -251,6 +259,7 @@ export interface FilesApplySnapshot {
   currentFolderName: string
   folderNameOverride?: string
   files: FileNameState[]
+  payloadPaths?: PayloadPathState[]
   /** Migration marker: an old session already past this step keeps its paths. */
   grandfathered?: boolean
   appliedHash?: string
@@ -365,8 +374,39 @@ export interface LogcheckerSummary {
   skippedReason?: string
 }
 
+export type ReleaseStructureRule =
+  | 'suspicious-extension'
+  | 'illegal-directory'
+  | 'mixed-audio'
+  | 'symlink'
+
+export interface ReleaseStructureIssue {
+  id: string
+  relativePath: string
+  entryKind: 'file' | 'directory' | 'symlink'
+  rule: ReleaseStructureRule
+  decision: 'pending' | 'kept'
+  canKeep: boolean
+}
+
+export interface QuarantinedReleaseEntry {
+  id: string
+  relativePath: string
+  entryKind: 'file' | 'directory' | 'symlink'
+  storedName: string
+}
+
+export interface ReleaseStructureSummary {
+  ready: boolean
+  issues: ReleaseStructureIssue[]
+  approvedPaths: string[]
+  emptyDirectories: string[]
+  quarantined: QuarantinedReleaseEntry[]
+}
+
 export interface FilesCheckSnapshot {
   status: FilesCheckStatus
+  structure: ReleaseStructureSummary
   integrity: IntegritySummary
   mqa: MQASummary
   upconvert: UpconvertSummary

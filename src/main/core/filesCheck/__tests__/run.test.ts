@@ -12,6 +12,7 @@ const passedIntegrity: IntegritySummary = {
 
 function jobs(overrides: Partial<FilesCheckJobs> = {}): FilesCheckJobs {
   return {
+    checkStructure: vi.fn().mockResolvedValue({ ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] }),
     checkIntegrity: vi.fn().mockResolvedValue(passedIntegrity),
     repairIntegrity: vi.fn().mockResolvedValue(passedIntegrity),
     checkMqa: vi.fn().mockResolvedValue({ checkedCount: 1, mqaPaths: [], errors: [] }),
@@ -22,6 +23,36 @@ function jobs(overrides: Partial<FilesCheckJobs> = {}): FilesCheckJobs {
 }
 
 describe('runFilesCheck', () => {
+  it('stops for unresolved folder rules before audio checks', async () => {
+    const allJobs = jobs({
+      checkStructure: vi.fn().mockResolvedValue({
+        ready: false,
+        issues: [{
+          id: 'x',
+          relativePath: 'notes.json',
+          entryKind: 'file',
+          rule: 'suspicious-extension',
+          decision: 'pending',
+          canKeep: true
+        }],
+        approvedPaths: [],
+        emptyDirectories: [],
+        quarantined: []
+      })
+    })
+
+    const result = await runFilesCheck({
+      workspacePath: '/workspace',
+      sourceMedia: 'WEB',
+      trackers: [],
+      jobs: allJobs
+    })
+
+    expect(result.snapshot.structure.ready).toBe(false)
+    expect(allJobs.checkIntegrity).not.toHaveBeenCalled()
+    expect(allJobs.checkMqa).not.toHaveBeenCalled()
+  })
+
   it('stops after integrity failure and leaves later jobs untouched', async () => {
     const failedIntegrity: IntegritySummary = {
       ...passedIntegrity,

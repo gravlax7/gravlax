@@ -5,6 +5,7 @@ import { basename, dirname, join } from 'node:path'
 import bencode from 'bencode'
 import makeTorrent from 'create-torrent'
 import { enumerateReleaseFiles, totalSize, type ReleaseFile } from '@main/core/tools/releaseFiles'
+import { assertReleasePayloadReady } from '@main/core/filesCheck/structure'
 
 const MIN_PIECE_LENGTH = 16 * 1024
 const MAX_PIECE_LENGTH = 16 * 1024 * 1024
@@ -34,6 +35,7 @@ export interface CreateTorrentOptions {
   source: string
   createdBy: string
   signal?: AbortSignal
+  approvedPaths?: string[]
 }
 
 export interface CreatedTorrent {
@@ -50,6 +52,8 @@ export async function createTorrent(options: CreateTorrentOptions): Promise<Crea
   if (!folderPath) throw new Error('torrent: folder path is required')
   if (!announceUrl) throw new Error('torrent: announce URL is required')
   throwIfAborted(signal)
+
+  await assertReleasePayloadReady(folderPath, options.approvedPaths)
 
   const files = await enumerateReleaseFiles(folderPath)
   if (files.length === 0) {

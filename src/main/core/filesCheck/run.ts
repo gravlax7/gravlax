@@ -13,8 +13,10 @@ import {
 import { checkLogsWorkspace, logcheckerSummaryDetail } from './logchecker'
 import { checkMQAWorkspace, mqaSummaryDetail } from './mqa'
 import { checkUpconvertWorkspace, upconvertSummaryDetail } from './upconvert'
+import { checkReleaseStructure, structureSummaryDetail } from './structure'
 
 const JOB_LABELS = {
+  structure: 'Folder rules',
   integrity: 'Integrity',
   mqa: 'MQA',
   upconvert: 'Upconvert',
@@ -36,6 +38,8 @@ export interface RunFilesCheckOptions {
   onProgress?: (current: number, total: number, label: string) => void
   onRepairStarting?: () => void | Promise<void>
   onIntegrityPassed?: (integrity: IntegritySummary) => void
+  approvedStructurePaths?: string[]
+  quarantinedStructureEntries?: FilesCheckSnapshot['structure']['quarantined']
 }
 
 export interface FilesCheckRunResult {
@@ -45,6 +49,7 @@ export interface FilesCheckRunResult {
 }
 
 export interface FilesCheckJobs {
+  checkStructure: typeof checkReleaseStructure
   checkIntegrity: typeof checkFLACIntegrityWorkspace
   repairIntegrity: typeof repairFLACIntegrityWorkspace
   checkMqa: typeof checkMQAWorkspace
@@ -64,12 +69,39 @@ export async function runFilesCheck(options: RunFilesCheckOptions): Promise<File
     (current: number, total: number, label: string) =>
       onProgress?.(current, total, `${JOB_LABELS[job]} — ${label}`)
   const jobs: FilesCheckJobs = {
+    checkStructure: checkReleaseStructure,
     checkIntegrity: checkFLACIntegrityWorkspace,
     repairIntegrity: repairFLACIntegrityWorkspace,
     checkMqa: checkMQAWorkspace,
     checkUpconvert: checkUpconvertWorkspace,
     checkLogs: checkLogsWorkspace,
     ...options.jobs
+  }
+  onProgress?.(0, 1, `${JOB_LABELS.structure} — Scanning release…`)
+  const structure = await jobs.checkStructure(workspacePath, {
+    approvedPaths: options.approvedStructurePaths,
+    quarantined: options.quarantinedStructureEntries
+  })
+  onProgress?.(1, 1, `${JOB_LABELS.structure} — Complete`)
+  if (!structure.ready) {
+    return {
+      snapshot: {
+        status: 'ok',
+        structure,
+        integrity: {
+          status: 'idle',
+          checkedCount: 0,
+          failures: [],
+          repairedPaths: [],
+          repairErrors: []
+        },
+        mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
+        upconvert: { checkedCount: 0, results: [], errors: [] },
+        logs: { logFiles: [], checks: [] }
+      },
+      detail: structureSummaryDetail(structure),
+      taskFailed: false
+    }
   }
   const shouldRepair = options.repairRequested || (options.autoRepair && options.repairAllowed)
   const integrity = shouldRepair
@@ -89,6 +121,7 @@ export async function runFilesCheck(options: RunFilesCheckOptions): Promise<File
     return {
       snapshot: {
         status: 'ok',
+        structure,
         integrity,
         mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
         upconvert: { checkedCount: 0, results: [], errors: [] },
@@ -122,12 +155,14 @@ export async function runFilesCheck(options: RunFilesCheckOptions): Promise<File
   const taskFailed = logs.checks.some((check) => Boolean(check.error))
   const snapshot: FilesCheckSnapshot = {
     status: taskFailed ? 'failed' : 'ok',
+    structure,
     integrity,
     mqa,
     upconvert,
     logs
   }
   const detail = [
+    structureSummaryDetail(structure),
     integritySummaryDetail(integrity),
     mqaSummaryDetail(mqa),
     upconvertSummaryDetail(upconvert),

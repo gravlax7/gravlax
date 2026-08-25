@@ -1,6 +1,5 @@
-import { readdir, realpath, stat } from 'node:fs/promises'
+import { readdir, stat } from 'node:fs/promises'
 import { join, sep } from 'node:path'
-import { isJunk } from 'junk'
 import { compareNatural } from '@shared/naturalSort'
 
 export interface ReleaseFile {
@@ -20,44 +19,28 @@ export interface ReleaseFile {
  * the release seeds at 99% forever with no obvious cause. Keeping the decision
  * in one place is what makes that impossible rather than merely unlikely.
  *
- * Symlinks are followed, not skipped: the workspace copy preserves them
- * (`copyFolderToUploadWorkspace`), and dropping a symlinked track would ship an
- * incomplete release. Directory cycles are broken by tracking real paths.
+ * Folder rules block symbolic links before upload, so this list contains only
+ * regular files. Nothing is silently filtered by name or extension.
  */
 export async function enumerateReleaseFiles(root: string): Promise<ReleaseFile[]> {
   const files: ReleaseFile[] = []
-  const visited = new Set<string>()
 
   async function walk(dir: string): Promise<void> {
-    let real: string
+    let entries
     try {
-      real = await realpath(dir)
-    } catch {
-      return
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+      throw error
     }
-    if (visited.has(real)) return
-    visited.add(real)
-
-    const entries = await readdir(dir, { withFileTypes: true })
     for (const entry of entries) {
-      if (isJunk(entry.name)) continue
       const full = join(dir, entry.name)
-
-      // stat rather than the dirent flags: a Dirent reports the link itself,
-      // so a symlinked FLAC would read as neither file nor directory.
-      let info
-      try {
-        info = await stat(full)
-      } catch {
-        // A broken symlink is not a file anyone can seed.
-        continue
-      }
-
-      if (info.isDirectory()) {
+      if (entry.isDirectory()) {
         await walk(full)
         continue
       }
-      if (!info.isFile()) continue
+      if (!entry.isFile()) continue
+      const info = await stat(full)
 
       files.push({
         absolutePath: full,
@@ -70,6 +53,36 @@ export async function enumerateReleaseFiles(root: string): Promise<ReleaseFile[]
   await walk(root)
   files.sort((a, b) => compareRelativePaths(a.relativePath, b.relativePath))
   return files
+}
+
+export async function enumerateReleasePaths(
+  root: string
+): Promise<{ files: string[]; directories: string[] }> {
+  const files: string[] = []
+  const directories: string[] = []
+  async function walk(dir: string): Promise<boolean> {
+    const entries = await readdir(dir, { withFileTypes: true })
+    let hasFile = false
+    for (const entry of entries) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        const childHasFile = await walk(full)
+        if (childHasFile) {
+          directories.push(full.slice(root.length + 1).split(sep).join('/'))
+          hasFile = true
+        }
+        continue
+      }
+      if (!entry.isFile()) continue
+      files.push(full.slice(root.length + 1).split(sep).join('/'))
+      hasFile = true
+    }
+    return hasFile
+  }
+  await walk(root)
+  files.sort(compareRelativePaths)
+  directories.sort(compareRelativePaths)
+  return { files, directories }
 }
 
 /**

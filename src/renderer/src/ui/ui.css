@@ -1298,6 +1298,37 @@ button.toggle.toggle-on .toggle-thumb {
   gap: 2px;
 }
 
+.files-check-structure-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.files-check-structure-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.files-check-structure-path {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+}
+
+.files-check-structure-actions,
+.files-check-structure-bulk {
+  display: flex;
+  gap: var(--space-2);
+  flex: none;
+}
+
+.files-check-structure-kept {
+  color: var(--success);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
 .files-check-log-card {
   display: flex;
   flex-direction: column;
@@ -1647,6 +1678,24 @@ button.toggle.toggle-on .toggle-thumb {
   display: flex;
   align-items: center;
   min-width: 0;
+}
+
+.filename-entry {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.filename-group-label {
+  margin-top: var(--space-2);
+  color: var(--fg-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.filename-row-error {
+  padding-left: calc(38% + var(--space-3));
+  color: var(--error);
+  font-size: var(--text-sm);
 }
 
 .filename-directory {

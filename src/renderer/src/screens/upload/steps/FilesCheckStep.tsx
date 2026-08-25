@@ -7,6 +7,7 @@ import {
   IntegrityResult,
   LogcheckerResult,
   MqaResult,
+  StructureResult,
   UpconvertResult
 } from '../filesCheck'
 
@@ -88,6 +89,7 @@ export function FilesCheckStep(props: { state: UploadFlowStateJSON }) {
       </Show>
 
       <Show when={status() === 'succeeded'}>
+        <StructureResult state={props.state} />
         <IntegrityResult state={props.state} />
         <MqaResult filesCheck={filesCheck()} />
         <UpconvertResult filesCheck={filesCheck()} />

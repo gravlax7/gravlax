@@ -32,6 +32,7 @@ export function highestReachableStep(state: UploadFlowStateJSON): number {
   ) {
     return highest
   }
+  if (!state.filesCheck.structure.ready) return highest
 
   const files = taskById(state.background.tasks, 'files-check')
   if (files?.status === 'succeeded') highest = Math.max(highest, index('spectrals'))
@@ -72,6 +73,18 @@ export function evaluateStepNavigation(
   const firstStepAfterMedia = workflowStepIndex('spectrals') ?? 0
   if (goingForward && targetIndex >= firstStepAfterMedia && !state.draft.sourceMedia) {
     return { ok: false, error: 'Choose WEB or CD source media before continuing.' }
+  }
+  if (
+    goingForward &&
+    targetIndex >= firstStepAfterMedia &&
+    !state.filesCheck.structure.ready &&
+    state.upload.phase !== 'submitting' &&
+    state.upload.phase !== 'done'
+  ) {
+    return {
+      ok: false,
+      error: 'Resolve the folder and file checks before continuing.'
+    }
   }
   if (
     goingForward &&

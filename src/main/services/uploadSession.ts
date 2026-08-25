@@ -77,6 +77,7 @@ import {
   groupSearchRequest,
   setSeed,
   initializeFiles,
+  reconcilePayloadPaths,
   setEmbeddedCoverArtCount,
 } from '@main/core/uploadflow'
 import { runSeed, seedFormatsFromUpload } from '@main/services/seedService'
@@ -112,11 +113,17 @@ import { expandPath } from '@main/core/config/paths'
 import { saveUploadedRelease } from '@main/core/appdata/uploadHistory'
 import { generateSpectrals, listSpectralPairs } from '@main/core/tools/spectrals/generate'
 import { spectralIdsForRelease } from '@shared/upload/spectralIds'
-import { runFilesCheck } from '@main/core/filesCheck'
+import {
+  quarantineReleaseEntry,
+  restoreQuarantinedReleaseEntry,
+  assertReleasePayloadReady,
+  runFilesCheck
+} from '@main/core/filesCheck'
 import { detectSourceMedia } from '@main/core/tools/diagnostics/sourceMedia'
 import { createEnabledTrackers } from '@main/core/tools/trackers'
 import { extractAlbumReleaseWithEmbeddedCoverArt } from '@main/core/tags/extract'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
+import { enumerateReleasePaths } from '@main/core/tools/releaseFiles'
 import { buildFilesRenamePlan } from '@shared/upload/naming'
 import { METADATA_PROVIDER_MANUAL } from '@shared/types/upload'
 import { isNamedMainArtist } from '@shared/upload/artists'
@@ -445,6 +452,14 @@ export class UploadSession {
           return
         }
 
+        for (const format of this.state.upload.formats ?? []) {
+          await assertReleasePayloadReady(
+            format.folderPath,
+            this.state.filesCheck.structure.approvedPaths
+          )
+        }
+        if (!task.fresh()) return
+
         this.apply(beginSubmit(this.state, planSubmissions(this.state.upload)))
         await this.persistNow()
 
@@ -457,6 +472,7 @@ export class UploadSession {
           lossyComment: this.state.draft.lossyComment,
           sourceUrl: this.state.metadata.selected?.url?.trim() ?? '',
           spectralBbcode: this.state.upload.spectralBbcode ?? '',
+          approvedStructurePaths: this.state.filesCheck.structure.approvedPaths,
           signal: task.signal,
           fresh: () => task.fresh(),
           onPatch: (id, patch) => {
@@ -926,9 +942,17 @@ export class UploadSession {
   ): Promise<void> {
     if (!this.state.draft.workspacePath || this.state.files.apply.files.length > 0) return
     const workspacePath = this.state.draft.workspacePath
-    const files = await discoverFLACFiles(workspacePath)
+    const [files, payload] = await Promise.all([
+      discoverFLACFiles(workspacePath),
+      enumerateReleasePaths(workspacePath)
+    ])
     if (!stillCurrent() || this.state.draft.workspacePath !== workspacePath) return
-    let next = initializeFiles(this.state, basename(workspacePath), files.map((file) => file.relativePath))
+    let next = initializeFiles(
+      this.state,
+      basename(workspacePath),
+      files.map((file) => file.relativePath),
+      payload
+    )
     const tagsIdx = stepIndex('tags') ?? 3
     if (grandfatherPastTags && next.currentStep > tagsIdx) {
       next = {
@@ -1073,6 +1097,10 @@ export class UploadSession {
     this.fileChangesService.setFilenameOverride(id, value)
   }
 
+  setPayloadNameOverride(id: string, value?: string): void {
+    this.fileChangesService.setPayloadNameOverride(id, value)
+  }
+
   setFolderNameOverride(value?: string): void {
     this.fileChangesService.setFolderNameOverride(value)
   }
@@ -1106,6 +1134,87 @@ export class UploadSession {
     this.filesCheck.cancel()
     this.apply(resetBackgroundTask(clearFilesCheck(this.state), 'files-check'))
     this.startFilesCheckIfReady()
+  }
+
+  async resolveStructureItems(
+    ids: string[],
+    action: 'keep' | 'quarantine' | 'restore'
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    const workspacePath = this.state.draft.workspacePath
+    if (!workspacePath) return { ok: false, error: 'Workspace is not ready.' }
+    try {
+      const selected = new Set(ids)
+      let structure = this.state.filesCheck.structure
+      if (action === 'keep') {
+        const keepable = structure.issues.filter(
+          (item) => selected.has(item.id) && item.canKeep
+        )
+        if (keepable.length !== selected.size) throw new Error('One or more items cannot be kept.')
+        structure = {
+          ...structure,
+          approvedPaths: [...new Set([
+            ...structure.approvedPaths,
+            ...keepable.map((item) => item.relativePath)
+          ])],
+          issues: structure.issues.map((item) =>
+            selected.has(item.id) ? { ...item, decision: 'kept' as const } : item
+          )
+        }
+      } else if (action === 'quarantine') {
+        const items = structure.issues.filter((item) => selected.has(item.id))
+        if (items.length !== selected.size) throw new Error('One or more items are no longer present.')
+        const moved = []
+        try {
+          for (const item of items) moved.push(await quarantineReleaseEntry(workspacePath, item))
+        } catch (error) {
+          for (const item of moved.reverse()) {
+            await restoreQuarantinedReleaseEntry(workspacePath, item).catch(() => undefined)
+          }
+          throw error
+        }
+        structure = {
+          ...structure,
+          approvedPaths: structure.approvedPaths.filter(
+            (path) => !items.some((item) => item.relativePath === path)
+          ),
+          quarantined: [...structure.quarantined, ...moved]
+        }
+      } else {
+        const items = structure.quarantined.filter((item) => selected.has(item.id))
+        if (items.length !== selected.size) throw new Error('One or more removed items are no longer available.')
+        const restored = []
+        try {
+          for (const item of items) {
+            await restoreQuarantinedReleaseEntry(workspacePath, item)
+            restored.push(item)
+          }
+        } catch (error) {
+          for (const item of restored.reverse()) {
+            const issue = {
+              id: item.id,
+              relativePath: item.relativePath,
+              entryKind: item.entryKind,
+              rule: 'suspicious-extension' as const,
+              decision: 'pending' as const,
+              canKeep: true
+            }
+            await quarantineReleaseEntry(workspacePath, issue).catch(() => undefined)
+          }
+          throw error
+        }
+        structure = {
+          ...structure,
+          quarantined: structure.quarantined.filter((item) => !selected.has(item.id))
+        }
+      }
+      this.apply({ ...this.state, filesCheck: { ...this.state.filesCheck, structure } })
+      await this.refreshFilesCheck()
+      return { ok: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      this.notify('error', message)
+      return { ok: false, error: message }
+    }
   }
 
   async repairFlacIntegrity(): Promise<void> {
@@ -1468,6 +1577,8 @@ export class UploadSession {
           repairRequested,
           autoRepair: this.deps.getConfig().workflow.autoRepairFlacIntegrity,
           repairAllowed: canRepair,
+          approvedStructurePaths: this.state.filesCheck.structure.approvedPaths,
+          quarantinedStructureEntries: this.state.filesCheck.structure.quarantined,
           onRepairStarting: () => this.stopSpectralsForRepair(task),
           onProgress: (current, total, label) => {
             if (!task.fresh()) return
@@ -1486,6 +1597,7 @@ export class UploadSession {
             if (!task.fresh()) return
             this.apply(setFilesCheck(this.state, {
               status: 'running',
+              structure: this.state.filesCheck.structure,
               integrity,
               mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
               upconvert: { checkedCount: 0, results: [], errors: [] },
@@ -1496,7 +1608,9 @@ export class UploadSession {
         })
         if (!task.fresh()) return
 
-        const next = setFilesCheck(this.state, result.snapshot)
+        const payload = await enumerateReleasePaths(workspacePath)
+        if (!task.fresh()) return
+        const next = setFilesCheck(reconcilePayloadPaths(this.state, payload), result.snapshot)
         this.apply(
           result.taskFailed
             ? markBackgroundTaskFailed(next, 'files-check', result.detail)
@@ -1603,13 +1717,17 @@ export class UploadSession {
         const { release, embeddedCoverArtCount } =
           await extractAlbumReleaseWithEmbeddedCoverArt(workspacePath)
         if (!task.fresh()) return
-        const files = await discoverFLACFiles(workspacePath)
+        const [files, payload] = await Promise.all([
+          discoverFLACFiles(workspacePath),
+          enumerateReleasePaths(workspacePath)
+        ])
         if (!task.fresh()) return
         this.apply(setEmbeddedCoverArtCount(
           initializeFiles(
             setTagsCurrent(this.state, release),
             basename(workspacePath),
-            files.map((file) => file.relativePath)
+            files.map((file) => file.relativePath),
+            payload
           ),
           embeddedCoverArtCount
         ))

@@ -17,6 +17,7 @@ import {
   setFieldEditorValue,
   setTrackFieldEditorValue,
   stripFeaturedFromTitle,
+  textValueLinesEqual,
   trackHeading
 } from '@shared/tags/editor'
 import type { Release } from '@shared/types'
@@ -78,6 +79,14 @@ describe('tags editor', () => {
   it('shows empty and mixed sentinels', () => {
     expect(displayValueLines({}, 'title')).toEqual(['(empty)'])
     expect(displayValueLines({ mixed: { title: true } }, 'title')).toEqual(['mixed'])
+  })
+
+  it('treats equivalent Unicode forms as the same displayed value', () => {
+    expect(textValueLinesEqual(['Ph\u00e9nix'], ['Phe\u0301nix'])).toBe(true)
+    expect(textValueLinesEqual(['Ph\u00e9nix'], ['Phoenix'])).toBe(false)
+    expect(setTrackFieldEditorValue({}, 0, 'title', 'Phe\u0301nix').tracks?.[0]?.title).toBe(
+      'Ph\u00e9nix'
+    )
   })
 
   it('edits track fields including artists', () => {

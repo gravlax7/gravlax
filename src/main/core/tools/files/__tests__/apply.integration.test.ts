@@ -79,6 +79,52 @@ describe('tag and filename writes', () => {
     }
   }, 30_000)
 
+  it('rewrites a near-limit filename before giving it a shorter name', async () => {
+    if (!(await binaryAvailable('metaflac')) || !(await binaryAvailable('flac'))) return
+    const root = await mkdtemp(join(tmpdir(), 'gravlax-long-name-'))
+    try {
+      const album = join(root, 'Album')
+      const longFilename = `${'a'.repeat(240)}.flac`
+      const source = join(album, longFilename)
+      await mkdir(album)
+      await writeSyntheticFlac(source)
+      await writeFile(
+        join(root, '.gravlax-upload.json'),
+        JSON.stringify({ sourcePath: album, stagedName: 'Album' })
+      )
+      const current = [{ id: 'track-1', currentPath: longFilename }]
+      const captured = await captureOriginalFiles(album, current)
+
+      const result = await applyTagsAndRenames({
+        workspacePath: album,
+        release: { title: 'Album', tracks: [{ title: 'Phe\u0301nix', trackNumber: '1' }] },
+        plan: {
+          folderName: 'Album',
+          files: [{
+            id: 'track-1',
+            currentPath: longFilename,
+            targetPath: '01. Short.flac',
+            targetFilename: '01. Short.flac',
+            changed: true
+          }],
+          errors: [],
+          warnings: [],
+          hash: 'long-name'
+        },
+        originals: captured.originals,
+        stripEmbeddedCoverArt: true
+      })
+
+      const renamed = join(result.workspacePath, '01. Short.flac')
+      await expect(access(renamed)).resolves.toBeUndefined()
+      expect((await runCommand('metaflac', ['--show-tag=TITLE', renamed])).toString()).toContain(
+        'TITLE=Ph\u00e9nix'
+      )
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }, 30_000)
+
   it('moves disc sidecars with their tracks and restores them', async () => {
     if (!(await binaryAvailable('metaflac')) || !(await binaryAvailable('flac'))) return
     const root = await mkdtemp(join(tmpdir(), 'gravlax-sidecars-'))
@@ -99,13 +145,29 @@ describe('tag and filename writes', () => {
         plan: { folderName: 'Album', files: [
           { id: 'a', currentPath: 'CD1/a.flac', targetPath: 'Disc 01/01. One.flac', targetFilename: '01. One.flac', changed: true },
           { id: 'b', currentPath: 'CD2/b.flac', targetPath: 'Disc 02/01. Two.flac', targetFilename: '01. Two.flac', changed: true }
-        ], errors: [], warnings: [], hash: 'sidecars' },
+        ], payloadFiles: [
+          { id: 'a', kind: 'file', currentPath: 'CD1/a.flac', targetPath: 'Disc 01/01. One.flac', targetName: '01. One.flac', changed: true, track: true },
+          { id: 'b', kind: 'file', currentPath: 'CD2/b.flac', targetPath: 'Disc 02/01. Two.flac', targetName: '01. Two.flac', changed: true, track: true },
+          { id: 'log-1', kind: 'file', currentPath: 'CD1/rip.log', targetPath: 'Disc 01/rip.log', targetName: 'rip.log', changed: true, track: false },
+          { id: 'log-2', kind: 'file', currentPath: 'CD2/rip.log', targetPath: 'Disc 02/rip.log', targetName: 'rip.log', changed: true, track: false }
+        ], folders: [], errors: [], warnings: [], hash: 'sidecars' },
         originals: captured.originals,
         stripEmbeddedCoverArt: true
       })
       expect(await readFile(join(album, 'Disc 01', 'rip.log'), 'utf8')).toBe('one')
       expect(await readFile(join(album, 'Disc 02', 'rip.log'), 'utf8')).toBe('two')
-      await restoreOriginalFiles({ workspacePath: result.workspacePath, originals: captured.originals, currentFiles: result.currentPaths, originalFolderName: 'Album' })
+      await restoreOriginalFiles({
+        workspacePath: result.workspacePath,
+        originals: captured.originals,
+        currentFiles: result.currentPaths,
+        currentPayload: [
+          { id: 'a', kind: 'file', currentPath: 'Disc 01/01. One.flac', originalPath: 'CD1/a.flac' },
+          { id: 'b', kind: 'file', currentPath: 'Disc 02/01. Two.flac', originalPath: 'CD2/b.flac' },
+          { id: 'log-1', kind: 'file', currentPath: 'Disc 01/rip.log', originalPath: 'CD1/rip.log' },
+          { id: 'log-2', kind: 'file', currentPath: 'Disc 02/rip.log', originalPath: 'CD2/rip.log' }
+        ],
+        originalFolderName: 'Album'
+      })
       expect(await readFile(join(album, 'CD1', 'rip.log'), 'utf8')).toBe('one')
       expect(await readFile(join(album, 'CD2', 'rip.log'), 'utf8')).toBe('two')
     } finally {

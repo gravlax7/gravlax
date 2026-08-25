@@ -124,6 +124,15 @@ export function editorValue(r: Release, field: string): string {
   return editorValueLines(r, field).join('\n')
 }
 
+export function textValueLinesEqual(
+  left: readonly string[],
+  right: readonly string[]
+): boolean {
+  return left.length === right.length && left.every(
+    (value, index) => value.normalize('NFC') === right[index]!.normalize('NFC')
+  )
+}
+
 export function editorValueLines(r: Release, field: string): string[] {
   switch (field) {
     case FIELD_ARTISTS:
@@ -200,7 +209,7 @@ export function setFieldEditorValue(r: Release, field: string, value: string): R
       next.releaseType = firstOrEmpty(lines)
       break
     case FIELD_COMMENT:
-      next.comment = value.trim()
+      next.comment = value.normalize('NFC').trim()
       break
     case FIELD_URLS:
       next.urls = [...lines]
@@ -561,6 +570,7 @@ export function sortedUniqueStrings(values: string[]): string[] {
 }
 
 function cleanLines(value: string, preserveParagraphs: boolean): string[] {
+  value = value.normalize('NFC')
   if (preserveParagraphs) {
     value = value.replace(/\r\n/g, '\n')
     const lines = value.trim().split('\n').map((line) => line.replace(/[ \t]+$/g, ''))

@@ -10,7 +10,8 @@ export function emptyFiles(): FilesSnapshot {
       stripEmbeddedCoverArt: true,
       renameReleaseFolder: true,
       currentFolderName: '',
-      files: []
+      files: [],
+      payloadPaths: []
     }
   }
 }
@@ -29,7 +30,8 @@ export function setFiles(s: State, files: FilesSnapshot): State {
       apply: {
         ...files.apply,
         onDiskModified: files.apply.onDiskModified ?? files.apply.phase === 'applied',
-        files: files.apply.files.map((file) => ({ ...file }))
+        files: files.apply.files.map((file) => ({ ...file })),
+        payloadPaths: (files.apply.payloadPaths ?? []).map((item) => ({ ...item }))
       }
     }
   }
@@ -51,7 +53,12 @@ export function markFilesDirty(s: State): State {
   return { ...s, files: { ...s.files, apply: { ...s.files.apply, phase: 'idle', grandfathered: false, error: undefined } } }
 }
 
-export function initializeFiles(s: State, folderName: string, relativePaths: string[]): State {
+export function initializeFiles(
+  s: State,
+  folderName: string,
+  relativePaths: string[],
+  payload?: { files: string[]; directories: string[] }
+): State {
   if (s.files.apply.files.length > 0) return s
   return {
     ...s,
@@ -61,7 +68,58 @@ export function initializeFiles(s: State, folderName: string, relativePaths: str
       apply: {
         ...s.files.apply,
         currentFolderName: folderName,
-        files: relativePaths.map((currentPath, index) => ({ id: `track-${index + 1}`, currentPath }))
+        files: relativePaths.map((currentPath, index) => ({ id: `track-${index + 1}`, currentPath })),
+        payloadPaths: buildPayloadPaths(relativePaths, payload)
+      }
+    }
+  }
+}
+
+export function reconcilePayloadPaths(
+  s: State,
+  payload: { files: string[]; directories: string[] }
+): State {
+  const existing = new Map((s.files.apply.payloadPaths ?? []).map((item) => [item.currentPath, item]))
+  const tracks = new Map(s.files.apply.files.map((item) => [item.currentPath, item.id]))
+  const next = [
+    ...payload.directories.map((currentPath) => {
+      const prior = existing.get(currentPath)
+      return prior ?? {
+        id: payloadId('directory', currentPath),
+        kind: 'directory' as const,
+        currentPath,
+        originalPath: currentPath
+      }
+    }),
+    ...payload.files.map((currentPath) => {
+      const prior = existing.get(currentPath)
+      return prior ?? {
+        id: tracks.get(currentPath) ?? payloadId('file', currentPath),
+        kind: 'file' as const,
+        currentPath,
+        originalPath: currentPath
+      }
+    })
+  ]
+  return {
+    ...s,
+    files: { ...s.files, apply: { ...s.files.apply, payloadPaths: next } }
+  }
+}
+
+export function setPayloadNameOverride(s: State, id: string, value?: string): State {
+  return {
+    ...s,
+    files: {
+      ...s.files,
+      apply: {
+        ...s.files.apply,
+        phase: s.files.apply.phase === 'applying' ? 'applying' : 'idle',
+        error: undefined,
+        grandfathered: false,
+        payloadPaths: (s.files.apply.payloadPaths ?? []).map((item) =>
+          item.id === id ? { ...item, nameOverride: value || undefined } : item
+        )
       }
     }
   }
@@ -164,7 +222,8 @@ export function finishFilesApply(
   folderName: string,
   currentPaths: Array<{ id: string; currentPath: string }>,
   appliedHash: string,
-  counts: { changedFileCount: number; strippedPictureCount: number }
+  counts: { changedFileCount: number; strippedPictureCount: number },
+  payloadPaths: Array<{ id: string; currentPath: string }>
 ): State {
   // Every planned file must have a rename result. A file left out keeps its
   // pre-rename path — which no longer exists on disk — and would silently
@@ -181,6 +240,12 @@ export function finishFilesApply(
       currentPaths.find((item) => item.id === file.id)?.currentPath ?? file.currentPath
     ])
   )
+  const payloadPathMap = new Map(
+    (s.files.apply.payloadPaths ?? []).map((item) => [
+      item.currentPath,
+      payloadPaths.find((next) => next.id === item.id)?.currentPath ?? item.currentPath
+    ])
+  )
   return {
     ...s,
     draft: { ...s.draft, workspacePath },
@@ -195,6 +260,10 @@ export function finishFilesApply(
           ...file,
           currentPath: currentPaths.find((item) => item.id === file.id)?.currentPath ?? file.currentPath
         })),
+        payloadPaths: (s.files.apply.payloadPaths ?? []).map((item) => ({
+          ...item,
+          currentPath: payloadPaths.find((next) => next.id === item.id)?.currentPath ?? item.currentPath
+        })),
         appliedHash,
         ...counts,
         error: undefined,
@@ -205,6 +274,17 @@ export function finishFilesApply(
     },
     filesCheck: {
       ...s.filesCheck,
+      structure: {
+        ...s.filesCheck.structure,
+        issues: s.filesCheck.structure.issues.map((item) => ({
+          ...item,
+          relativePath: payloadPathMap.get(item.relativePath) ?? item.relativePath
+        })),
+        approvedPaths: s.filesCheck.structure.approvedPaths.map(
+          (path) => payloadPathMap.get(path) ?? path
+        ),
+        emptyDirectories: []
+      },
       integrity: remapIntegrityPaths(s.filesCheck.integrity, pathMap),
       mqa: {
         ...s.filesCheck.mqa,
@@ -220,6 +300,14 @@ export function finishFilesApply(
         errors: s.filesCheck.upconvert.errors.map((error) => ({
           ...error,
           relativePath: pathMap.get(error.relativePath) ?? error.relativePath
+        }))
+      },
+      logs: {
+        ...s.filesCheck.logs,
+        logFiles: s.filesCheck.logs.logFiles.map((path) => payloadPathMap.get(path) ?? path),
+        checks: s.filesCheck.logs.checks.map((check) => ({
+          ...check,
+          relativePath: payloadPathMap.get(check.relativePath) ?? check.relativePath
         }))
       }
     }
@@ -268,6 +356,9 @@ export function finishFilesRestore(s: State, workspacePath: string): State {
       original.files.find((item) => item.id === file.id)?.relativePath ?? file.currentPath
     ])
   )
+  const payloadPathMap = new Map(
+    (s.files.apply.payloadPaths ?? []).map((item) => [item.currentPath, item.originalPath])
+  )
   return {
     ...s,
     draft: { ...s.draft, workspacePath },
@@ -279,11 +370,27 @@ export function finishFilesRestore(s: State, workspacePath: string): State {
         stripEmbeddedCoverArt: false,
         renameReleaseFolder: false,
         currentFolderName: original.folderName,
-        files: original.files.map((file) => ({ id: file.id, currentPath: file.relativePath }))
+        files: original.files.map((file) => ({ id: file.id, currentPath: file.relativePath })),
+        payloadPaths: (s.files.apply.payloadPaths ?? []).map((item) => ({
+          ...item,
+          currentPath: item.originalPath,
+          nameOverride: undefined
+        }))
       }
     },
     filesCheck: {
       ...s.filesCheck,
+      structure: {
+        ...s.filesCheck.structure,
+        issues: s.filesCheck.structure.issues.map((item) => ({
+          ...item,
+          relativePath: payloadPathMap.get(item.relativePath) ?? item.relativePath
+        })),
+        approvedPaths: s.filesCheck.structure.approvedPaths.map(
+          (path) => payloadPathMap.get(path) ?? path
+        ),
+        emptyDirectories: []
+      },
       integrity: remapIntegrityPaths(s.filesCheck.integrity, pathMap),
       mqa: {
         ...s.filesCheck.mqa,
@@ -300,9 +407,50 @@ export function finishFilesRestore(s: State, workspacePath: string): State {
           ...error,
           relativePath: pathMap.get(error.relativePath) ?? error.relativePath
         }))
+      },
+      logs: {
+        ...s.filesCheck.logs,
+        logFiles: s.filesCheck.logs.logFiles.map((path) => payloadPathMap.get(path) ?? path),
+        checks: s.filesCheck.logs.checks.map((check) => ({
+          ...check,
+          relativePath: payloadPathMap.get(check.relativePath) ?? check.relativePath
+        }))
       }
     }
   }
+}
+
+function buildPayloadPaths(
+  tracks: string[],
+  payload?: { files: string[]; directories: string[] }
+): FilesSnapshot['apply']['payloadPaths'] {
+  const trackIds = new Map(tracks.map((path, index) => [path, `track-${index + 1}`]))
+  const files = payload?.files ?? tracks
+  const directories = payload?.directories ?? []
+  return [
+    ...directories.map((currentPath) => ({
+      id: payloadId('directory', currentPath),
+      kind: 'directory' as const,
+      currentPath,
+      originalPath: currentPath
+    })),
+    ...files.map((currentPath) => ({
+      id: trackIds.get(currentPath) ?? payloadId('file', currentPath),
+      kind: 'file' as const,
+      currentPath,
+      originalPath: currentPath
+    }))
+  ]
+}
+
+function payloadId(kind: string, path: string): string {
+  let hash = 2166136261
+  const value = `${kind}:${path}`
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `payload-${(hash >>> 0).toString(16).padStart(8, '0')}`
 }
 
 function remapIntegrityPaths(

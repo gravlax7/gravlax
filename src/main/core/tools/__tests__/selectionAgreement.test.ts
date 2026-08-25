@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -35,13 +35,10 @@ beforeEach(async () => {
   await writeFile(join(release, 'cover.jpg'), 'd'.repeat(300))
   await writeFile(join(release, 'rip.log'), 'log')
 
-  // The awkward cases: junk that must be excluded everywhere, and a symlinked
-  // track that must be included everywhere.
+  // Suspect names are regular payload files once the user keeps them.
   await writeFile(join(release, '.DS_Store'), 'junk')
   await writeFile(join(release, 'CD1', '._01.flac'), 'junk')
-  const linked = join(root, 'bonus-source.flac')
-  await writeFile(linked, 'e'.repeat(700))
-  await symlink(linked, join(release, 'CD2', '02.flac'))
+  await writeFile(join(release, 'CD2', '02.flac'), 'e'.repeat(700))
 })
 
 afterEach(async () => {
@@ -54,7 +51,8 @@ describe('release file selection agreement', () => {
       folderPath: release,
       announceUrl: 'https://flacsfor.me/abc123/announce',
       source: 'RED',
-      createdBy: 'gravlax/test'
+      createdBy: 'gravlax/test',
+      approvedPaths: ['.DS_Store']
     })
     const result = await copyFolderForSeeding(release, destination)
     const copied = await enumerateReleaseFiles(result.destination)
@@ -71,7 +69,8 @@ describe('release file selection agreement', () => {
       folderPath: release,
       announceUrl: 'https://flacsfor.me/abc123/announce',
       source: 'RED',
-      createdBy: 'gravlax/test'
+      createdBy: 'gravlax/test',
+      approvedPaths: ['.DS_Store']
     })
     const result = await copyFolderForSeeding(release, destination)
     const copied = await enumerateReleaseFiles(result.destination)
@@ -82,12 +81,13 @@ describe('release file selection agreement', () => {
     expect(torrent.totalBytes).toBe(result.bytesTotal)
   })
 
-  it('includes the symlinked track and excludes the junk on both sides', async () => {
+  it('includes kept suspect files on both sides', async () => {
     const torrent = await createTorrent({
       folderPath: release,
       announceUrl: 'https://flacsfor.me/abc123/announce',
       source: 'RED',
-      createdBy: 'gravlax/test'
+      createdBy: 'gravlax/test',
+      approvedPaths: ['.DS_Store']
     })
     const result = await copyFolderForSeeding(release, destination)
     const copied = (await enumerateReleaseFiles(result.destination)).map((f) => f.relativePath)
@@ -97,8 +97,8 @@ describe('release file selection agreement', () => {
 
     for (const list of [inTorrent, copied]) {
       expect(list).toContain('CD2/02.flac')
-      expect(list).not.toContain('.DS_Store')
-      expect(list).not.toContain('CD1/._01.flac')
+      expect(list).toContain('.DS_Store')
+      expect(list).toContain('CD1/._01.flac')
     }
   })
 })

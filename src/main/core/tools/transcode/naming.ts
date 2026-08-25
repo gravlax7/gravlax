@@ -1,32 +1,9 @@
 import { basename, dirname, join } from 'node:path'
 import type { BitDepth, Bitrate } from '@shared/types'
-
-const FLAC_FOLDER_RE = /(24 ?bit )?FLAC/i
-const LOSSLESS_FOLDER_RE = /Lossless/i
-const BIT24_FLAC_RE = /24 ?bit FLAC/i
+import { projectDownconvertFolderName, projectMp3FolderName } from '@shared/upload/naming'
 
 export function buildMp3OutputPath(path: string, bitrate: Bitrate): string {
-  const toAppend: string[] = []
-  let foldername = basename(path)
-
-  if (FLAC_FOLDER_RE.test(foldername)) {
-    if (LOSSLESS_FOLDER_RE.test(foldername)) {
-      foldername = foldername.replace(FLAC_FOLDER_RE, 'MP3')
-      foldername = foldername.replace(LOSSLESS_FOLDER_RE, bitrate)
-    } else {
-      foldername = foldername.replace(FLAC_FOLDER_RE, `MP3 ${bitrate}`)
-    }
-  } else if (LOSSLESS_FOLDER_RE.test(foldername)) {
-    foldername = foldername.replace(LOSSLESS_FOLDER_RE, bitrate)
-    toAppend.push('MP3')
-  } else {
-    toAppend.push(`MP3 ${bitrate}`)
-  }
-
-  if (toAppend.length > 0) {
-    foldername += ` [${toAppend.join(' ')}]`
-  }
-
+  const foldername = projectMp3FolderName(basename(path), bitrate)
   return join(dirname(path), foldername)
 }
 
@@ -35,20 +12,8 @@ export function buildDownconvertOutputPath(
   bitDepth: BitDepth,
   sampleRate: number | null
 ): string {
-  let foldername = basename(path)
-
-  if (BIT24_FLAC_RE.test(foldername)) {
-    foldername = foldername.replace(BIT24_FLAC_RE, 'FLAC')
-  } else if (/FLAC/i.test(foldername)) {
-    foldername = foldername.replace(/FLAC/i, '16bit FLAC')
-  } else {
-    foldername += ' [FLAC]'
-  }
-
-  if (sampleRate && bitDepth === 24) {
-    foldername = foldername.replace(/FLAC/i, `24-${(sampleRate / 1000).toFixed(0)}`)
-  }
-
+  const sampleRateKhz = sampleRate ? Number((sampleRate / 1000).toFixed(0)) : null
+  const foldername = projectDownconvertFolderName(basename(path), bitDepth, sampleRateKhz)
   return join(dirname(path), foldername)
 }
 

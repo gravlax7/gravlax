@@ -17,6 +17,7 @@ describe('files-check paths', () => {
     ])
     state = setFilesCheck(state, {
       status: 'ok',
+      structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
       integrity: {
         status: 'failed',
         checkedCount: 2,
@@ -44,7 +45,8 @@ describe('files-check paths', () => {
         { id: 'track-2', currentPath: '02 - Second.flac' }
       ],
       'hash',
-      { changedFileCount: 2, strippedPictureCount: 0 }
+      { changedFileCount: 2, strippedPictureCount: 0 },
+      []
     )
     expect(state.filesCheck.upconvert.results[0]?.relativePath).toBe('01 - First.flac')
     expect(state.filesCheck.upconvert.errors[0]?.relativePath).toBe('02 - Second.flac')

@@ -13,6 +13,7 @@ import {
   finishFilesRestore,
   markFilesDirty,
   setFilenameOverride,
+  setPayloadNameOverride,
   setFolderNameOverride,
   setRenameReleaseFolder,
   setFilesApplyProgress,
@@ -60,6 +61,11 @@ export class UploadSessionFileChanges {
   setFilenameOverride(id: string, value?: string): void {
     this.assertUnlocked()
     this.context.apply(setFilenameOverride(this.context.getState(), id, value))
+  }
+
+  setPayloadNameOverride(id: string, value?: string): void {
+    this.assertUnlocked()
+    this.context.apply(setPayloadNameOverride(this.context.getState(), id, value))
   }
 
   setFolderNameOverride(value?: string): void {
@@ -188,7 +194,8 @@ export class UploadSessionFileChanges {
             {
               changedFileCount: result.changedFileCount,
               strippedPictureCount: result.strippedPictureCount
-            }
+            },
+            result.payloadPaths
           ),
           release
         )
@@ -232,6 +239,7 @@ export class UploadSessionFileChanges {
             workspacePath,
             originals: state.files.original.files,
             currentFiles: state.files.apply.files,
+            currentPayload: state.files.apply.payloadPaths,
             originalFolderName: state.files.original.folderName,
             signal: handle.signal,
             tools: this.context.tools

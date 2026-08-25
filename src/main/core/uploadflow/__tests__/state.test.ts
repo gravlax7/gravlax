@@ -74,6 +74,7 @@ describe('uploadflow', () => {
   it('selectSourcePath drops the previous release results', () => {
     let state = setFilesCheck(selectSourcePath(newState(), '/tmp/release'), {
       status: 'ok',
+      structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
       integrity: { status: 'passed', checkedCount: 2, failures: [], repairedPaths: [], repairErrors: [] },
       mqa: { checkedCount: 2, mqaPaths: ['02.flac'], errors: [] },
       upconvert: { checkedCount: 0, results: [], errors: [] },

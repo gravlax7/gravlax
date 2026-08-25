@@ -101,6 +101,35 @@ describe('buildFilesRenamePlan', () => {
     expect(plan.errors).toEqual([])
   })
 
+  it('treats equivalent Unicode forms as the same filename', () => {
+    const plan = buildFilesRenamePlan({
+      release: {
+        title: 'Album',
+        tracks: [{ trackNumber: '9', title: 'Phe\u0301nix' }]
+      },
+      files: {
+        original: { captured: false, coverCaptured: false, folderName: 'Album', files: [] },
+        apply: {
+          phase: 'idle',
+          onDiskModified: false,
+          stripEmbeddedCoverArt: true,
+          renameReleaseFolder: false,
+          currentFolderName: 'Album',
+          files: [{ id: 'a', currentPath: '09. Ph\u00e9nix.flac' }]
+        }
+      },
+      naming,
+      sourceMedia: 'WEB',
+      encoding: 'Lossless'
+    })
+
+    expect(plan.files[0]).toMatchObject({
+      targetPath: '09. Ph\u00e9nix.flac',
+      changed: false
+    })
+    expect(plan.errors).toEqual([])
+  })
+
   it('removes invisible Unicode formatting characters from manual names', () => {
     const plan = buildFilesRenamePlan({
       release: {
@@ -144,6 +173,71 @@ describe('buildFilesRenamePlan', () => {
     expect(
       buildFolderPlan(release, '{title} {{{label}, {catNoOrUpc}}}').folderName
     ).toBe('Album {Label, CAT-001}')
+  })
+
+  it('plans sidecars and one editable folder path with their tracks', () => {
+    const plan = buildFilesRenamePlan({
+      release: {
+        title: 'Album',
+        tracks: [
+          { trackNumber: '1', discNumber: '1', title: 'One' },
+          { trackNumber: '1', discNumber: '2', title: 'Two' }
+        ]
+      },
+      files: {
+        original: { captured: false, coverCaptured: false, folderName: 'old', files: [] },
+        apply: {
+          phase: 'idle',
+          onDiskModified: false,
+          stripEmbeddedCoverArt: true,
+          renameReleaseFolder: false,
+          currentFolderName: 'old',
+          files: [
+            { id: 'a', currentPath: 'CD1/a.flac' },
+            { id: 'b', currentPath: 'CD2/b.flac' }
+          ],
+          payloadPaths: [
+            { id: 'd1', kind: 'directory', currentPath: 'CD1', originalPath: 'CD1', nameOverride: 'First Disc' },
+            { id: 'd2', kind: 'directory', currentPath: 'CD2', originalPath: 'CD2' },
+            { id: 'a', kind: 'file', currentPath: 'CD1/a.flac', originalPath: 'CD1/a.flac' },
+            { id: 'b', kind: 'file', currentPath: 'CD2/b.flac', originalPath: 'CD2/b.flac' },
+            { id: 'log', kind: 'file', currentPath: 'CD1/rip.log', originalPath: 'CD1/rip.log' }
+          ]
+        }
+      },
+      naming,
+      sourceMedia: 'CD',
+      encoding: 'Lossless'
+    })
+
+    expect(plan.folders?.map((folder) => folder.targetPath)).toEqual(['First Disc', 'Disc 02'])
+    expect(plan.files.map((file) => file.targetPath)).toEqual([
+      'First Disc/01. One.flac',
+      'Disc 02/01. Two.flac'
+    ])
+    expect(plan.payloadFiles?.find((file) => file.id === 'log')?.targetPath).toBe('First Disc/rip.log')
+  })
+
+  it('blocks a path over 180 Unicode characters after reserving output folder space', () => {
+    const plan = buildFilesRenamePlan({
+      release: { title: 'é'.repeat(165), tracks: [{ trackNumber: '1', title: 'Song' }] },
+      files: {
+        original: { captured: false, coverCaptured: false, folderName: 'old', files: [] },
+        apply: {
+          phase: 'idle',
+          onDiskModified: false,
+          stripEmbeddedCoverArt: true,
+          renameReleaseFolder: true,
+          currentFolderName: 'old',
+          files: [{ id: 'a', currentPath: 'a.flac' }]
+        }
+      },
+      naming: { ...naming, releaseFolderTemplate: '{title}' },
+      sourceMedia: 'WEB',
+      encoding: 'Lossless'
+    })
+
+    expect(plan.errors).toContain('01. Song.flac: Path would be 189 characters; the limit is 180.')
   })
 
   it.each([

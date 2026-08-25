@@ -44,7 +44,7 @@ describe('enumerateReleaseFiles', () => {
     expect(await paths()).toEqual(['a/b.flac', 'a-1/x.flac'])
   })
 
-  it('filters junk files at any depth', async () => {
+  it('does not silently filter regular files by name', async () => {
     await mkdir(join(release, 'CD1'), { recursive: true })
     await writeFile(join(release, '01.flac'), 'x')
     await writeFile(join(release, '.DS_Store'), 'junk')
@@ -53,28 +53,33 @@ describe('enumerateReleaseFiles', () => {
     await writeFile(join(release, 'CD1', '._02.flac'), 'junk')
     await writeFile(join(release, 'CD1', '02.flac'), 'y')
 
-    expect(await paths()).toEqual(['01.flac', 'CD1/02.flac'])
+    expect(await paths()).toEqual([
+      '.DS_Store',
+      '01.flac',
+      'CD1/._02.flac',
+      'CD1/02.flac',
+      'Thumbs.db',
+      'desktop.ini'
+    ])
   })
 
-  it('follows a symlinked file and reports the target size', async () => {
+  it('omits a symlinked file because folder rules handle links', async () => {
     const outside = join(root, 'target.flac')
     await writeFile(outside, 'linked-bytes')
     await symlink(outside, join(release, '02.flac'))
     await writeFile(join(release, '01.flac'), 'x')
 
-    const files = await enumerateReleaseFiles(release)
-    expect(files.map((f) => f.relativePath)).toEqual(['01.flac', '02.flac'])
-    expect(files[1]!.size).toBe('linked-bytes'.length)
+    expect(await paths()).toEqual(['01.flac'])
   })
 
-  it('follows a symlinked directory', async () => {
+  it('omits a symlinked directory because folder rules handle links', async () => {
     const outside = join(root, 'extra')
     await mkdir(outside, { recursive: true })
     await writeFile(join(outside, 'bonus.flac'), 'bonus')
     await symlink(outside, join(release, 'CD2'))
     await writeFile(join(release, '01.flac'), 'x')
 
-    expect(await paths()).toEqual(['01.flac', 'CD2/bonus.flac'])
+    expect(await paths()).toEqual(['01.flac'])
   })
 
   it('does not loop on a symlink cycle', async () => {
