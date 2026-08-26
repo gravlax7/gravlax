@@ -466,12 +466,14 @@ export interface UploadArtist {
   importance: number
 }
 
+export type UploadAudioFormat = 'FLAC' | 'MP3'
+
 export interface UploadFormatPayload {
   id: string
   label: string
   folderPath: string
   sizeBytes?: number
-  format: string
+  format: UploadAudioFormat
   bitrate: string
   otherBitrate: string
   vbr: boolean

@@ -79,6 +79,7 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
   }
   onProgress?.(0, 1, `${JOB_LABELS.structure} — Scanning release…`)
   const structure = await jobs.checkStructure(workspacePath, {
+    expectedFormat: 'FLAC',
     approvedPaths: options.approvedStructurePaths,
     quarantined: options.quarantinedStructureEntries
   })
@@ -99,7 +100,7 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
         upconvert: { checkedCount: 0, results: [], errors: [] },
         logs: { logFiles: [], checks: [] }
       },
-      detail: structureSummaryDetail(structure),
+      detail: structureSummaryDetail(structure, 'FLAC'),
       taskFailed: false
     }
   }
@@ -162,7 +163,7 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
     logs
   }
   const detail = [
-    structureSummaryDetail(structure),
+    structureSummaryDetail(structure, 'FLAC'),
     integritySummaryDetail(integrity),
     mqaSummaryDetail(mqa),
     upconvertSummaryDetail(upconvert),

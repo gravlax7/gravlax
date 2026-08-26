@@ -185,6 +185,7 @@ async function uploadOneFormat(
 
   const torrent = await createTorrent({
     folderPath: format.folderPath,
+    format: format.format,
     announceUrl: tracker.client.announce,
     source,
     createdBy: `create-torrent`,

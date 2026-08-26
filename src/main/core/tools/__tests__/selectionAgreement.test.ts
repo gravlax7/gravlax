@@ -49,6 +49,7 @@ describe('release file selection agreement', () => {
   it('puts exactly the torrent’s files into the seeding folder', async () => {
     const torrent = await createTorrent({
       folderPath: release,
+      format: 'FLAC',
       announceUrl: 'https://flacsfor.me/abc123/announce',
       source: 'RED',
       createdBy: 'gravlax/test',
@@ -67,6 +68,7 @@ describe('release file selection agreement', () => {
   it('agrees on sizes, so every piece is backed by bytes that were placed', async () => {
     const torrent = await createTorrent({
       folderPath: release,
+      format: 'FLAC',
       announceUrl: 'https://flacsfor.me/abc123/announce',
       source: 'RED',
       createdBy: 'gravlax/test',
@@ -84,6 +86,7 @@ describe('release file selection agreement', () => {
   it('includes kept suspect files on both sides', async () => {
     const torrent = await createTorrent({
       folderPath: release,
+      format: 'FLAC',
       announceUrl: 'https://flacsfor.me/abc123/announce',
       source: 'RED',
       createdBy: 'gravlax/test',

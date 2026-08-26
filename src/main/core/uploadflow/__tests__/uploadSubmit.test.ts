@@ -134,9 +134,10 @@ describe('multi-format submission', () => {
 
     const { patches, successful } = await submit(upload)
 
-    expect(mocks.createTorrent.mock.calls.map(([options]) => options.folderPath)).toEqual(
-      formats.map((item) => item.folderPath)
-    )
+    expect(mocks.createTorrent.mock.calls.map(([options]) => [options.folderPath, options.format]))
+      .toEqual(
+        formats.map((item) => [item.folderPath, item.format])
+      )
     expect(mocks.trackerUpload).toHaveBeenCalledTimes(3)
     expect(
       mocks.writeTorrentFile.mock.calls

@@ -71,6 +71,7 @@ export type {
   SeedTorrentInput,
   SeedFormatInput,
   UploadArtist,
+  UploadAudioFormat,
   UploadFormatPayload,
   TrackerGroupSearchStatus,
   TrackerGroupSuggestion,

@@ -6,6 +6,7 @@ import bencode from 'bencode'
 import makeTorrent from 'create-torrent'
 import { enumerateReleaseFiles, totalSize, type ReleaseFile } from '@main/core/tools/releaseFiles'
 import { assertReleasePayloadReady } from '@main/core/fileChecks/structure'
+import type { UploadAudioFormat } from '@shared/types'
 
 const MIN_PIECE_LENGTH = 16 * 1024
 const MAX_PIECE_LENGTH = 16 * 1024 * 1024
@@ -30,6 +31,7 @@ export interface TorrentMeta {
 
 export interface CreateTorrentOptions {
   folderPath: string
+  format: UploadAudioFormat
   announceUrl: string
   /** Tracker source tag ("RED" / "OPS"). Part of `info`, so it changes the infohash. */
   source: string
@@ -53,7 +55,10 @@ export async function createTorrent(options: CreateTorrentOptions): Promise<Crea
   if (!announceUrl) throw new Error('torrent: announce URL is required')
   throwIfAborted(signal)
 
-  await assertReleasePayloadReady(folderPath, options.approvedPaths)
+  await assertReleasePayloadReady(folderPath, {
+    expectedFormat: options.format,
+    approvedPaths: options.approvedPaths
+  })
 
   const files = await enumerateReleaseFiles(folderPath)
   if (files.length === 0) {

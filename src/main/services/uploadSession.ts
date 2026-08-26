@@ -116,7 +116,7 @@ import { spectralIdsForRelease } from '@shared/upload/spectralIds'
 import {
   quarantineReleaseEntry,
   restoreQuarantinedReleaseEntry,
-  assertReleasePayloadReady,
+  assertUploadFormatsReady,
   runFileChecks
 } from '@main/core/fileChecks'
 import { detectSourceMedia } from '@main/core/tools/diagnostics/sourceMedia'
@@ -452,12 +452,10 @@ export class UploadSession {
           return
         }
 
-        for (const format of this.state.upload.formats ?? []) {
-          await assertReleasePayloadReady(
-            format.folderPath,
-            this.state.fileChecks.structure.approvedPaths
-          )
-        }
+        await assertUploadFormatsReady(
+          this.state.upload.formats ?? [],
+          this.state.fileChecks.structure.approvedPaths
+        )
         if (!task.fresh()) return
 
         this.apply(beginSubmit(this.state, planSubmissions(this.state.upload)))

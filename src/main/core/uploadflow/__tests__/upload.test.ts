@@ -17,7 +17,7 @@ import {
   updateUploadReport
 } from '../upload'
 import { SPECTRAL_PLACEHOLDER, SOURCE_TORRENT_PLACEHOLDER } from '@main/core/tools/upload/descriptions'
-import type { UploadSubmission } from '@shared/types'
+import type { UploadFormatPayload, UploadSubmission } from '@shared/types'
 import { emptyGroupSearch } from '../groupSearch'
 import { newState } from '../state'
 import { fingerprintUploadInputs } from '../uploadReport'
@@ -135,7 +135,7 @@ describe('validate and submit', () => {
   })
 })
 describe('setSpectralBbcode', () => {
-  const format = (id: string, releaseDesc: string) => ({
+  const format = (id: string, releaseDesc: string): UploadFormatPayload => ({
     id,
     label: id,
     folderPath: '/w',

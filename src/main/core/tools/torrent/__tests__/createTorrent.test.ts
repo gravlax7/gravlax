@@ -38,6 +38,7 @@ afterEach(async () => {
 const create = (folderPath = release, approvedPaths: string[] = []) =>
   createTorrent({
     folderPath,
+    format: 'FLAC',
     announceUrl: 'https://flacsfor.me/abc123/announce',
     source: 'RED',
     createdBy: 'gravlax/test',
@@ -162,6 +163,7 @@ describe('createTorrent', () => {
     const red = await create()
     const ops = await createTorrent({
       folderPath: release,
+      format: 'FLAC',
       announceUrl: 'https://home.opsfet.ch/abc123/announce',
       source: 'OPS',
       createdBy: 'gravlax/test'
@@ -234,6 +236,32 @@ describe('createTorrent', () => {
     await expect(create()).rejects.toThrow('symbolic links are not allowed')
   })
 
+  it('creates MP3 torrents and rejects mismatched declared formats', async () => {
+    const mp3Release = join(root, 'Artist - Album (2020) [MP3 V0]')
+    await mkdir(mp3Release)
+    await writeFile(join(mp3Release, '01.mp3'), 'audio')
+    await writeFile(join(mp3Release, 'cover.jpg'), 'art')
+
+    const torrent = await createTorrent({
+      folderPath: mp3Release,
+      format: 'MP3',
+      announceUrl: 'https://flacsfor.me/abc123/announce',
+      source: 'RED',
+      createdBy: 'gravlax/test'
+    })
+    expect(filePaths(torrent.meta)).toEqual(['01.mp3', 'cover.jpg'])
+
+    await expect(
+      createTorrent({
+        folderPath: mp3Release,
+        format: 'FLAC',
+        announceUrl: 'https://flacsfor.me/abc123/announce',
+        source: 'RED',
+        createdBy: 'gravlax/test'
+      })
+    ).rejects.toThrow('audio does not match the declared FLAC format')
+  })
+
   it('rejects an empty folder', async () => {
     await expect(create()).rejects.toThrow('no files to include')
   })
@@ -245,6 +273,7 @@ describe('createTorrent', () => {
     await expect(
       createTorrent({
         folderPath: release,
+        format: 'FLAC',
         announceUrl: 'https://red.com/abc123/announce',
         source: 'RED',
         createdBy: 'gravlax/test',
