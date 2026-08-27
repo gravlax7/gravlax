@@ -3,6 +3,12 @@ import { normalizeArtistRole } from '@shared/tags/editor'
 import { isMultiDisc as discNumbersAreMultiDisc } from '@shared/upload/naming'
 import { getDescriptionTemplate } from '@shared/upload/templates'
 import { renderTemplate, type TemplateContext } from '@shared/upload/templateRender'
+import {
+  SPECTRAL_PLACEHOLDER,
+  substituteSpectralBbcode
+} from '@shared/upload/spectralDescription'
+
+export { SPECTRAL_PLACEHOLDER, substituteSpectralBbcode } from '@shared/upload/spectralDescription'
 
 export interface TrackDescInput {
   discNumber?: string
@@ -96,9 +102,6 @@ export function generateSourceLinks(urls: string[] | undefined, excludeUrl?: str
  * hosted. `substituteSpectralBbcode` swaps it for the real thing, so this exact
  * string has to survive round-tripping through the release description field.
  */
-export const SPECTRAL_PLACEHOLDER =
-  '[hide=Spectrals]\nSpectral images will be hosted and inserted at submit time.\n[/hide]\n'
-
 export function spectralsPlaceholderBbcode(): string {
   return SPECTRAL_PLACEHOLDER
 }
@@ -127,11 +130,6 @@ export function makeSpectralBbcode(entries: SpectralBbcodeEntry[]): string {
  * removed it on purpose, and re-inserting it somewhere arbitrary is worse than
  * honouring the edit.
  */
-export function substituteSpectralBbcode(description: string, bbcode: string): string {
-  if (!description.includes(SPECTRAL_PLACEHOLDER)) return description
-  return description.replace(SPECTRAL_PLACEHOLDER, bbcode)
-}
-
 export const SOURCE_TORRENT_PLACEHOLDER = '[i]FLAC torrent URL will be inserted at submit.[/i]'
 
 export function substituteSourceTorrentUrl(description: string, url: string): string {

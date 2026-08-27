@@ -29,6 +29,7 @@ import { GroupSuggestions } from '../GroupSuggestions'
 import { createBbcodePreviewBatcher } from '@shared/upload/bbcodePreviewBatcher'
 import { anySelectedTrackerHasGroupId } from '@shared/upload/groupIds'
 import { importanceToArtistRole } from '@shared/upload/artists'
+import { spectralDescriptionPreview } from '@shared/upload/spectralDescription'
 import {
   effectiveReleaseType,
   isOrpheusSplitEligible
@@ -81,6 +82,7 @@ function uploadBlockedReason(
 function BbcodeDescriptionField(props: {
   label: string
   value: string
+  previewValue?: string
   rows: number
   badge?: 'groupId'
   onChange: (value: string) => void
@@ -93,6 +95,7 @@ function BbcodeDescriptionField(props: {
   let lastHtml = ''
   let requestGeneration = 0
   let disposed = false
+  const previewSource = () => props.previewValue ?? props.value
 
   const requestPreview = (source: string, force = false): void => {
     if (!force && lastSource === source) {
@@ -132,7 +135,7 @@ function BbcodeDescriptionField(props: {
   }
 
   createEffect(() => {
-    const source = props.value
+    const source = previewSource()
     if (!editing()) requestPreview(source)
   })
 
@@ -172,7 +175,7 @@ function BbcodeDescriptionField(props: {
                 <Callout tone="warning">
                   <div class="upload-report-bbcode-error">
                     <span>{previewError()}</span>
-                    <Button variant="secondary" onClick={() => requestPreview(props.value, true)}>
+                    <Button variant="secondary" onClick={() => requestPreview(previewSource(), true)}>
                       Retry
                     </Button>
                   </div>
@@ -666,6 +669,10 @@ export function UploadStep(props: {
                 <BbcodeDescriptionField
                   label="Release description"
                   value={format().releaseDesc}
+                  previewValue={spectralDescriptionPreview(
+                    format().releaseDesc,
+                    props.state.draft.spectralIds
+                  )}
                   rows={8}
                   onChange={(releaseDesc) => updateFormat(index, { releaseDesc })}
                 />
