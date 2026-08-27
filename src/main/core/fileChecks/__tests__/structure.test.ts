@@ -41,6 +41,27 @@ describe('release structure checks', () => {
     expect(kept.issues[0]?.decision).toBe('kept')
   })
 
+  it('ignores OS metadata but still flags other unknown files', async () => {
+    await mkdir(join(release, 'CD1'), { recursive: true })
+    await writeFile(join(release, '01.flac'), 'audio')
+    await writeFile(join(release, '.DS_Store'), 'junk')
+    await writeFile(join(release, 'THUMBS.DB'), 'junk')
+    await writeFile(join(release, 'CD1', 'Desktop.Ini'), 'junk')
+    await writeFile(join(release, 'CD1', '._01.flac'), 'junk')
+    await writeFile(join(release, 'notes.json'), '{}')
+
+    const blocked = await checkReleaseStructure(release, { expectedFormat: 'FLAC' })
+    expect(blocked.ready).toBe(false)
+    expect(blocked.issues).toMatchObject([
+      { relativePath: 'notes.json', rule: 'suspicious-extension', decision: 'pending' }
+    ])
+
+    await rm(join(release, 'notes.json'))
+    await expect(
+      checkReleaseStructure(release, { expectedFormat: 'FLAC' })
+    ).resolves.toMatchObject({ ready: true, issues: [] })
+  })
+
   it('blocks links, @eaDir, and common non-FLAC audio without following them', async () => {
     await writeFile(join(release, '01.flac'), 'audio')
     await writeFile(join(release, 'bonus.wav'), 'audio')

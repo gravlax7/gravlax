@@ -35,9 +35,11 @@ beforeEach(async () => {
   await writeFile(join(release, 'cover.jpg'), 'd'.repeat(300))
   await writeFile(join(release, 'rip.log'), 'log')
 
-  // Suspect names are regular payload files once the user keeps them.
+  // OS metadata may exist beside the payload but must not reach any consumer.
   await writeFile(join(release, '.DS_Store'), 'junk')
   await writeFile(join(release, 'CD1', '._01.flac'), 'junk')
+  await writeFile(join(release, 'CD1', 'Thumbs.db'), 'junk')
+  await writeFile(join(release, 'CD2', 'desktop.ini'), 'junk')
   await writeFile(join(release, 'CD2', '02.flac'), 'e'.repeat(700))
 })
 
@@ -52,8 +54,7 @@ describe('release file selection agreement', () => {
       format: 'FLAC',
       announceUrl: 'https://flacsfor.me/abc123/announce',
       source: 'RED',
-      createdBy: 'gravlax/test',
-      approvedPaths: ['.DS_Store']
+      createdBy: 'gravlax/test'
     })
     const result = await copyFolderForSeeding(release, destination)
     const copied = await enumerateReleaseFiles(result.destination)
@@ -71,8 +72,7 @@ describe('release file selection agreement', () => {
       format: 'FLAC',
       announceUrl: 'https://flacsfor.me/abc123/announce',
       source: 'RED',
-      createdBy: 'gravlax/test',
-      approvedPaths: ['.DS_Store']
+      createdBy: 'gravlax/test'
     })
     const result = await copyFolderForSeeding(release, destination)
     const copied = await enumerateReleaseFiles(result.destination)
@@ -83,14 +83,13 @@ describe('release file selection agreement', () => {
     expect(torrent.totalBytes).toBe(result.bytesTotal)
   })
 
-  it('includes kept suspect files on both sides', async () => {
+  it('omits OS metadata on both sides', async () => {
     const torrent = await createTorrent({
       folderPath: release,
       format: 'FLAC',
       announceUrl: 'https://flacsfor.me/abc123/announce',
       source: 'RED',
-      createdBy: 'gravlax/test',
-      approvedPaths: ['.DS_Store']
+      createdBy: 'gravlax/test'
     })
     const result = await copyFolderForSeeding(release, destination)
     const copied = (await enumerateReleaseFiles(result.destination)).map((f) => f.relativePath)
@@ -100,8 +99,10 @@ describe('release file selection agreement', () => {
 
     for (const list of [inTorrent, copied]) {
       expect(list).toContain('CD2/02.flac')
-      expect(list).toContain('.DS_Store')
-      expect(list).toContain('CD1/._01.flac')
+      expect(list).not.toContain('.DS_Store')
+      expect(list).not.toContain('CD1/._01.flac')
+      expect(list).not.toContain('CD1/Thumbs.db')
+      expect(list).not.toContain('CD2/desktop.ini')
     }
   })
 })

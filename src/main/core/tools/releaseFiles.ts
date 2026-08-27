@@ -20,7 +20,8 @@ export interface ReleaseFile {
  * in one place is what makes that impossible rather than merely unlikely.
  *
  * Folder rules block symbolic links before upload, so this list contains only
- * regular files. Nothing is silently filtered by name or extension.
+ * regular files. Known OS metadata is not part of the release payload; all
+ * other regular files remain visible to folder checks and payload consumers.
  */
 export async function enumerateReleaseFiles(root: string): Promise<ReleaseFile[]> {
   const files: ReleaseFile[] = []
@@ -40,6 +41,7 @@ export async function enumerateReleaseFiles(root: string): Promise<ReleaseFile[]
         continue
       }
       if (!entry.isFile()) continue
+      if (isIgnoredReleaseMetadata(entry.name)) continue
       const info = await stat(full)
 
       files.push({
@@ -74,6 +76,7 @@ export async function enumerateReleasePaths(
         continue
       }
       if (!entry.isFile()) continue
+      if (isIgnoredReleaseMetadata(entry.name)) continue
       files.push(full.slice(root.length + 1).split(sep).join('/'))
       hasFile = true
     }
@@ -83,6 +86,13 @@ export async function enumerateReleasePaths(
   files.sort(compareRelativePaths)
   directories.sort(compareRelativePaths)
   return { files, directories }
+}
+
+/** OS-created files that never belong to the uploaded music release. */
+export function isIgnoredReleaseMetadata(name: string): boolean {
+  if (name === '.DS_Store' || name.startsWith('._')) return true
+  const lower = name.toLowerCase()
+  return lower === 'thumbs.db' || lower === 'desktop.ini'
 }
 
 /**

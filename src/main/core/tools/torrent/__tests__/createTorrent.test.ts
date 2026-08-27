@@ -171,22 +171,14 @@ describe('createTorrent', () => {
     expect(ops.infoHash).not.toBe(red.infoHash)
   })
 
-  it('requires a choice for suspect files and includes kept files', async () => {
+  it('omits OS metadata from the torrent', async () => {
     await writeFile(join(release, 'a.flac'), 'hello')
     await writeFile(join(release, '.DS_Store'), 'junk')
     await writeFile(join(release, 'Thumbs.db'), 'junk')
     await writeFile(join(release, 'desktop.ini'), 'junk')
     await writeFile(join(release, '._a.flac'), 'junk')
 
-    await expect(create()).rejects.toThrow('.DS_Store')
-    const kept = await create(release, ['.DS_Store', 'Thumbs.db', 'desktop.ini'])
-    expect(filePaths(kept.meta)).toEqual([
-      '.DS_Store',
-      '._a.flac',
-      'Thumbs.db',
-      'a.flac',
-      'desktop.ini'
-    ])
+    expect(filePaths((await create()).meta)).toEqual(['a.flac'])
   })
 
   it('keeps multi-disc structure and orders by path components', async () => {

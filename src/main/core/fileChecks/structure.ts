@@ -9,7 +9,10 @@ import type {
   UploadFormatPayload
 } from '@shared/types'
 import { removeEmptyDirectories } from '@main/core/tools/directories'
-import { enumerateReleaseFiles } from '@main/core/tools/releaseFiles'
+import {
+  enumerateReleaseFiles,
+  isIgnoredReleaseMetadata
+} from '@main/core/tools/releaseFiles'
 
 const AUDIO_EXTENSION_BY_FORMAT: Record<UploadAudioFormat, string> = {
   FLAC: '.flac',
@@ -109,6 +112,7 @@ export async function checkReleaseStructure(
         continue
       }
       if (!entry.isFile()) continue
+      if (isIgnoredReleaseMetadata(entry.name)) continue
 
       hasPayload = true
       const extension = extname(entry.name).toLowerCase()

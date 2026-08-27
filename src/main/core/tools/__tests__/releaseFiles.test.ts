@@ -2,7 +2,12 @@ import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { compareRelativePaths, enumerateReleaseFiles, totalSize } from '../releaseFiles'
+import {
+  compareRelativePaths,
+  enumerateReleaseFiles,
+  enumerateReleasePaths,
+  totalSize
+} from '../releaseFiles'
 
 let root = ''
 let release = ''
@@ -44,23 +49,38 @@ describe('enumerateReleaseFiles', () => {
     expect(await paths()).toEqual(['a/b.flac', 'a-1/x.flac'])
   })
 
-  it('does not silently filter regular files by name', async () => {
+  it('omits known OS metadata but keeps close names', async () => {
     await mkdir(join(release, 'CD1'), { recursive: true })
     await writeFile(join(release, '01.flac'), 'x')
     await writeFile(join(release, '.DS_Store'), 'junk')
-    await writeFile(join(release, 'Thumbs.db'), 'junk')
-    await writeFile(join(release, 'desktop.ini'), 'junk')
+    await writeFile(join(release, 'THUMBS.DB'), 'junk')
+    await writeFile(join(release, 'Desktop.Ini'), 'junk')
     await writeFile(join(release, 'CD1', '._02.flac'), 'junk')
     await writeFile(join(release, 'CD1', '02.flac'), 'y')
+    await writeFile(join(release, '.DS_Store.jpg'), 'near match')
+    await writeFile(join(release, 'thumbs.db.txt'), 'near match')
+    await writeFile(join(release, 'desktop.ini.txt'), 'near match')
+    await writeFile(join(release, 'CD1', 'x._02.flac'), 'near match')
 
     expect(await paths()).toEqual([
-      '.DS_Store',
+      '.DS_Store.jpg',
       '01.flac',
-      'CD1/._02.flac',
       'CD1/02.flac',
-      'Thumbs.db',
-      'desktop.ini'
+      'CD1/x._02.flac',
+      'desktop.ini.txt',
+      'thumbs.db.txt'
     ])
+    expect(await enumerateReleasePaths(release)).toEqual({
+      files: [
+        '.DS_Store.jpg',
+        '01.flac',
+        'CD1/02.flac',
+        'CD1/x._02.flac',
+        'desktop.ini.txt',
+        'thumbs.db.txt'
+      ],
+      directories: ['CD1']
+    })
   })
 
   it('omits a symlinked file because folder rules handle links', async () => {
