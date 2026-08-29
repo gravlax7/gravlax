@@ -1,8 +1,10 @@
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { defaultConfig } from '@main/core/config/defaults'
 import { newState, stepIndex, type State } from '@main/core/uploadflow'
+import { workspaceRoot } from '@main/core/appdata/workspace'
 import { UploadSession } from '@main/services/uploadSession'
-import { automaticToolResolver } from '@main/core/tools/binaries'
+import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 
 const mocks = vi.hoisted(() => ({ healthcheckTrackers: vi.fn() }))
 
@@ -129,5 +131,54 @@ describe('UploadSession tracker health gate', () => {
     expect(hostImages).toHaveBeenCalledWith(cfg, ['redacted'], expect.any(Object))
     expect(session.getState().upload.phase).toBe('failed')
     expect(session.getState().upload.submissions).toBeUndefined()
+  })
+})
+
+function missingTools(): ToolResolver {
+  return {
+    resolve: async () => ({ status: 'missing', reason: 'Missing' }),
+    require: async () => {
+      throw new Error('Missing')
+    }
+  }
+}
+
+describe('UploadSession tool health gate', () => {
+  it('does not start a new upload when a required binary is missing', async () => {
+    const session = new UploadSession({
+      appVersion: 'test',
+      userDataPath: '',
+      getConfig: () => defaultConfig(),
+      trashItem: async () => undefined,
+      tools: missingTools(),
+      send: () => undefined
+    })
+    const before = session.getState()
+
+    await expect(session.startNew('/tmp/album')).rejects.toThrow(
+      'Tool health checks must pass before uploading: SoX: Missing; FLAC: Missing; metaflac: Missing; LAME: Missing.'
+    )
+    expect(session.getState()).toEqual(before)
+  })
+
+  it('does not resume an upload when a required binary is missing', async () => {
+    const userDataPath = '/tmp/gravlax-user'
+    const workspacePath = join(workspaceRoot(userDataPath), 'ws', 'Album')
+    const session = new UploadSession({
+      appVersion: 'test',
+      userDataPath,
+      getConfig: () => defaultConfig(),
+      trashItem: async () => undefined,
+      tools: missingTools(),
+      send: () => undefined
+    })
+    const runtime = (session as unknown as { runtime: { apply: (next: State) => void } }).runtime
+    runtime.apply(validState())
+    const before = session.getState()
+
+    await expect(session.resume(workspacePath)).rejects.toThrow(
+      'Tool health checks must pass before uploading: SoX: Missing; FLAC: Missing; metaflac: Missing; LAME: Missing.'
+    )
+    expect(session.getState()).toEqual(before)
   })
 })

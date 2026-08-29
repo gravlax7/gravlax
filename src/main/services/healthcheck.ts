@@ -1,6 +1,6 @@
 import type { Config } from '@shared/types/config'
 import type { HealthResult, HealthRow } from '@shared/types'
-import { trackerHealthRowId } from '@shared/upload/validation'
+import { trackerHealthRowId, validateToolHealth } from '@shared/upload/validation'
 import {
   automaticToolResolver,
   type ToolId,
@@ -159,7 +159,17 @@ async function healthcheckMetadata(cfg: Config, onRow?: HealthRowReporter): Prom
   )
 }
 
-async function healthcheckTools(tools: ToolResolver, onRow?: HealthRowReporter): Promise<HealthRow[]> {
+export async function assertToolHealth(
+  tools: ToolResolver = automaticToolResolver
+): Promise<void> {
+  const error = validateToolHealth(await healthcheckTools(tools))
+  if (error) throw new Error(error)
+}
+
+export async function healthcheckTools(
+  tools: ToolResolver,
+  onRow?: HealthRowReporter
+): Promise<HealthRow[]> {
   for (const binary of BINARY_CHECKS) {
     onRow?.({
       id: `bin:${binary.id}`,

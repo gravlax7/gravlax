@@ -92,6 +92,7 @@ import {
   validateUploadTargets
 } from '@shared/upload/validation'
 import { healthcheckTrackers } from '@main/core/tools/trackers/health'
+import { assertToolHealth } from '@main/services/healthcheck'
 import {
   convertFolder,
   inspectTranscode,
@@ -834,6 +835,7 @@ export class UploadSession {
   }
 
   async startNew(path: string): Promise<void> {
+    await assertToolHealth(this.deps.tools)
     await this.persistNow()
     this.cancelAll()
     const generation = this.tasks.generation
@@ -845,6 +847,7 @@ export class UploadSession {
     if (!uploadWorkspaceBelongsToUserData(this.deps.userDataPath, workspacePath)) {
       throw new Error('Upload workspace is outside Gravlax app data.')
     }
+    await assertToolHealth(this.deps.tools)
     await this.persistNow()
     this.cancelAll()
     const generation = this.tasks.generation

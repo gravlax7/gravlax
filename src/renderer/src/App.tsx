@@ -1,4 +1,4 @@
-import { Show, createSignal, onCleanup, onMount } from 'solid-js'
+import { Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js'
 import type {
   HealthResult,
   NotifyPayload,
@@ -12,6 +12,7 @@ import { totalUploads } from '@shared/types'
 import type { Config } from '@shared/types/config'
 import type { UploadStats } from '@shared/types/stats'
 import { activeBackgroundTasks, UPLOAD_STEPS } from '@shared/upload/stepGating'
+import { validateToolHealth } from '@shared/upload/validation'
 import { isLightTheme } from '@shared/theme'
 import { StatusBar, summarizeHealth } from './components/StatusBar'
 import { TaskWidget } from './components/TaskWidget'
@@ -130,13 +131,17 @@ export default function App() {
   }
 
   const onConfigChange = (next: Config): void => {
-    const trackersChanged = JSON.stringify(config()?.trackers) !== JSON.stringify(next.trackers)
+    const previous = config()
+    const trackersChanged = JSON.stringify(previous?.trackers) !== JSON.stringify(next.trackers)
+    const toolsChanged = JSON.stringify(previous?.tools) !== JSON.stringify(next.tools)
     setConfig(next)
     if (uploadView().kind === 'menu') void loadStartEntries()
-    if (trackersChanged) {
+    if (trackersChanged || toolsChanged) {
       void refreshHealth('settings-save')
     }
   }
+
+  const toolsBlockedReason = (): string | null => validateToolHealth(health()?.rows)
 
   const showToast = (payload: NotifyPayload): void => {
     const id = ++toastSeq
@@ -149,6 +154,13 @@ export default function App() {
       }, duration)
       toastTimers.set(id, timer)
     }
+  }
+
+  const refuseToolsBlocked = (): boolean => {
+    const reason = toolsBlockedReason()
+    if (!reason) return false
+    showToast({ level: 'error', message: reason })
+    return true
   }
 
   const dismissToast = (id: number): void => {
@@ -199,6 +211,7 @@ export default function App() {
   })
 
   const jumpToTaskStep = (stepId: string): void => {
+    if (refuseToolsBlocked()) return
     setScreen('upload')
     setUploadView({ kind: 'flow' })
     const index = UPLOAD_STEPS.find((step) => step.id === stepId)?.index
@@ -211,6 +224,7 @@ export default function App() {
   }
 
   const startNew = (path: string): void => {
+    if (refuseToolsBlocked()) return
     setScreen('upload')
     setUploadView({ kind: 'flow' })
     void window.gravlax.upload.startNew(path).catch((err) => {
@@ -235,6 +249,7 @@ export default function App() {
   }
 
   const resumeUpload = async (entry: UploadStartResumeEntry): Promise<void> => {
+    if (refuseToolsBlocked()) return
     setStartLoading(true)
     try {
       await window.gravlax.upload.resume(entry.workspacePath)
@@ -247,6 +262,12 @@ export default function App() {
       setStartLoading(false)
     }
   }
+
+  createEffect(() => {
+    const reason = toolsBlockedReason()
+    if (!reason || reason === 'Waiting for tool health checks to finish.') return
+    if (uploadView().kind === 'flow') openUploadMenu()
+  })
 
   return (
     <div
@@ -351,11 +372,13 @@ export default function App() {
               <UploadStartMenu
                 entries={startEntries()}
                 loading={startLoading()}
+                toolsBlockedReason={toolsBlockedReason()}
                 onRefresh={() => void loadStartEntries()}
                 onOpenPath={openPath}
                 onResume={(entry) => void resumeUpload(entry)}
                 onRestart={(entry) => startNew(entry.sourcePath)}
                 onUploaded={(entry) => setUploadView({ kind: 'uploaded', entry })}
+                onOpenHealth={() => setScreen('health')}
               />
             </Show>
             <Show when={uploadView().kind === 'flow'}>

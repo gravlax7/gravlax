@@ -696,6 +696,18 @@ button.toggle.toggle-on .toggle-thumb {
   background: var(--accent-dim);
 }
 
+.upload-start-picker-blocked {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.upload-start-tools-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
 .upload-start-picker > .ui-btn {
   flex-shrink: 0;
   margin-right: var(--space-1);
@@ -805,6 +817,7 @@ button.toggle.toggle-on .toggle-thumb {
 
 .upload-start-row-open:disabled {
   cursor: default;
+  opacity: 0.55;
 }
 
 .upload-start-row-action {

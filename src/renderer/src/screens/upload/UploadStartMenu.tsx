@@ -8,16 +8,18 @@ import type {
 } from '@shared/types'
 import { UPLOAD_STEPS } from '@shared/upload/stepGating'
 import { TrackerIcon, trackerLabel } from '../../components/TrackerIcon'
-import { Badge, Button, EmptyState, Icon, Spinner } from '../../ui'
+import { Badge, Button, Callout, EmptyState, Icon, Spinner } from '../../ui'
 
 export function UploadStartMenu(props: {
   entries: UploadStartEntries | null
   loading: boolean
+  toolsBlockedReason: string | null
   onRefresh: () => void
   onOpenPath: (path: string) => void
   onResume: (entry: UploadStartResumeEntry) => void
   onRestart: (entry: UploadStartResumeEntry) => void
   onUploaded: (entry: UploadedReleaseRecord) => void
+  onOpenHealth: () => void
 }) {
   const [dragging, setDragging] = createSignal(false)
   const count = () => {
@@ -27,7 +29,10 @@ export function UploadStartMenu(props: {
       : 0
   }
 
+  const blocked = () => props.toolsBlockedReason != null
+
   const browse = async (): Promise<void> => {
+    if (blocked()) return
     const path = await window.gravlax.dialog.pickDirectory()
     if (path) props.onOpenPath(path)
   }
@@ -35,6 +40,7 @@ export function UploadStartMenu(props: {
   const onDrop = (event: DragEvent): void => {
     event.preventDefault()
     setDragging(false)
+    if (blocked()) return
     const file = event.dataTransfer?.files[0]
     if (!file) return
     const path = window.gravlax.files.getPathForFile(file)
@@ -57,11 +63,14 @@ export function UploadStartMenu(props: {
 
       <div class="upload-start-body">
         <div class="content-frame upload-start-content">
-          <div class={`upload-start-picker ${dragging() ? 'upload-start-picker-active' : ''}`}>
+          <div
+            class={`upload-start-picker ${dragging() ? 'upload-start-picker-active' : ''} ${blocked() ? 'upload-start-picker-blocked' : ''}`}
+          >
             <div
               class="upload-start-drop"
               onDragOver={(event) => {
                 event.preventDefault()
+                if (blocked()) return
                 setDragging(true)
               }}
               onDragLeave={() => setDragging(false)}
@@ -71,10 +80,24 @@ export function UploadStartMenu(props: {
               <span>Drop a release folder here</span>
             </div>
             <span class="upload-start-picker-or">or</span>
-            <Button variant="secondary" size="sm" onClick={() => void browse()}>
+            <Button variant="secondary" size="sm" onClick={() => void browse()} disabled={blocked()}>
               <Icon name="folder" size={14} /> Browse…
             </Button>
           </div>
+
+          <Show when={props.toolsBlockedReason}>
+            {(reason) => (
+              <Callout tone="error">
+                <Icon name="alert-triangle" size={16} />
+                <div class="upload-start-tools-block">
+                  <div>{reason()}</div>
+                  <Button variant="secondary" size="sm" onClick={props.onOpenHealth}>
+                    Open Healthchecks
+                  </Button>
+                </div>
+              </Callout>
+            )}
+          </Show>
 
           <Show when={props.entries?.sourceError}>
             {(error) => <div class="ui-callout ui-callout-error">{error()}</div>}
@@ -92,6 +115,7 @@ export function UploadStartMenu(props: {
                     name={entry.name}
                     path={entry.sourcePath}
                     icon="plus"
+                    disabled={blocked()}
                     onClick={() => props.onOpenPath(entry.sourcePath)}
                   />
                 )}
@@ -109,6 +133,7 @@ export function UploadStartMenu(props: {
                     icon="refresh-cw"
                     warning={!entry.sourceExists}
                     badge={UPLOAD_STEPS.find((step) => step.id === entry.currentStepID)?.title ?? 'File Checks'}
+                    disabled={blocked()}
                     onClick={() => props.onResume(entry)}
                     action={
                       entry.sourceExists
@@ -169,12 +194,13 @@ function StartRow(props: {
   icon: 'plus' | 'refresh-cw' | 'check'
   badge?: string
   warning?: boolean
+  disabled?: boolean
   onClick: () => void
   action?: { label: string; onClick: () => void }
 }) {
   return (
     <div class="upload-start-row">
-      <button type="button" class="upload-start-row-open" onClick={props.onClick}>
+      <button type="button" class="upload-start-row-open" disabled={props.disabled} onClick={props.onClick}>
         <span class={`upload-start-row-icon upload-start-row-icon-${props.icon}`}>
           <Icon name={props.warning ? 'alert-triangle' : props.icon} size={15} />
         </span>
@@ -194,7 +220,7 @@ function StartRow(props: {
       </button>
       <Show when={props.action}>
         {(action) => (
-          <Button variant="ghost" size="sm" class="upload-start-row-action" onClick={action().onClick}>
+          <Button variant="ghost" size="sm" class="upload-start-row-action" disabled={props.disabled} onClick={action().onClick}>
             <Icon name="refresh-cw" size={14} /> {action().label}
           </Button>
         )}

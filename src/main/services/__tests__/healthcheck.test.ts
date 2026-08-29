@@ -31,7 +31,7 @@ vi.mock('@main/core/tools/versions', async (importOriginal) => {
   return { ...original, probeToolVersion: mocks.probeToolVersion }
 })
 
-import { runHealthcheck } from '../healthcheck'
+import { assertToolHealth, runHealthcheck } from '../healthcheck'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -108,6 +108,25 @@ describe('binary healthchecks', () => {
       status: 'missing',
       detail: 'Configured executable is not a runnable file: /bad/sox'
     })
+  })
+
+  it('refuses to start work when a required binary is missing', async () => {
+    const tools = fakeResolver((id) => {
+      if (id === 'sox') return { status: 'missing', reason: 'Missing' }
+      return { status: 'available', path: `/tools/${id}`, source: 'path' }
+    })
+    await expect(assertToolHealth(tools)).rejects.toThrow(
+      'Tool health checks must pass before uploading: SoX: Missing.'
+    )
+  })
+
+  it('allows work when every required binary is available', async () => {
+    const tools = fakeResolver((id) => ({
+      status: 'available',
+      path: `/tools/${id}`,
+      source: 'path'
+    }))
+    await expect(assertToolHealth(tools)).resolves.toBeUndefined()
   })
 })
 

@@ -5,6 +5,7 @@ import {
   pendingUploadTrackerIds,
   preflightTracker,
   validateTrackerHealth,
+  validateToolHealth,
   validatePreparedUploadFormats,
   validateSelectedTranscodes,
   validateUploadReport,
@@ -347,5 +348,72 @@ describe('tracker health validation', () => {
     expect(
       validateUploadTargets(upload, cfg, pendingUploadTrackerIds(upload))
     ).toBeNull()
+  })
+})
+
+describe('tool health validation', () => {
+  const healthyTools: HealthRow[] = [
+    { id: 'bin:sox', name: 'SoX', status: 'available', detail: 'SoX 14.4.2' },
+    { id: 'bin:flac', name: 'FLAC', status: 'available', detail: 'FLAC 1.5.0' },
+    { id: 'bin:metaflac', name: 'metaflac', status: 'available', detail: 'metaflac 1.5.0' },
+    { id: 'bin:lame', name: 'LAME', status: 'available', detail: 'LAME 3.100' }
+  ]
+
+  it('accepts every required binary when available', () => {
+    expect(validateToolHealth(healthyTools)).toBeNull()
+  })
+
+  it('lists missing binaries', () => {
+    const rows = healthyTools.map((row) =>
+      row.id === 'bin:sox' ? { ...row, status: 'missing' as const, detail: 'Missing' } : row
+    )
+    expect(validateToolHealth(rows)).toBe(
+      'Tool health checks must pass before uploading: SoX: Missing.'
+    )
+  })
+
+  it('lists failing binaries', () => {
+    const rows = healthyTools.map((row) =>
+      row.id === 'bin:flac'
+        ? {
+            ...row,
+            status: 'failing' as const,
+            detail: 'FLAC 1.3.1 is unsupported; version 1.5.0 or newer is required · /tools/flac'
+          }
+        : row
+    )
+    expect(validateToolHealth(rows)).toBe(
+      'Tool health checks must pass before uploading: FLAC: FLAC 1.3.1 is unsupported; version 1.5.0 or newer is required · /tools/flac.'
+    )
+  })
+
+  it('lists every failed binary', () => {
+    const rows = healthyTools.map((row) => {
+      if (row.id === 'bin:flac') {
+        return { ...row, status: 'failing' as const, detail: 'too old' }
+      }
+      if (row.id === 'bin:lame') {
+        return { ...row, status: 'missing' as const, detail: 'Missing' }
+      }
+      return row
+    })
+    expect(validateToolHealth(rows)).toBe(
+      'Tool health checks must pass before uploading: FLAC: too old; LAME: Missing.'
+    )
+  })
+
+  it('waits while a tool check is still in flight', () => {
+    const rows = healthyTools.map((row) =>
+      row.id === 'bin:lame' ? { ...row, status: 'checking' as const, detail: 'Checking…' } : row
+    )
+    expect(validateToolHealth(rows)).toBe('Waiting for tool health checks to finish.')
+  })
+
+  it('waits when tool rows have not been published yet', () => {
+    expect(validateToolHealth(null)).toBe('Waiting for tool health checks to finish.')
+    expect(validateToolHealth([])).toBe('Waiting for tool health checks to finish.')
+    expect(
+      validateToolHealth([{ id: 'trackers:redacted:api', name: 'Redacted API', status: 'available' }])
+    ).toBe('Waiting for tool health checks to finish.')
   })
 })

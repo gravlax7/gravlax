@@ -120,6 +120,23 @@ export function validateTrackerHealth(
   return waiting ? 'Waiting for tracker health checks to finish.' : null
 }
 
+export function validateToolHealth(rows: readonly HealthRow[] | null | undefined): string | null {
+  const tools = rows?.filter((row) => row.id.startsWith('bin:')) ?? []
+  if (tools.length === 0) return 'Waiting for tool health checks to finish.'
+
+  const failures = tools.filter((row) => row.status === 'missing' || row.status === 'failing')
+  if (failures.length > 0) {
+    const detail = failures
+      .map((row) => `${row.name}: ${row.detail ?? row.status}`)
+      .join('; ')
+    return `Tool health checks must pass before uploading: ${detail}.`
+  }
+  if (tools.some((row) => row.status === 'checking')) {
+    return 'Waiting for tool health checks to finish.'
+  }
+  return null
+}
+
 /**
  * Every tracker destination needs both auth paths. The API handles normal
  * uploads, while the site session supports page uploads and reports.
