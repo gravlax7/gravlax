@@ -13,6 +13,7 @@ import {
   hasNamedMainArtist,
   isMultiDiscTracks,
   joinphraseIndicatesFeatured,
+  parseArtists,
   parseArtistCreditValues,
   setFieldEditorValue,
   setTrackFieldEditorValue,
@@ -130,6 +131,12 @@ describe('tags editor', () => {
     ])
     expect(joinphraseIndicatesFeatured(' feat. ')).toBe(true)
     expect(joinphraseIndicatesFeatured(' & ')).toBe(false)
+    expect(parseArtistCreditValues(['Bj\u00f6rk', 'BJO\u0308RK'])).toEqual([
+      { name: 'Bj\u00f6rk', role: 'main' }
+    ])
+    expect(parseArtists(['O\u2019Connor [composer]', "O'Connor [composer]"])).toEqual([
+      { name: 'O\u2019Connor', role: 'composer' }
+    ])
   })
 
   it('adds featured artists from track titles as guests', () => {

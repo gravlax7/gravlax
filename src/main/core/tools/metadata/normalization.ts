@@ -1,5 +1,6 @@
 import type { Artist, Release, Track } from '@shared/types'
 import {
+  artistNameKey,
   deriveAlbumArtist,
   normalizeArtistRole,
   sortedUniqueStrings,
@@ -50,7 +51,7 @@ export function createProviderArtistList(): {
       const trimmed = name.trim()
       if (!trimmed) return
       const normalizedRole = normalizeProviderArtistRole(role)
-      const key = `${trimmed.toLowerCase()}\0${normalizedRole}`
+      const key = `${artistNameKey(trimmed)}\0${normalizedRole}`
       if (seen.has(key)) return
       seen.add(key)
       artists.push({ name: trimmed, role: normalizedRole })
@@ -124,11 +125,13 @@ function mergeReleaseArtists(existing: Artist[], tracks: Track[]): Artist[] {
   const push = (artist: Artist, fromTrack: boolean): void => {
     const name = (artist.name ?? '').trim()
     if (!name) return
-    const key = artistNameKey(name)
+    const sourceRole = normalizeArtistRole(artist.role ?? '')
+    const nameKey = artistNameKey(name)
+    if (fromTrack && sourceRole === 'main' && seen.has(`${nameKey}\0main`)) return
+    const role = fromTrack && hasReleaseMain && sourceRole === 'main' ? 'guest' : sourceRole
+    const key = `${nameKey}\0${role}`
     if (seen.has(key)) return
     seen.add(key)
-    const sourceRole = normalizeArtistRole(artist.role ?? '')
-    const role = fromTrack && hasReleaseMain && sourceRole === 'main' ? 'guest' : sourceRole
     artists.push({ name, role })
   }
   for (const artist of existing) push(artist, false)
@@ -136,15 +139,6 @@ function mergeReleaseArtists(existing: Artist[], tracks: Track[]): Artist[] {
     for (const artist of track.artists ?? []) push(artist, true)
   }
   return artists
-}
-
-function artistNameKey(name: string): string {
-  return name
-    .trim()
-    .normalize('NFKC')
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
 }
 
 function determineReleaseType(release: Release): { title: string; releaseType: string } {

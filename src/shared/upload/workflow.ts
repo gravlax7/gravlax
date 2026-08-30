@@ -100,6 +100,10 @@ export function evaluateStepNavigation(
         : 'Repair failed FLAC integrity checks before continuing.'
     }
   }
+  const tagsStep = workflowStepIndex('tags') ?? WORKFLOW_STEPS.length
+  if (goingForward && state.currentStep < tagsStep && targetIndex >= tagsStep && !state.metadata.selected) {
+    return { ok: false, error: 'Choose a metadata source before opening Tags & Filenames.' }
+  }
   // Seed is the one step a user cannot revisit on the strength of having been
   // there before: it needs a submitted upload every time.
   if (target.id === 'seed' && state.upload.phase !== 'done') {

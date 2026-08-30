@@ -29,6 +29,7 @@ import {
   snapshot,
   restoreState,
   setTagsRelease,
+  setTagsReleaseManual,
   setTagsProposed,
   clearTagsRelease,
   resetTagsProposed,
@@ -266,6 +267,78 @@ describe('uploadflow', () => {
       title: 'Remote',
       artists: [{ name: 'Local', role: 'main' }]
     })
+  })
+
+  it('seedTagsProposed merges artist credits by role', () => {
+    const current: Release = {
+      artists: [
+        { name: 'Local Main', role: 'main' },
+        { name: 'File Composer', role: 'composer' },
+        { name: 'Shared Composer', role: 'composer' },
+        { name: 'File Conductor', role: 'conductor' }
+      ],
+      tracks: [{
+        title: 'Local',
+        artists: [
+          { name: 'Local Main', role: 'main' },
+          { name: 'File Composer', role: 'composer' },
+          { name: 'Shared Composer', role: 'composer' },
+          { name: 'File Conductor', role: 'conductor' }
+        ]
+      }]
+    }
+    const selected: Release = {
+      artists: [
+        { name: 'Provider Main', role: 'main' },
+        { name: 'Shared Composer', role: 'composer' },
+        { name: 'Provider Composer', role: 'composer' }
+      ],
+      tracks: [{
+        title: 'Remote',
+        artists: [
+          { name: 'Provider Main', role: 'main' },
+          { name: 'Shared Composer', role: 'composer' },
+          { name: 'Provider Composer', role: 'composer' }
+        ]
+      }]
+    }
+
+    const proposed = seedTagsProposed(current, selected)
+
+    const expected = [
+      { name: 'Provider Main', role: 'main' },
+      { name: 'File Composer', role: 'composer' },
+      { name: 'Shared Composer', role: 'composer' },
+      { name: 'Provider Composer', role: 'composer' },
+      { name: 'File Conductor', role: 'conductor' }
+    ]
+    expect(proposed.artists).toEqual(expected)
+    expect(proposed.tracks?.[0]?.artists).toEqual(expected)
+  })
+
+  it('Manual clones all file-derived artist roles', () => {
+    const current: Release = {
+      artists: [
+        { name: 'Artist', role: 'main' },
+        { name: 'Writer', role: 'composer' },
+        { name: 'Maestro', role: 'conductor' }
+      ],
+      tracks: [{
+        artists: [
+          { name: 'Artist', role: 'main' },
+          { name: 'Writer', role: 'composer' },
+          { name: 'Maestro', role: 'conductor' }
+        ]
+      }]
+    }
+    const state = setTagsReleaseManual({
+      ...newState(),
+      tags: { current, currentStatus: 'ready' }
+    })
+
+    expect(tags(state).proposed).toEqual(current)
+    expect(tags(state).proposed).not.toBe(current)
+    expect(tags(state).proposed?.tracks?.[0]).not.toBe(current.tracks?.[0])
   })
 
   it('setTagsRelease seeds proposed from selected and current', () => {

@@ -20,6 +20,25 @@ function normalizeProviderRelease(
 }
 
 describe('normalizeProviderRelease artists', () => {
+  it('keeps the same name as both release main and track composer', () => {
+    const release = finalizeNormalizedRelease({
+      title: 'Works',
+      artists: [{ name: 'Mozart', role: 'main' }],
+      tracks: [{
+        title: 'Work',
+        artists: [
+          { name: 'Mozart', role: 'main' },
+          { name: 'Mozart', role: 'composer' }
+        ]
+      }]
+    })
+
+    expect(release.artists).toEqual([
+      { name: 'Mozart', role: 'main' },
+      { name: 'Mozart', role: 'composer' }
+    ])
+  })
+
   it('unwraps Deezer single artist objects and contributor roles', () => {
     const release = normalizeProviderRelease(
       {

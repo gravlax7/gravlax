@@ -21,6 +21,7 @@ import {
   clearMetadataSelection,
   clearFileChecks,
   clearTagsRelease,
+  manualMetadataSelection,
   markBackgroundTaskCompleted,
   markBackgroundTaskFailed,
   markBackgroundTaskProgress,
@@ -259,6 +260,7 @@ export class UploadSession {
     const uploadIdx = stepIndex('upload')
     const seedIdx = stepIndex('seed')
     const tagsIdx = stepIndex('tags')
+    const metadataIdx = stepIndex('metadata')
     if (tagsIdx !== null && from <= tagsIdx && index > tagsIdx) {
       const applied = await this.applyTagsAndNames(confirmedWrites)
       if (!applied.ok) return applied
@@ -266,7 +268,13 @@ export class UploadSession {
         index = transcodeIdx
       }
     }
-    this.apply(setCurrentStep(this.state, index))
+    const defaultedMetadata =
+      metadataIdx !== null && index === metadataIdx && !this.state.metadata.selected
+    const next = defaultedMetadata
+      ? setMetadataSelection(this.state, manualMetadataSelection())
+      : this.state
+    this.apply(setCurrentStep(next, index))
+    if (defaultedMetadata) void this.startTagsReleaseIfNeeded()
     if (transcodeIdx !== null && from <= transcodeIdx && index > transcodeIdx) {
       void this.runTranscode({ quiet: true })
     }

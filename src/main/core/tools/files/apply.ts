@@ -98,7 +98,7 @@ export async function applyTagsAndRenames(input: {
     input.onProgress?.(index, progressTotal, `Applying tags: ${file.currentPath}`)
     const original = originals.find((item) => item.id === file.id)
     if (!original) throw new Error(`Missing original-state backup for ${file.currentPath}.`)
-    const values = tagValues(release, index)
+    const values = tagValues(release, index, original.managedComments ?? [])
     if (!input.stripEmbeddedCoverArt) {
       await addLegacyCoverValues(values, original, uploadWorkspaceRootForPath(input.workspacePath))
     }
@@ -260,15 +260,18 @@ async function pictureBlockNumbers(
   return numbers
 }
 
-function tagValues(release: Release, index: number): Map<string, string[]> {
+function tagValues(release: Release, index: number, originalComments: string[]): Map<string, string[]> {
   const track = release.tracks?.[index] ?? {}
   const discTotal = Math.max(1, ...(release.tracks ?? []).map((item) => Number.parseInt(item.discNumber ?? '1', 10) || 1))
-  const main = trackArtistValue(track.artists)
-  const composer = joinArtistRole(track.artists, 'composer')
-  const conductor = joinArtistRole(track.artists, 'conductor')
+  const leadArtists = uniqueArtistNames(track.artists, 'main').length + uniqueArtistNames(track.artists, 'conductor').length
+  const artist = leadArtists > 0
+    ? one(trackArtistValue(track.artists))
+    : originalCommentValues(originalComments, 'ARTIST')
+  const composers = uniqueArtistNames(track.artists, 'composer')
+  const conductors = uniqueArtistNames(track.artists, 'conductor')
   const album = [release.title, release.editionTitle ? `(${release.editionTitle})` : ''].filter(Boolean).join(' ')
   return cleanValues(new Map<string, string[]>([
-    ['TITLE', one(track.title)], ['ARTIST', one(main)], ['COMPOSER', one(composer)], ['CONDUCTOR', one(conductor)],
+    ['TITLE', one(track.title)], ['ARTIST', artist], ['COMPOSER', composers], ['CONDUCTOR', conductors],
     ['TRACKNUMBER', one(track.trackNumber)], ['DISCNUMBER', one(track.discNumber)],
     ['TRACKTOTAL', one(String(release.tracks?.length ?? 0))], ['DISCTOTAL', one(String(discTotal))],
     ['ALBUM', one(album)], ['ALBUMARTIST', one(release.albumArtist)], ['DATE', one(release.groupYear)],
@@ -291,10 +294,6 @@ function trackArtistValue(artists: Release['artists']): string {
   return value
 }
 
-function joinArtistRole(artists: Release['artists'], role: string): string {
-  return uniqueArtistNames(artists, role).join(', ')
-}
-
 function uniqueArtistNames(artists: Release['artists'], role: string): string[] {
   return [...new Set((artists ?? []).filter((artist) => (artist.role || 'main') === role).map((artist) => artist.name?.trim() ?? '').filter(Boolean))]
 }
@@ -305,6 +304,14 @@ function joinArtistNames(names: string[]): string {
 }
 
 function one(value?: string): string[] { return value ? [value] : [] }
+function originalCommentValues(comments: string[], key: string): string[] {
+  const prefix = `${key.toUpperCase()}=`
+  return comments.flatMap((comment) => {
+    const split = comment.indexOf('=')
+    if (split < 0 || `${comment.slice(0, split).toUpperCase()}=` !== prefix) return []
+    return [comment.slice(split + 1)]
+  })
+}
 function cleanValues(values: Map<string, string[]>): Map<string, string[]> {
   const result = new Map<string, string[]>()
   for (const [key, items] of values) {

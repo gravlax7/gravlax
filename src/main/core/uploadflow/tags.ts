@@ -1,7 +1,6 @@
 import type { Release, TagsSnapshot, TagsStatus, Track } from '@shared/types'
 import {
   FIELD_ALBUM_ARTIST,
-  FIELD_ARTISTS,
   FIELD_CAT_NO,
   FIELD_COMMENT,
   FIELD_EDITION_TITLE,
@@ -20,6 +19,7 @@ import {
   cloneTrack,
   deriveAlbumArtist,
   isMixed,
+  mergeArtistCredits,
   mergeTrackFields
 } from '@shared/tags/editor'
 import type { State } from './state'
@@ -184,8 +184,9 @@ export function seedTagsProposed(current: Release, selected: Release): Release {
   if ((!proposed.trackCount || proposed.trackCount <= 0) && current.trackCount && current.trackCount > 0) {
     proposed.trackCount = current.trackCount
   }
-  if ((!proposed.artists || proposed.artists.length === 0) && !isMixed(current, FIELD_ARTISTS) && current.artists && current.artists.length > 0) {
-    proposed.artists = current.artists.map((a) => ({ ...a }))
+  if (current.artists && current.artists.length > 0) {
+    const artists = mergeArtistCredits(proposed.artists, current.artists)
+    if (artists.length > 0) proposed.artists = artists
   }
   if (!proposed.albumArtist && !isMixed(current, FIELD_ALBUM_ARTIST) && current.albumArtist) {
     proposed.albumArtist = current.albumArtist

@@ -497,6 +497,7 @@ export function UploadScreen(props: {
               loading={stepId() === 'tags' && props.state.files.apply.phase === 'applying'}
               disabled={
                 (stepId() === 'seed' && props.state.seed.phase !== 'done') ||
+                (stepId() === 'metadata' && !props.state.metadata.selected) ||
                 (stepId() === 'transcode' && props.state.transcode?.phase === 'inspecting') ||
                 (stepId() === 'tags' &&
                   (props.state.tags.releaseStatus === 'loading' ||

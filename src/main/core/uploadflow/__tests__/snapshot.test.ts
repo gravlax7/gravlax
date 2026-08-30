@@ -37,6 +37,15 @@ describe('snapshot round-trip', () => {
     expect(currentStep(restored).id).toBe('file-checks')
   })
 
+  it('preselects manual metadata when restoring the metadata step', () => {
+    let state = selectSourcePath(newState(), '/music/album')
+    state = setCurrentStep(state, stepIndex('metadata')!)
+
+    const restored = restoreState('/workspace/upload-abc123', snapshot(state))
+
+    expect(restored.metadata.selected).toEqual({ provider: 'manual' })
+  })
+
   it('migrates a legacy Source snapshot to File Checks', () => {
     const restored = restoreState('/workspace/upload-abc123', {
       sourcePath: '/music/album',

@@ -21,6 +21,7 @@
     "test:watch": "vitest",
     "install-electron": "node scripts/install-electron.cjs",
     "postinstall": "node scripts/install-electron.cjs",
+    "fixture:tagging": "bun run scripts/generate-tagging-fixture.ts",
     "release": "bun run scripts/release.ts",
     "dist": "bun run build && electron-builder",
     "dist:mac": "bun run build && electron-builder --mac",

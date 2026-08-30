@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { defaultConfig } from '@main/core/config/defaults'
 import {
+  markBackgroundTaskCompleted,
   markBackgroundTaskRunning,
   newBackgroundWork,
   newState,
+  selectSourcePath,
+  setSourceMedia,
   stepIndex,
   type State
 } from '@main/core/uploadflow'
@@ -88,6 +91,27 @@ function completedAlternateFormats(): State['transcode'] {
 }
 
 describe('UploadSession', () => {
+  it('preselects manual metadata when the metadata step opens', async () => {
+    const session = newSession()
+    const runtime = runtimeOf(session)
+    let state = setSourceMedia(selectSourcePath(newState(), '/source'), 'WEB')
+    state.fileChecks.structure.ready = true
+    state.fileChecks.integrity = {
+      status: 'passed',
+      checkedCount: 1,
+      failures: [],
+      repairedPaths: [],
+      repairErrors: []
+    }
+    state = markBackgroundTaskCompleted(state, 'file-checks', 'done')
+    state.currentStep = stepIndex('spectrals') ?? 1
+    runtime.apply(state)
+
+    await expect(session.setCurrentStep(stepIndex('metadata') ?? 2)).resolves.toEqual({ ok: true })
+
+    expect(session.getState().metadata.selected).toEqual({ provider: 'manual' })
+  })
+
   it('starts read-only preflight work before FLAC integrity passes', () => {
     const session = newSession()
     const internal = session as unknown as {

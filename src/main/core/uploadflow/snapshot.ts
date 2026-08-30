@@ -2,7 +2,7 @@ import type { UploadFlowSnapshot } from '@shared/types'
 import { resetBackgroundTask, withTaskSnapshotStatuses } from './background'
 import { setFileChecks } from './fileChecks'
 import { setFiles } from './files'
-import { setMetadata } from './metadata'
+import { manualMetadataSelection, setMetadata, setMetadataSelection } from './metadata'
 import {
   newState,
   selectSourcePath,
@@ -110,6 +110,9 @@ export function restoreState(workspacePath: string, snap: UploadFlowSnapshot): S
     }
   }
   state = setMetadata(state, snap.metadata ?? {})
+  if (getCurrentStep(state).id === 'metadata' && !state.metadata.selected) {
+    state = setMetadataSelection(state, manualMetadataSelection())
+  }
   state = setTags(state, snap.tags ?? {})
   if (snap.files) state = setFiles(state, snap.files)
   state = setTranscode(state, snap.transcode ?? {})

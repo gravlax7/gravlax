@@ -305,17 +305,61 @@ export function trackHeading(track: Track | undefined, index: number, multiDisc:
 }
 
 export function mergeTrackFields(preferred: Track, fallback: Track): Track {
+  const artists = mergeArtistCredits(preferred.artists, fallback.artists)
   return {
     discNumber: preferred.discNumber || fallback.discNumber,
     trackNumber: preferred.trackNumber || fallback.trackNumber,
     title: preferred.title || fallback.title,
-    artists:
-      preferred.artists && preferred.artists.length > 0
-        ? preferred.artists.map((a) => ({ ...a }))
-        : fallback.artists
-          ? fallback.artists.map((a) => ({ ...a }))
-          : undefined
+    artists: artists.length > 0 ? artists : undefined
   }
+}
+
+export function mergeArtistCredits(
+  preferred: Artist[] | undefined,
+  fallback: Artist[] | undefined
+): Artist[] {
+  const preferredByRole = artistsByRole(preferred)
+  const fallbackByRole = artistsByRole(fallback)
+  const roles = [...new Set([...preferredByRole.keys(), ...fallbackByRole.keys()])]
+  const merged: Artist[] = []
+  const seen = new Set<string>()
+
+  for (const role of roles) {
+    const preferredArtists = preferredByRole.get(role) ?? []
+    const fallbackArtists = fallbackByRole.get(role) ?? []
+    const candidates = role === 'composer' || role === 'conductor'
+      ? [...fallbackArtists, ...preferredArtists]
+      : preferredArtists.length > 0
+        ? preferredArtists
+        : fallbackArtists
+    for (const artist of candidates) {
+      const name = (artist.name ?? '').trim()
+      if (!name) continue
+      const key = `${artistNameKey(name)}\0${role}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      merged.push({ name, role })
+    }
+  }
+  return merged
+}
+
+function artistsByRole(artists: Artist[] | undefined): Map<string, Artist[]> {
+  const result = new Map<string, Artist[]>()
+  for (const artist of artists ?? []) {
+    const role = normalizeArtistRole(artist.role ?? '')
+    result.set(role, [...(result.get(role) ?? []), artist])
+  }
+  return result
+}
+
+export function artistNameKey(name: string): string {
+  return name
+    .trim()
+    .normalize('NFKC')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
 }
 
 export function deriveAlbumArtist(artists: Artist[]): string {
@@ -327,7 +371,7 @@ export function deriveAlbumArtist(artists: Artist[]): string {
     if (!name || role !== DEFAULT_ARTIST_ROLE) {
       continue
     }
-    const key = name.trim().toLowerCase()
+    const key = artistNameKey(name)
     if (!key || seen.has(key)) {
       continue
     }
@@ -366,7 +410,7 @@ export function parseArtists(lines: string[]): Artist[] {
         role = normalizeArtistRole(candidateRole)
       }
     }
-    const key = `${name.toLowerCase()}\0${role}`
+    const key = `${artistNameKey(name)}\0${role}`
     if (seen.has(key)) continue
     seen.add(key)
     artists.push({ name, role })
@@ -386,7 +430,7 @@ export function parseArtistCreditValues(values: string[]): Artist[] {
     const parts = value.split(artistFeatPattern)
     const mainArtists = splitArtistCreditNames(parts[0] ?? '')
     for (const name of mainArtists) {
-      const key = `${name.toLowerCase()}\0${DEFAULT_ARTIST_ROLE}`
+      const key = `${artistNameKey(name)}\0${DEFAULT_ARTIST_ROLE}`
       if (seen.has(key)) continue
       seen.add(key)
       artists.push({ name, role: DEFAULT_ARTIST_ROLE })
@@ -394,7 +438,7 @@ export function parseArtistCreditValues(values: string[]): Artist[] {
     if (parts.length < 2) continue
     for (let i = 1; i < parts.length; i++) {
       for (const name of splitArtistCreditNames(parts[i] ?? '')) {
-        const key = `${name.toLowerCase()}\0guest`
+        const key = `${artistNameKey(name)}\0guest`
         if (seen.has(key)) continue
         seen.add(key)
         artists.push({ name, role: 'guest' })
@@ -417,7 +461,7 @@ export function featuredArtistsFromTitle(title: string): Artist[] {
   const seen = new Set<string>()
   for (const match of title.matchAll(titleFeatPattern)) {
     for (const name of splitArtistCreditNames(match[1] ?? '')) {
-      const key = name.toLowerCase()
+      const key = artistNameKey(name)
       if (seen.has(key)) continue
       seen.add(key)
       names.push(name)
@@ -443,11 +487,11 @@ export function applyFeaturedArtistsFromTitle(track: Track): Track {
 
   const artists = track.artists ? track.artists.map((a) => ({ ...a })) : []
   const seen = new Set(
-    artists.map((artist) => (artist.name ?? '').trim().toLowerCase()).filter(Boolean)
+    artists.map((artist) => artistNameKey(artist.name ?? '')).filter(Boolean)
   )
   let artistsChanged = false
   for (const guest of featured) {
-    const key = (guest.name ?? '').trim().toLowerCase()
+    const key = artistNameKey(guest.name ?? '')
     if (!key || seen.has(key)) continue
     seen.add(key)
     artists.push({ ...guest })

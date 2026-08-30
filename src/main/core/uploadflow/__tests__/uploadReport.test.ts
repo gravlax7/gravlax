@@ -62,12 +62,16 @@ describe('upload report helpers', () => {
         artists: [
           { name: 'A', role: 'main' },
           { name: 'B', role: 'guest' },
+          { name: 'A', role: 'composer' },
+          { name: 'C', role: 'conductor' },
           { name: '  ', role: 'main' }
         ]
       })
     ).toEqual([
       { name: 'A', importance: 1 },
-      { name: 'B', importance: 2 }
+      { name: 'B', importance: 2 },
+      { name: 'A', importance: 4 },
+      { name: 'C', importance: 5 }
     ])
   })
 

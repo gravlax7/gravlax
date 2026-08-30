@@ -19,6 +19,7 @@ import {
 } from '@shared/types/upload'
 import {
   applyFeaturedArtistsFromTitle,
+  artistNameKey,
   deriveAlbumArtist,
   formatArtists,
   parseArtistCreditValues,
@@ -76,13 +77,13 @@ export async function extractAlbumReleaseWithEmbeddedCoverArt(
   release.urls = sharedList(tagSets, mixed, FIELD_URLS, splitURLValues, ...urlTagKeys)
 
   const albumArtists = commonArtistTagSet(tagSets, 'ALBUMARTIST', 'ALBUM ARTIST')
+  const aggregated = aggregateTrackArtists(tracks)
   if (albumArtists.ok) {
-    release.artists = albumArtists.artists
+    release.artists = mergeAlbumAndTrackArtists(albumArtists.artists, aggregated.artists)
     if (albumArtists.mixed) {
       mixed[FIELD_ARTISTS] = true
     }
   } else {
-    const aggregated = aggregateTrackArtists(tracks)
     if (aggregated.artists.length > 0) {
       release.artists = aggregated.artists
       if (aggregated.mixed) {
@@ -182,16 +183,43 @@ function buildTrack(tagSet: FlacTags): Track {
   if (!discNumber) discNumber = '1'
   const trackNumber = firstTagValue(tagSet, 'TRACKNUMBER', 'TRACK NUMBER')
   const title = firstTagValue(tagSet, 'TITLE')
-  let artists = parseArtistCreditValues(tagValues(tagSet, 'ARTIST'))
-  if (artists.length === 0) {
-    artists = parseArtistCreditValues(tagValues(tagSet, 'ALBUMARTIST', 'ALBUM ARTIST'))
+  let genericArtists = parseArtistCreditValues(tagValues(tagSet, 'ARTIST'))
+  if (genericArtists.length === 0) {
+    genericArtists = parseArtistCreditValues(tagValues(tagSet, 'ALBUMARTIST', 'ALBUM ARTIST'))
   }
+  const composers = parseRoleCreditValues(tagValues(tagSet, 'COMPOSER'), 'composer')
+  const conductors = parseRoleCreditValues(tagValues(tagSet, 'CONDUCTOR'), 'conductor')
+  const conductorNames = new Set(conductors.map((artist) => artistNameKey(artist.name ?? '')))
+  let mainCount = genericArtists.filter((artist) => (artist.role || 'main') === 'main').length
+  genericArtists = genericArtists.filter((artist) => {
+    const role = artist.role || 'main'
+    if (!conductorNames.has(artistNameKey(artist.name ?? ''))) return true
+    if (role === 'main' && mainCount <= 1) return true
+    if (role === 'main') mainCount--
+    return false
+  })
+  const artists = mergeArtistsByRole(genericArtists, composers, conductors)
   return applyFeaturedArtistsFromTitle({
     discNumber: sanitizeNumberTag(discNumber),
     trackNumber: sanitizeNumberTag(trackNumber),
     title,
     artists
   })
+}
+
+function parseRoleCreditValues(values: string[], role: string): Artist[] {
+  const artists: Artist[] = []
+  const seen = new Set<string>()
+  for (const value of values) {
+    for (const rawName of value.split(/[;/]/)) {
+      const name = rawName.trim()
+      const key = artistNameKey(name)
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      artists.push({ name, role })
+    }
+  }
+  return artists
 }
 
 function commonArtistTagSet(
@@ -234,13 +262,44 @@ function aggregateTrackArtists(tracks: Track[]): { artists: Artist[]; mixed: boo
       }
     }
     for (const artist of track.artists ?? []) {
-      const key = `${(artist.name ?? '').trim().toLowerCase()}\0${artist.role ?? ''}`
+      const key = `${artistNameKey(artist.name ?? '')}\0${artist.role || 'main'}`
       if (seen.has(key) || !(artist.name ?? '').trim()) continue
       seen.add(key)
       aggregated.push(artist)
     }
   }
   return { artists: aggregated, mixed }
+}
+
+function mergeArtistsByRole(...groups: Artist[][]): Artist[] {
+  const artists: Artist[] = []
+  const seen = new Set<string>()
+  for (const group of groups) {
+    for (const artist of group) {
+      const name = (artist.name ?? '').trim()
+      const role = artist.role || 'main'
+      const key = `${artistNameKey(name)}\0${role}`
+      if (!name || seen.has(key)) continue
+      seen.add(key)
+      artists.push({ name, role })
+    }
+  }
+  return artists
+}
+
+function mergeAlbumAndTrackArtists(albumArtists: Artist[], trackArtists: Artist[]): Artist[] {
+  const albumMainNames = new Set(
+    albumArtists
+      .filter((artist) => (artist.role || 'main') === 'main')
+      .map((artist) => artistNameKey(artist.name ?? ''))
+      .filter(Boolean)
+  )
+  const releaseTrackArtists = trackArtists.flatMap((artist) => {
+    if ((artist.role || 'main') !== 'main') return [artist]
+    if (albumMainNames.has(artistNameKey(artist.name ?? ''))) return []
+    return [{ ...artist, role: 'guest' }]
+  })
+  return mergeArtistsByRole(albumArtists, releaseTrackArtists)
 }
 
 function sharedScalar(

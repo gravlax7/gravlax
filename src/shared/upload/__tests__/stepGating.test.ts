@@ -306,6 +306,30 @@ describe('canNavigateToStep', () => {
     expect(canNavigateToStep(6, state)).toBe(false)
     expect(canNavigateToStep(6, { ...state, upload: { phase: 'done' } })).toBe(true)
   })
+
+  it('blocks tags and later steps until a metadata source is selected', () => {
+    const state = baseState({
+      currentStep: 2,
+      draft: {
+        sourcePath: '/a',
+        workspacePath: '/w',
+        sourceMedia: 'WEB',
+        lossyMaster: false,
+        lossyComment: '',
+        spectralIds: [],
+        spectralIdsAuto: true
+      }
+    })
+
+    expect(canNavigateToStep(3, state)).toBe(false)
+    expect(canNavigateToStep(4, state)).toBe(false)
+    expect(
+      canNavigateToStep(3, {
+        ...state,
+        metadata: { selected: { provider: 'manual' } }
+      })
+    ).toBe(true)
+  })
 })
 
 describe('stepNodeStatus', () => {
