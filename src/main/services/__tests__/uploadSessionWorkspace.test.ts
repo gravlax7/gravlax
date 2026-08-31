@@ -13,6 +13,10 @@ import {
 import { UploadSession } from '@main/services/uploadSession'
 import { automaticToolResolver } from '@main/core/tools/binaries'
 
+vi.mock('@main/services/healthcheck', () => ({
+  assertToolHealth: vi.fn(async () => undefined)
+}))
+
 let userDataPath = ''
 let sourceRoot = ''
 const trashItem = vi.fn(async (_path: string): Promise<void> => undefined)
