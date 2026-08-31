@@ -244,6 +244,23 @@ describe('stepHasError', () => {
       'error'
     )
   })
+
+  it('marks tags when an artist name still needs a separator choice', () => {
+    const state = baseState({
+      currentStep: 2,
+      tags: { proposed: { artists: [{ name: 'Bach, Jean Sebastian', role: 'composer' }] } }
+    })
+    expect(stepHasError(3, state)).toBe(true)
+    expect(
+      stepHasError(3, baseState({
+        tags: {
+          proposed: {
+            artists: [{ name: 'Bach, Jean Sebastian', role: 'composer', separatorKept: true }]
+          }
+        }
+      }))
+    ).toBe(false)
+  })
 })
 
 describe('canNavigateToStep', () => {
@@ -327,6 +344,41 @@ describe('canNavigateToStep', () => {
       canNavigateToStep(3, {
         ...state,
         metadata: { selected: { provider: 'manual' } }
+      })
+    ).toBe(true)
+  })
+
+  it('blocks transcode while an artist name still needs a separator choice', () => {
+    const draft = {
+      sourcePath: '/a',
+      workspacePath: '/w',
+      sourceMedia: 'WEB' as const,
+      lossyMaster: false,
+      lossyComment: '',
+      spectralIds: [],
+      spectralIdsAuto: true
+    }
+    const state = baseState({
+      currentStep: 3,
+      draft,
+      metadata: { selected: { provider: 'manual' } },
+      tags: {
+        releaseStatus: 'ready',
+        proposed: { artists: [{ name: 'AC/DC', role: 'main' }], title: 'Powerage' }
+      }
+    })
+    expect(highestReachableStep(state)).toBe(3)
+    expect(canNavigateToStep(4, state)).toBe(false)
+    expect(
+      canNavigateToStep(4, {
+        ...state,
+        tags: {
+          releaseStatus: 'ready',
+          proposed: {
+            artists: [{ name: 'AC/DC', role: 'main', separatorKept: true }],
+            title: 'Powerage'
+          }
+        }
       })
     ).toBe(true)
   })

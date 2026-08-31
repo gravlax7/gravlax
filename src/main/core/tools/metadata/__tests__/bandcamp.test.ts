@@ -179,8 +179,7 @@ describe('Bandcamp release scrape', () => {
     expect(release.tracks?.[0]?.artists).toEqual([{ name: 'TUFF TRAX', role: 'main' }])
     expect(release.tracks?.[0]?.title).toBe('DEEPER LOVE')
     expect(release.tracks?.[1]?.artists).toEqual([
-      { name: 'TABZ', role: 'main' },
-      { name: 'NICKOLAI', role: 'main' }
+      { name: 'TABZ, NICKOLAI', role: 'main' }
     ])
     expect(release.tracks?.[1]?.title).toBe('BACK 2 BUSINESS')
   })

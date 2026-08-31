@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyFeaturedArtistsFromTitle,
+  applySeparatorArtistAction,
   artistRoleLabel,
   cycleArtistRole,
   deriveAlbumArtist,
@@ -13,8 +14,11 @@ import {
   hasNamedMainArtist,
   isMultiDiscTracks,
   joinphraseIndicatesFeatured,
+  keepSeparatorArtists,
+  pendingSeparatorArtists,
   parseArtists,
   parseArtistCreditValues,
+  separatorArtistOptions,
   setFieldEditorValue,
   setTrackFieldEditorValue,
   stripFeaturedFromTitle,
@@ -124,10 +128,8 @@ describe('tags editor', () => {
       { name: 'Burial', role: 'guest' }
     ])
     expect(parseArtistCreditValues(['A, B ft. C & D'])).toEqual([
-      { name: 'A', role: 'main' },
-      { name: 'B', role: 'main' },
-      { name: 'C', role: 'guest' },
-      { name: 'D', role: 'guest' }
+      { name: 'A, B', role: 'main' },
+      { name: 'C & D', role: 'guest' }
     ])
     expect(joinphraseIndicatesFeatured(' feat. ')).toBe(true)
     expect(joinphraseIndicatesFeatured(' & ')).toBe(false)
@@ -159,15 +161,86 @@ describe('tags editor', () => {
     expect(
       applyFeaturedArtistsFromTitle({
         title: 'Song feat. A & B',
-        artists: [{ name: 'Main', role: 'main' }, { name: 'A', role: 'guest' }]
+        artists: [{ name: 'Main', role: 'main' }]
       })
     ).toEqual({
       title: 'Song',
       artists: [
         { name: 'Main', role: 'main' },
-        { name: 'A', role: 'guest' },
-        { name: 'B', role: 'guest' }
+        { name: 'A & B', role: 'guest' }
       ]
     })
+  })
+
+  it('keeps list separators in artist credits until the user chooses', () => {
+    expect(parseArtistCreditValues(['Bach, Jean Sebastian'])).toEqual([
+      { name: 'Bach, Jean Sebastian', role: 'main' }
+    ])
+    expect(parseArtistCreditValues(['AC/DC'])).toEqual([{ name: 'AC/DC', role: 'main' }])
+    expect(parseArtistCreditValues(['Alice / Bob'])).toEqual([
+      { name: 'Alice / Bob', role: 'main' }
+    ])
+    expect(parseArtistCreditValues(['Earth, Wind & Fire'])).toEqual([
+      { name: 'Earth, Wind & Fire', role: 'main' }
+    ])
+    expect(separatorArtistOptions('Bach, Jean Sebastian')).toEqual([
+      { action: 'split', label: 'Jean Sebastian & Bach' },
+      { action: 'reorder', label: 'Jean Sebastian Bach' },
+      { action: 'keep', label: 'Keep Bach, Jean Sebastian' }
+    ])
+    expect(separatorArtistOptions('AC/DC')).toEqual([
+      { action: 'split', label: 'AC & DC' },
+      { action: 'keep', label: 'Keep AC/DC' }
+    ])
+    expect(separatorArtistOptions('Alice / Bob')).toEqual([
+      { action: 'split', label: 'Alice & Bob' },
+      { action: 'keep', label: 'Keep Alice / Bob' }
+    ])
+    expect(separatorArtistOptions('Earth, Wind & Fire')).toEqual([
+      { action: 'split', label: 'Earth, Wind, Fire' },
+      { action: 'keep', label: 'Keep Earth, Wind & Fire' }
+    ])
+  })
+
+  it('applies separator choices across release and track credits', () => {
+    const release: Release = {
+      albumArtist: 'Bach, Jean Sebastian',
+      artists: [{ name: 'Bach, Jean Sebastian', role: 'composer' }],
+      tracks: [
+        {
+          title: 'Prelude',
+          artists: [
+            { name: 'Orchestra', role: 'main' },
+            { name: 'Bach, Jean Sebastian', role: 'composer' }
+          ]
+        }
+      ]
+    }
+    expect(pendingSeparatorArtists(release)).toEqual(['Bach, Jean Sebastian'])
+    expect(applySeparatorArtistAction(release, 'Bach, Jean Sebastian', 'reorder')).toEqual({
+      albumArtist: 'Jean Sebastian Bach',
+      artists: [{ name: 'Jean Sebastian Bach', role: 'composer' }],
+      tracks: [
+        {
+          title: 'Prelude',
+          artists: [
+            { name: 'Orchestra', role: 'main' },
+            { name: 'Jean Sebastian Bach', role: 'composer' }
+          ]
+        }
+      ]
+    })
+    expect(applySeparatorArtistAction(release, 'Bach, Jean Sebastian', 'split').artists).toEqual([
+      { name: 'Jean Sebastian', role: 'composer' },
+      { name: 'Bach', role: 'composer' }
+    ])
+    const kept = applySeparatorArtistAction(release, 'Bach, Jean Sebastian', 'keep')
+    expect(kept.artists).toEqual([
+      { name: 'Bach, Jean Sebastian', role: 'composer', separatorKept: true }
+    ])
+    expect(pendingSeparatorArtists(kept)).toEqual([])
+    expect(keepSeparatorArtists([{ name: 'AC/DC', role: 'main' }])).toEqual([
+      { name: 'AC/DC', role: 'main', separatorKept: true }
+    ])
   })
 })

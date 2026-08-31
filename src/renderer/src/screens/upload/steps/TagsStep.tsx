@@ -14,6 +14,7 @@ import {
   displayValueLines,
   editorTrackValue,
   editorValue,
+  artistCreditIsPending,
   fieldDisplayName,
   fieldEditable,
   fieldMultiline,
@@ -27,6 +28,7 @@ import { Button, Callout, IconButton, Spinner, StatusDot } from '../../../ui'
 import { Toggle } from '../../../components/Toggle'
 import { Select } from '../../../components/Select'
 import { ArtistsEditor } from '../ArtistsEditor'
+import { SeparatorArtistBanner } from '../SeparatorArtistBanner'
 
 export function TagsStep(props: {
   state: UploadFlowStateJSON
@@ -141,6 +143,13 @@ export function TagsStep(props: {
       </Show>
 
       <Show when={props.state.tags.releaseStatus !== 'loading'}>
+        <SeparatorArtistBanner
+          release={props.state.tags.proposed}
+          onResolve={(next) => {
+            props.onCancelEdit()
+            void window.gravlax.upload.updateTagsProposed(next)
+          }}
+        />
         <div class="tags-table-wrap">
           <table class="tags-table">
           <thead>
@@ -160,8 +169,16 @@ export function TagsStep(props: {
                 const changed = (): boolean => !textValueLinesEqual(current(), proposed())
                 const editing = (): boolean =>
                   props.editingTrackIndex == null && props.editingField === field
+                const separatorPending = (): boolean =>
+                  field === FIELD_ARTISTS &&
+                  (props.state.tags.proposed?.artists ?? []).some(artistCreditIsPending)
                 return (
-                  <tr class={changed() ? 'tags-row-changed' : ''}>
+                  <tr
+                    classList={{
+                      'tags-row-changed': changed(),
+                      'tags-row-separator-pending': separatorPending()
+                    }}
+                  >
                     <td class="tags-field-name">
                       <div class="tags-field-label">
                         <span class="tags-change-slot" aria-hidden={!changed()}>
@@ -278,8 +295,16 @@ export function TagsStep(props: {
                           const editing = (): boolean =>
                             props.editingTrackIndex === trackIndex &&
                             props.editingField === field
+                          const separatorPending = (): boolean =>
+                            field === FIELD_ARTISTS &&
+                            (proposedTrack()?.artists ?? []).some(artistCreditIsPending)
                           return (
-                            <tr class={changed() ? 'tags-row-changed' : ''}>
+                            <tr
+                              classList={{
+                                'tags-row-changed': changed(),
+                                'tags-row-separator-pending': separatorPending()
+                              }}
+                            >
                               <td class="tags-field-name">
                                 <div class="tags-field-label">
                                   <span class="tags-change-slot" aria-hidden={!changed()}>

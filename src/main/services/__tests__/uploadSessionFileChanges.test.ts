@@ -250,6 +250,21 @@ describe('UploadSessionFileChanges folder renames', () => {
     expect(mocks.applyTagsAndRenames).not.toHaveBeenCalled()
   })
 
+  it('does not apply tags while an artist name still needs a separator choice', async () => {
+    const { service, getState } = setup()
+    getState().tags.proposed = {
+      title: 'New Album',
+      artists: [{ name: 'Bach, Jean Sebastian', role: 'composer' }],
+      tracks: [{ title: 'Track' }]
+    }
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({
+      ok: false,
+      error: 'Choose how to read artist names that contain separators.'
+    })
+    expect(mocks.applyTagsAndRenames).not.toHaveBeenCalled()
+  })
+
   it('keeps a successful restore current after it restores the folder name', async () => {
     const test = setup()
     await test.service.applyTagsAndNames(true)

@@ -211,13 +211,11 @@ function parseRoleCreditValues(values: string[], role: string): Artist[] {
   const artists: Artist[] = []
   const seen = new Set<string>()
   for (const value of values) {
-    for (const rawName of value.split(/[;/]/)) {
-      const name = rawName.trim()
-      const key = artistNameKey(name)
-      if (!key || seen.has(key)) continue
-      seen.add(key)
-      artists.push({ name, role })
-    }
+    const name = value.trim()
+    const key = artistNameKey(name)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    artists.push({ name, role })
   }
   return artists
 }

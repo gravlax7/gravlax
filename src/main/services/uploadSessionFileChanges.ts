@@ -21,6 +21,7 @@ import {
   setTagsProposed,
   type State
 } from '@main/core/uploadflow'
+import { pendingSeparatorArtists } from '@shared/tags/editor'
 import { buildFilesRenamePlan } from '@shared/upload/naming'
 import {
   applyTagsAndRenames as writeTagsAndRenames,
@@ -96,6 +97,9 @@ export class UploadSessionFileChanges {
       const release = state.tags.proposed
       const workspacePath = state.draft.workspacePath
       if (!workspacePath || !release) return this.fail('Tags are not ready.')
+      if (pendingSeparatorArtists(release).length > 0) {
+        return { ok: false, error: 'Choose how to read artist names that contain separators.' }
+      }
       stillCurrent = this.context.createWorkspaceGuard(workspacePath)
       const plan = buildFilesRenamePlan({
         release,

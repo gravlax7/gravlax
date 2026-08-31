@@ -174,7 +174,7 @@ describe('tag and filename writes', () => {
 
       const extracted = await extractAlbumReleaseWithEmbeddedCoverArt(source)
       expect(extracted.release.tracks?.[0]?.artists).toEqual([
-        { name: 'Adele', role: 'main' },
+        { name: 'Adele, Maestro', role: 'main' },
         { name: 'Adele', role: 'composer' },
         { name: 'Bach, Johann Sebastian', role: 'composer' },
         { name: 'Maestro', role: 'conductor' }

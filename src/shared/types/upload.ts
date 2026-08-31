@@ -67,6 +67,7 @@ export const ARTIST_ROLE_PRESETS = [
 export interface Artist {
   name?: string
   role?: string
+  separatorKept?: boolean
 }
 
 export interface Track {

@@ -41,7 +41,7 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
     expect(result.release.mixed?.genres).toBe(true)
   })
 
-  it('reads composer and conductor comments without splitting names on commas or ampersands', async () => {
+  it('reads composer and conductor comments without splitting names on separators', async () => {
     const path = await writeTestFlac([
       'ALBUM=Classics',
       'ALBUMARTIST=Orchestra',
@@ -58,9 +58,7 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
       { name: 'Orchestra', role: 'main' },
       { name: 'Bach, Johann Sebastian', role: 'composer' },
       { name: 'Earth, Wind & Fire', role: 'composer' },
-      { name: 'Writer One', role: 'composer' },
-      { name: 'Writer Two', role: 'composer' },
-      { name: 'Writer Three', role: 'composer' },
+      { name: 'Writer One; Writer Two / Writer Three', role: 'composer' },
       { name: 'Maestro', role: 'conductor' }
     ])
     expect(result.release.artists).toContainEqual({
@@ -72,7 +70,8 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
 
   it('drops a conductor main duplicate when another main remains', async () => {
     const path = await writeTestFlac([
-      'ARTIST=Orchestra & Maestro',
+      'ARTIST=Orchestra',
+      'ARTIST=Maestro',
       'CONDUCTOR=Maestro'
     ], 0)
 

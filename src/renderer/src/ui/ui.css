@@ -1630,6 +1630,63 @@ button.toggle.toggle-on .toggle-thumb {
   font-size: var(--text-sm);
 }
 
+.tags-separator-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.tags-separator-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.tags-separator-icon {
+  margin-top: 1px;
+  color: var(--info);
+}
+
+.tags-separator-headline {
+  font-weight: var(--weight-semibold);
+}
+
+.tags-separator-hint {
+  margin-top: 2px;
+  color: var(--fg-secondary);
+  font-size: var(--text-sm);
+}
+
+.tags-separator-list {
+  display: grid;
+  grid-template-columns: fit-content(45%) 1fr;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.tags-separator-row {
+  display: contents;
+}
+
+.tags-separator-name {
+  justify-self: start;
+  min-width: 0;
+  color: var(--fg-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.tags-separator-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tags-row-separator-pending {
+  background: var(--bg-hover);
+}
+
 .filenames-section {
   display: flex;
   flex-direction: column;

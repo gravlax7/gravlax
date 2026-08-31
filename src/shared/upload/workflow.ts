@@ -1,4 +1,5 @@
 import type { BackgroundTask, StepID, TagsSnapshot, UploadFlowStateJSON } from '../types/upload'
+import { pendingSeparatorArtists } from '../tags/editor'
 import { WORKFLOW_STEPS, type WorkflowStep } from './steps'
 
 export { WORKFLOW_STEPS, type WorkflowStep } from './steps'
@@ -48,7 +49,9 @@ export function highestReachableStep(state: UploadFlowStateJSON): number {
     highest = Math.max(highest, index('tags'))
   }
   if (hasProposedTags(state.tags) || state.tags.releaseStatus === 'ready') {
-    highest = Math.max(highest, index('transcode'))
+    if (pendingSeparatorArtists(state.tags.proposed).length === 0) {
+      highest = Math.max(highest, index('transcode'))
+    }
   }
 
   const phase = state.transcode.phase
@@ -103,6 +106,14 @@ export function evaluateStepNavigation(
   const tagsStep = workflowStepIndex('tags') ?? WORKFLOW_STEPS.length
   if (goingForward && state.currentStep < tagsStep && targetIndex >= tagsStep && !state.metadata.selected) {
     return { ok: false, error: 'Choose a metadata source before opening Tags & Filenames.' }
+  }
+  const transcodeStep = workflowStepIndex('transcode') ?? WORKFLOW_STEPS.length
+  if (
+    goingForward &&
+    targetIndex >= transcodeStep &&
+    pendingSeparatorArtists(state.tags.proposed).length > 0
+  ) {
+    return { ok: false, error: 'Choose how to read artist names that contain separators.' }
   }
   // Seed is the one step a user cannot revisit on the strength of having been
   // there before: it needs a submitted upload every time.

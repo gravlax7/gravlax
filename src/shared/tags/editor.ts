@@ -418,8 +418,16 @@ export function parseArtists(lines: string[]): Artist[] {
   return artists
 }
 
-const artistSplitPattern = /\s*(?:,|;|\/|&|\band\b|\bfeat(?:\.|uring)?\b|\bft\.?\b|\bvs\.?\b)\s*/gi
 const artistFeatPattern = /\s*[([{]?\s*(?:feat(?:\.|uring)?|ft\.?)\s+/i
+const listSeparatorTest = /[,;/&]|\band\b|\bvs\.?\b/i
+const otherListSeparatorTest = /[;/&]|\band\b|\bvs\.?\b/i
+
+export type SeparatorArtistAction = 'split' | 'reorder' | 'keep'
+
+export interface SeparatorArtistOption {
+  action: SeparatorArtistAction
+  label: string
+}
 
 export function parseArtistCreditValues(values: string[]): Artist[] {
   const artists: Artist[] = []
@@ -428,21 +436,22 @@ export function parseArtistCreditValues(values: string[]): Artist[] {
     const value = raw.trim()
     if (!value) continue
     const parts = value.split(artistFeatPattern)
-    const mainArtists = splitArtistCreditNames(parts[0] ?? '')
-    for (const name of mainArtists) {
-      const key = `${artistNameKey(name)}\0${DEFAULT_ARTIST_ROLE}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      artists.push({ name, role: DEFAULT_ARTIST_ROLE })
+    const mainName = cleanArtistCreditName(parts[0] ?? '')
+    if (mainName) {
+      const key = `${artistNameKey(mainName)}\0${DEFAULT_ARTIST_ROLE}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        artists.push({ name: mainName, role: DEFAULT_ARTIST_ROLE })
+      }
     }
     if (parts.length < 2) continue
     for (let i = 1; i < parts.length; i++) {
-      for (const name of splitArtistCreditNames(parts[i] ?? '')) {
-        const key = `${artistNameKey(name)}\0guest`
-        if (seen.has(key)) continue
-        seen.add(key)
-        artists.push({ name, role: 'guest' })
-      }
+      const name = cleanArtistCreditName(parts[i] ?? '')
+      if (!name) continue
+      const key = `${artistNameKey(name)}\0guest`
+      if (seen.has(key)) continue
+      seen.add(key)
+      artists.push({ name, role: 'guest' })
     }
   }
   return artists
@@ -460,12 +469,11 @@ export function featuredArtistsFromTitle(title: string): Artist[] {
   const names: string[] = []
   const seen = new Set<string>()
   for (const match of title.matchAll(titleFeatPattern)) {
-    for (const name of splitArtistCreditNames(match[1] ?? '')) {
-      const key = artistNameKey(name)
-      if (seen.has(key)) continue
-      seen.add(key)
-      names.push(name)
-    }
+    const name = cleanArtistCreditName(match[1] ?? '')
+    const key = artistNameKey(name)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    names.push(name)
   }
   return names.map((name) => ({ name, role: 'guest' }))
 }
@@ -506,23 +514,139 @@ export function applyFeaturedArtistsFromTitle(track: Track): Track {
   }
 }
 
-function splitArtistCreditNames(value: string): string[] {
-  value = value.trim()
-  if (!value) return []
-  const parts = value.split(artistSplitPattern)
-  const names: string[] = []
-  for (const part of parts) {
-    const trimmed = cleanArtistCreditName(part)
-    if (trimmed) names.push(trimmed)
-  }
-  return uniqueStringsStable(names)
-}
-
 function cleanArtistCreditName(value: string): string {
   return value
     .replace(/^[(\[{]+/, '')
     .replace(/[)\]}]+$/, '')
     .trim()
+}
+
+export function artistNameHasListSeparator(name: string): boolean {
+  return listSeparatorTest.test(name)
+}
+
+export function artistCreditIsPending(artist: Artist): boolean {
+  if (artist.separatorKept) return false
+  return artistNameHasListSeparator(artist.name ?? '')
+}
+
+export function pendingSeparatorArtists(release: Release | undefined): string[] {
+  if (!release) return []
+  const names: string[] = []
+  const seen = new Set<string>()
+  const consider = (artists: Artist[] | undefined): void => {
+    for (const artist of artists ?? []) {
+      if (!artistCreditIsPending(artist)) continue
+      const name = (artist.name ?? '').trim()
+      const key = artistNameKey(name)
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      names.push(name)
+    }
+  }
+  consider(release.artists)
+  for (const track of release.tracks ?? []) consider(track.artists)
+  return names
+}
+
+export function keepSeparatorArtists(artists: Artist[]): Artist[] {
+  return artists.map((artist) => {
+    if (!artistCreditIsPending(artist)) return artist
+    return { ...artist, separatorKept: true }
+  })
+}
+
+export function separatorArtistOptions(name: string): SeparatorArtistOption[] {
+  const parts = splitListSeparatorParts(name)
+  const options: SeparatorArtistOption[] = []
+  if (parts.length >= 2) {
+    if (isCommaOnlyName(name)) {
+      const swapped = [parts[1]!, parts[0]!]
+      options.push({ action: 'split', label: joinOptionNames(swapped) })
+      options.push({ action: 'reorder', label: `${parts[1]} ${parts[0]}` })
+    } else {
+      options.push({ action: 'split', label: joinOptionNames(parts) })
+    }
+  }
+  options.push({ action: 'keep', label: `Keep ${name}` })
+  return options
+}
+
+export function applySeparatorArtistAction(
+  release: Release,
+  rawName: string,
+  action: SeparatorArtistAction
+): Release {
+  const next = cloneRelease(release)
+  const key = artistNameKey(rawName)
+  const replace = (artists: Artist[] | undefined): Artist[] | undefined => {
+    if (!artists) return artists
+    const out: Artist[] = []
+    const seen = new Set<string>()
+    for (const artist of artists) {
+      const replacements =
+        artistNameKey(artist.name ?? '') === key
+          ? replacementArtists(artist, action)
+          : [artist]
+      for (const item of replacements) {
+        const itemKey = `${artistNameKey(item.name ?? '')}\0${normalizeArtistRole(item.role ?? '')}`
+        if (seen.has(itemKey)) continue
+        seen.add(itemKey)
+        out.push(item)
+      }
+    }
+    return out
+  }
+  next.artists = replace(next.artists)
+  if (next.tracks) {
+    next.tracks = next.tracks.map((track) => ({
+      ...track,
+      artists: replace(track.artists)
+    }))
+  }
+  if (artistNameKey(next.albumArtist ?? '') === key) {
+    if (action === 'reorder') {
+      const parts = splitListSeparatorParts(rawName)
+      next.albumArtist = parts.length === 2 ? `${parts[1]} ${parts[0]}` : rawName
+    } else if (action === 'split') {
+      next.albumArtist = deriveAlbumArtist(next.artists ?? [])
+    }
+  }
+  return next
+}
+
+function isCommaOnlyName(name: string): boolean {
+  const commaCount = (name.match(/,/g) ?? []).length
+  return commaCount === 1 && !otherListSeparatorTest.test(name)
+}
+
+function splitListSeparatorParts(name: string): string[] {
+  return name
+    .split(/\s*(?:,|;|\/|&|\band\b|\bvs\.?\b)\s*/gi)
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+function joinOptionNames(names: string[]): string {
+  if (names.length === 2) return `${names[0]} & ${names[1]}`
+  return names.join(', ')
+}
+
+function replacementArtists(artist: Artist, action: SeparatorArtistAction): Artist[] {
+  const name = artist.name ?? ''
+  const role = artist.role
+  if (action === 'keep') {
+    return [{ name, role, separatorKept: true }]
+  }
+  const parts = splitListSeparatorParts(name)
+  if (parts.length < 2) {
+    return [{ name, role, separatorKept: true }]
+  }
+  if (action === 'reorder') {
+    return [{ name: `${parts[1]} ${parts[0]}`, role }]
+  }
+  const splitParts = isCommaOnlyName(name) ? [parts[1]!, parts[0]!] : parts
+  return splitParts.map((part) => ({ name: part, role }))
 }
 
 export function formatArtists(artists: Artist[]): string[] {

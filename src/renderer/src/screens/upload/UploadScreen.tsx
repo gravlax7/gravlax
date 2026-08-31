@@ -16,7 +16,9 @@ import {
   fieldEditable,
   formatArtists,
   hasNamedMainArtist,
+  keepSeparatorArtists,
   normalizeArtistRole,
+  pendingSeparatorArtists,
   setFieldEditorValue,
   setTrackFieldEditorValue
 } from '@shared/tags/editor'
@@ -225,6 +227,17 @@ export function UploadScreen(props: {
               field,
               editValue()
             )
+    if (field === FIELD_ARTISTS) {
+      if (trackIndex == null) {
+        next.artists = keepSeparatorArtists(next.artists ?? [])
+      } else if (next.tracks?.[trackIndex]) {
+        const track = next.tracks[trackIndex]
+        next.tracks[trackIndex] = {
+          ...track,
+          artists: keepSeparatorArtists(track.artists ?? [])
+        }
+      }
+    }
     void window.gravlax.upload.updateTagsProposed(next)
     setEditingField(null)
     setEditingTrackIndex(null)
@@ -502,7 +515,8 @@ export function UploadScreen(props: {
                 (stepId() === 'tags' &&
                   (props.state.tags.releaseStatus === 'loading' ||
                     props.state.files.apply.phase === 'applying' ||
-                    props.state.files.apply.phase === 'restoring'))
+                    props.state.files.apply.phase === 'restoring' ||
+                    pendingSeparatorArtists(props.state.tags.proposed).length > 0))
               }
               onClick={() => {
                 if (stepId() === 'seed') {

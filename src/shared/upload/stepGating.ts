@@ -4,6 +4,7 @@ import type {
   TranscodeSnapshot,
   UploadFlowStateJSON
 } from '../types/upload'
+import { pendingSeparatorArtists } from '../tags/editor'
 import {
   WORKFLOW_STEPS,
   evaluateStepNavigation,
@@ -43,6 +44,8 @@ export function stepHasError(index: number, state: UploadFlowStateJSON): boolean
       return taskById(state.background.tasks, 'spectrals')?.status === 'failed'
     case 'metadata':
       return taskById(state.background.tasks, 'metadata')?.status === 'failed'
+    case 'tags':
+      return pendingSeparatorArtists(state.tags.proposed).length > 0
     case 'transcode':
       return state.transcode?.phase === 'failed' || Boolean(state.transcode?.error)
     case 'upload':

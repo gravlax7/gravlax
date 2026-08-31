@@ -15,7 +15,6 @@ const BRACKETED_CATNO_PREFIX_RE =
 const TITLE_ARTIST_PREFIX_RE = /^(?<artist>.+?)\s+-\s+(?<title>.+)$/
 const TRACK_SIDE_PREFIX_RE = /^(?<prefix>[A-Z]{1,3}\d{1,2}[A-Z]?)\s+(?<artist>.+)$/i
 const RE_FEAT = / [([{]?(?:f(?:ea)?t(?:uring)?\.?|with\.) ([^)\]}]+)[)\]}]?/i
-const ARTIST_SPLIT_RE = / \\ |\/|; | & |, /
 
 export type BandcampReleaseID = [host: string, type: 'album' | 'track', slug: string]
 
@@ -481,10 +480,8 @@ function stripTrackSidePrefix(trackArtists: string): string {
 }
 
 function splitArtistNames(value: string): string[] {
-  return value
-    .split(ARTIST_SPLIT_RE)
-    .map((part) => part.trim())
-    .filter(Boolean)
+  const name = value.trim()
+  return name ? [name] : []
 }
 
 function textOf(element: HTMLElement | null): string {
