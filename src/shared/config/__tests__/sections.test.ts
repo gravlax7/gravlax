@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CONFIG_SECTION_IDS } from '@shared/types/config'
 import { THEME_PREFERENCES } from '@shared/theme'
-import { UPLOAD_TRACKER_IDS } from '@shared/trackers'
+import { UPLOAD_TRACKER_IDS, trackerName } from '@shared/trackers'
 import { SPECTRAL_SELECTION_OPTIONS } from '@shared/upload/spectralIds'
 import { sections } from '../sections'
 
@@ -38,6 +38,13 @@ describe('settings sections', () => {
         `${id}.sessionCookie`,
         `${id}.coverImageHost`
       ])
+      const site = fields.find((field) => field.name === `${id}.siteUrl`)
+      const announce = fields.find((field) => field.name === `${id}.announceUrl`)
+      expect(site).toMatchObject({ type: 'host', label: `${trackerName(id)} site host` })
+      expect(announce).toMatchObject({
+        type: 'host',
+        label: `${trackerName(id)} announce host`
+      })
     }
   })
 })

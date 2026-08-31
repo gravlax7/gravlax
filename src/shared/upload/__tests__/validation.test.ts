@@ -146,8 +146,8 @@ describe('prepared transcode validation', () => {
 function configWith(overrides: Partial<Record<'redacted' | 'orpheus', Partial<TrackerConfig>>>): Config {
   const tracker = (patch: Partial<TrackerConfig> = {}): TrackerConfig => ({
     enabled: true,
-    siteUrl: 'https://site.example',
-    announceUrl: 'https://announce.example',
+    siteUrl: 'site.example',
+    announceUrl: 'announce.example',
     apiKey: '',
     sessionCookie: '',
     coverImageHost: '',
@@ -155,8 +155,14 @@ function configWith(overrides: Partial<Record<'redacted' | 'orpheus', Partial<Tr
   })
   return {
     trackers: {
-      redacted: tracker(overrides.redacted),
-      orpheus: tracker(overrides.orpheus)
+      redacted: tracker({ coverImageHost: 'catbox', ...overrides.redacted }),
+      orpheus: tracker({ coverImageHost: 'catbox', ...overrides.orpheus })
+    },
+    imageHosts: {
+      thesungod: { enabled: false, apiKey: '' },
+      imgbb: { enabled: false, apiKey: '' },
+      catbox: { enabled: true },
+      redacted: { enabled: false }
     }
   } as unknown as Config
 }
@@ -240,6 +246,49 @@ describe('validateUploadTargets', () => {
         cfg
       )
     ).toBeNull()
+  })
+
+  it('requires an enabled cover image host for every upload target', () => {
+    expect(
+      validateUploadTargets(
+        { ...validUpload(), selectedTrackerIds: ['redacted'], releaseType: 'Album' },
+        configWith({
+          redacted: { apiKey: 'k', sessionCookie: 'c', coverImageHost: '' }
+        })
+      )
+    ).toBe('Redacted: select an enabled cover image host in Settings.')
+
+    expect(
+      validateUploadTargets(
+        { ...validUpload(), selectedTrackerIds: ['redacted'], releaseType: 'Album' },
+        configWith({
+          redacted: { apiKey: 'k', sessionCookie: 'c', coverImageHost: 'imgbb' }
+        })
+      )
+    ).toBe('Redacted: select an enabled cover image host in Settings.')
+  })
+
+  it('only requires a cover host for pending retry targets', () => {
+    const upload = {
+      ...validUpload(),
+      selectedTrackerIds: ['redacted', 'orpheus'] as UploadSnapshot['selectedTrackerIds'],
+      releaseType: 'Album',
+      submissions: [
+        {
+          id: 'redacted:source',
+          trackerId: 'redacted' as const,
+          formatId: 'source',
+          label: 'Redacted',
+          status: 'done' as const
+        }
+      ]
+    }
+    const cfg = configWith({
+      redacted: { apiKey: 'k', sessionCookie: 'c', coverImageHost: '' },
+      orpheus: { apiKey: 'k', sessionCookie: 'c' }
+    })
+
+    expect(validateUploadTargets(upload, cfg, pendingUploadTrackerIds(upload))).toBeNull()
   })
 
   it('surfaces the missing session credential before release details', () => {

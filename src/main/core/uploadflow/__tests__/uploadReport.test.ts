@@ -421,7 +421,8 @@ describe('cover image report work', () => {
     cfg.imageHosts.redacted.enabled = true
     cfg.imageHosts.thesungod.enabled = true
     cfg.imageHosts.thesungod.apiKey = 'ra-key'
-    cfg.trackers.redacted.siteUrl = 'https://redacted.example'
+    cfg.trackers.redacted.siteUrl = 'redacted.example'
+    cfg.trackers.redacted.announceUrl = 'announce.redacted.example'
     cfg.trackers.redacted.apiKey = 'red-key'
     cfg.trackers.redacted.coverImageHost = 'redacted'
     cfg.trackers.orpheus.coverImageHost = 'thesungod'
@@ -515,7 +516,8 @@ describe('cover image report work', () => {
       redacted: { host: 'imgbb', url: 'https://i.ibb.co/old.jpg' }
     }
     await expect(hostCoverImagesForSubmit(state, cfg, ['redacted'])).resolves.toEqual({
-      hostedCoverImages: {}
+      hostedCoverImages: {},
+      error: 'Redacted has no cover image host selected.'
     })
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })

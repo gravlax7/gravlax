@@ -1,4 +1,5 @@
 import type { Config } from '@shared/types/config'
+import { isValidCoverImageHost } from '@shared/config/imageHosts'
 import {
   TRACKER_AUTH_MODES,
   trackerName,
@@ -171,6 +172,11 @@ export function validateUploadTargets(
 
     const credentials = preflightTracker(cfg, trackerId)
     if (credentials) return credentials
+
+    const coverImageHost = cfg.trackers[trackerId].coverImageHost.trim()
+    if (!coverImageHost || !isValidCoverImageHost(cfg, trackerId, coverImageHost)) {
+      return `${trackerName(trackerId)}: select an enabled cover image host in Settings.`
+    }
 
     // Only a new group carries a release type; joining an existing one does not.
     const releaseType = effectiveReleaseType(upload, trackerId)

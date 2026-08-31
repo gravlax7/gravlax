@@ -9,6 +9,7 @@ import {
   validate
 } from '@main/core/config'
 import { diagnosticError, logDiagnostic } from '@main/core/diagnosticLog'
+import { normalizeTrackerHosts } from '@shared/config/trackers'
 
 export class ConfigService {
   private cfg: Config = defaultConfig()
@@ -38,7 +39,7 @@ export class ConfigService {
   }
 
   async save(cfg: Config): Promise<{ ok: true } | { ok: false; issues: ValidationIssue[] }> {
-    const normalized = structuredClone(cfg)
+    const normalized = normalizeTrackerHosts(cfg)
     normalized.tools = normalizeTools(cfg.tools, cfg.tools)
     const issues = validate(normalized)
     if (issues.length > 0) {
@@ -55,6 +56,29 @@ export class ConfigService {
     this.revision += 1
     logDiagnostic('config_save_complete', { configRevision: this.revision })
     return { ok: true }
+  }
+
+  /**
+   * Applies a trusted startup change before trying to persist it.
+   * If the write fails, the running app still uses the new form and retries on
+   * the next launch because the old file remains on disk.
+   */
+  async applyStartupUpdate(update: (cfg: Config) => Config): Promise<boolean> {
+    await this.ensureLoaded()
+    const current = this.get()
+    const next = update(current)
+    if (JSON.stringify(next) === JSON.stringify(current)) return false
+
+    this.cfg = structuredClone(next)
+    this.revision += 1
+    try {
+      await saveConfig(this.path, this.cfg)
+    } catch (error) {
+      logDiagnostic('config_startup_update_failed', diagnosticError(error))
+      throw error
+    }
+    logDiagnostic('config_startup_update_complete', { configRevision: this.revision })
+    return true
   }
 
   reset(section: SectionID): Config {

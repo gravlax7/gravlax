@@ -14,6 +14,8 @@ import {
   diagnosticLogPath,
   trackerDiagnosticReport
 } from './core/diagnosticLog'
+import { runStartupTasks } from './core/startup/runner'
+import { STARTUP_TASKS } from './core/startup/tasks'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -110,8 +112,11 @@ app.whenReady().then(async () => {
     }
   })
 
-  const configService = new ConfigService(app.getPath('userData'))
+  const userDataPath = app.getPath('userData')
+  const appVersion = app.getVersion()
+  const configService = new ConfigService(userDataPath)
   await configService.ensureLoaded()
+  await runStartupTasks(STARTUP_TASKS, { appVersion, userDataPath, configService })
   const toolResolver = new SystemToolResolver(() => configService.get().tools)
   const send = (channel: string, payload: unknown): void => {
     if (!mainWindow || mainWindow.isDestroyed()) return

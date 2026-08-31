@@ -6,6 +6,7 @@ import {
   sanitizeCoverImageHosts
 } from '@shared/config/imageHosts'
 import { canEnableRedactedImageHost } from '@shared/config/trackers'
+import { normalizeTrackerHost } from '@shared/config/network'
 import { normalizePath } from './paths'
 
 export {
@@ -291,6 +292,12 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
 }
 
 function normalizeFieldString(section: SectionID, field: string, value: string): string {
+  if (
+    section === 'trackers' &&
+    (field.endsWith('.siteUrl') || field.endsWith('.announceUrl'))
+  ) {
+    return normalizeTrackerHost(value)
+  }
   if (isPathField(section, field)) {
     return normalizePath(value)
   }

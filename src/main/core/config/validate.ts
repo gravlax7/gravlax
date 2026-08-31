@@ -10,7 +10,7 @@ import {
   enabledSpectralImageHostOptions,
   isValidCoverImageHost
 } from '@shared/config/imageHosts'
-import { isHTTPSURL, isSafeQBittorrentURL } from '@shared/config/network'
+import { isSafeQBittorrentURL, isTrackerHost } from '@shared/config/network'
 import { canEnableRedactedImageHost } from '@shared/config/trackers'
 import { listDescriptionTemplateIds } from '@shared/upload/templates'
 import { SPECTRAL_SELECTION_OPTIONS } from '@shared/upload/spectralIds'
@@ -214,37 +214,31 @@ function oneOf(value: string, ...options: string[]): boolean {
   return options.includes(value)
 }
 
-function normalizeTrackerUrl(value: string): string {
-  return value.trim().replace(/\/+$/, '')
-}
-
 function validateTracker(
   tracker: TrackerConfig,
   prefix: UploadTrackerId,
   label: string,
   add: (section: SectionID, field: string, message: string) => void
 ): void {
-  if (!tracker.enabled) return
-
-  const siteUrl = normalizeTrackerUrl(tracker.siteUrl)
-  if (siteUrl === '') {
-    add('trackers', `${prefix}.siteUrl`, `${label} site URL is required when ${label} is enabled`)
-  } else if (!isHTTPSURL(siteUrl)) {
-    add('trackers', `${prefix}.siteUrl`, `${label} site URL must use HTTPS`)
+  const siteHost = tracker.siteUrl
+  if (tracker.enabled && siteHost === '') {
+    add('trackers', `${prefix}.siteUrl`, `${label} site host is required when ${label} is enabled`)
+  } else if (siteHost !== '' && !isTrackerHost(siteHost)) {
+    add('trackers', `${prefix}.siteUrl`, `${label} site host is invalid`)
   }
 
-  const announceUrl = normalizeTrackerUrl(tracker.announceUrl)
-  if (announceUrl === '') {
+  const announceHost = tracker.announceUrl
+  if (tracker.enabled && announceHost === '') {
     add(
       'trackers',
       `${prefix}.announceUrl`,
-      `${label} announce URL is required when ${label} is enabled`
+      `${label} announce host is required when ${label} is enabled`
     )
-  } else if (!isHTTPSURL(announceUrl)) {
-    add('trackers', `${prefix}.announceUrl`, `${label} announce URL must use HTTPS`)
+  } else if (announceHost !== '' && !isTrackerHost(announceHost)) {
+    add('trackers', `${prefix}.announceUrl`, `${label} announce host is invalid`)
   }
 
-  if (tracker.apiKey === '' && tracker.sessionCookie === '') {
+  if (tracker.enabled && tracker.apiKey === '' && tracker.sessionCookie === '') {
     add(
       'trackers',
       `${prefix}.apiKey`,

@@ -265,8 +265,8 @@ describe('config', () => {
           ...cfg.trackers.redacted,
           enabled: true,
           apiKey: 'key',
-          siteUrl: 'https://redacted.ch',
-          announceUrl: 'https://flacsfor.me'
+          siteUrl: 'redacted.example',
+          announceUrl: 'announce.example'
         }
       }
     }
@@ -274,21 +274,41 @@ describe('config', () => {
     expect(issues.some((i) => i.section === 'trackers')).toBe(false)
   })
 
-  it('requires HTTPS for enabled tracker URLs', () => {
+  it('requires canonical hosts for enabled trackers', () => {
     const cfg = defaultConfig()
     cfg.trackers.redacted = {
       ...cfg.trackers.redacted,
       enabled: true,
       apiKey: 'key',
       siteUrl: 'http://example.test',
-      announceUrl: 'https://example.test'
+      announceUrl: 'announce.example'
     }
 
     expect(validate(cfg)).toContainEqual({
       section: 'trackers',
       field: 'redacted.siteUrl',
-      message: 'Redacted site URL must use HTTPS'
+      message: 'Redacted site host is invalid'
     })
+  })
+
+  it('rejects an invalid host even while its tracker is disabled', () => {
+    const cfg = defaultConfig()
+    cfg.trackers.redacted.siteUrl = 'ftp://example.test'
+    expect(validate(cfg)).toContainEqual({
+      section: 'trackers',
+      field: 'redacted.siteUrl',
+      message: 'Redacted site host is invalid'
+    })
+  })
+
+  it('normalizes pasted tracker URLs when a host field is updated', () => {
+    const cfg = setFieldString(
+      defaultConfig(),
+      'trackers',
+      'redacted.announceUrl',
+      '  https://Announce.Example/private-passkey/announce  '
+    )
+    expect(cfg.trackers.redacted.announceUrl).toBe('announce.example')
   })
 
   it('loads legacy metadata provider keys and restores Discogs settings', () => {
@@ -420,8 +440,8 @@ describe('config', () => {
         redacted: {
           ...cfg.trackers.redacted,
           enabled: true,
-          siteUrl: 'https://redacted.example',
-          announceUrl: 'https://flacsfor.me',
+          siteUrl: 'redacted.example',
+          announceUrl: 'announce.redacted.example',
           apiKey: 'key'
         }
       },
@@ -438,8 +458,8 @@ describe('config', () => {
     cfg.trackers.redacted = {
       ...cfg.trackers.redacted,
       enabled: true,
-      siteUrl: 'https://redacted.example',
-      announceUrl: 'https://flacsfor.me',
+      siteUrl: 'redacted.example',
+      announceUrl: 'announce.redacted.example',
       sessionCookie: 'cookie'
     }
     cfg.imageHosts.redacted.enabled = true
@@ -459,15 +479,15 @@ describe('config', () => {
         redacted: {
           ...cfg.trackers.redacted,
           enabled: true,
-          siteUrl: 'https://redacted.example',
-          announceUrl: 'https://flacsfor.me',
+          siteUrl: 'redacted.example',
+          announceUrl: 'announce.redacted.example',
           apiKey: 'key'
         },
         orpheus: {
           ...cfg.trackers.orpheus,
           enabled: true,
-          siteUrl: 'https://orpheus.example',
-          announceUrl: 'https://home.opsfet.ch',
+          siteUrl: 'orpheus.example',
+          announceUrl: 'announce.orpheus.example',
           apiKey: 'key',
           coverImageHost: 'redacted'
         }
@@ -494,8 +514,8 @@ describe('config', () => {
         redacted: {
           ...cfg.trackers.redacted,
           enabled: true,
-          siteUrl: 'https://redacted.example',
-          announceUrl: 'https://flacsfor.me',
+          siteUrl: 'redacted.example',
+          announceUrl: 'announce.redacted.example',
           apiKey: 'key',
           coverImageHost: 'redacted'
         }
@@ -511,6 +531,23 @@ describe('config', () => {
     expect(
       issues.some((i) => i.section === 'trackers' && i.field === 'redacted.coverImageHost')
     ).toBe(false)
+  })
+
+  it('keeps the redacted cover host while old tracker URLs await migration', () => {
+    const cfg = mergeLoadedConfig({
+      trackers: {
+        redacted: {
+          enabled: true,
+          siteUrl: 'https://site.example/torrents.php',
+          announceUrl: 'https://announce.example/private-key/announce',
+          apiKey: 'key',
+          coverImageHost: 'redacted'
+        }
+      },
+      imageHosts: { redacted: { enabled: true } }
+    })
+
+    expect(cfg.trackers.redacted.coverImageHost).toBe('redacted')
   })
 
   it('clears invalid cover image hosts when loading config', () => {

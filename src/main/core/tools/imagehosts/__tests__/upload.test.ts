@@ -20,13 +20,13 @@ function cfg(): Config {
   c.imageHosts.catbox.enabled = false
   c.imageHosts.redacted.enabled = true
   c.trackers.redacted.enabled = true
-  c.trackers.redacted.siteUrl = 'https://redacted.example'
-  c.trackers.redacted.announceUrl = 'https://flacsfor.me'
+  c.trackers.redacted.siteUrl = 'redacted.example'
+  c.trackers.redacted.announceUrl = 'announce.redacted.example'
   c.trackers.redacted.apiKey = 'red-key'
   c.trackers.redacted.coverImageHost = 'imgbb'
   c.trackers.orpheus.enabled = true
-  c.trackers.orpheus.siteUrl = 'https://orpheus.example'
-  c.trackers.orpheus.announceUrl = 'https://home.opsfet.ch'
+  c.trackers.orpheus.siteUrl = 'orpheus.example'
+  c.trackers.orpheus.announceUrl = 'announce.orpheus.example'
   c.trackers.orpheus.apiKey = 'ops-key'
   c.trackers.orpheus.coverImageHost = 'thesungod'
   return c
@@ -125,14 +125,14 @@ describe('uploadImageToHost', () => {
     )
   })
 
-  it('rejects an HTTP redacted tracker before uploading credentials', async () => {
+  it('rejects an invalid redacted tracker host before uploading credentials', async () => {
     const c = cfg()
-    c.trackers.redacted.siteUrl = 'http://example.test'
+    c.trackers.redacted.siteUrl = 'ftp://example.test'
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(uploadImageToHost(c, 'redacted', '/tmp/unused-cover.jpg')).rejects.toThrow(
-      'RED image host requires a tracker HTTPS URL.'
+      'RED image host requires a valid tracker host.'
     )
     expect(fetchMock).not.toHaveBeenCalled()
   })

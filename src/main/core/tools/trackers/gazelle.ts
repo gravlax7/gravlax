@@ -5,7 +5,12 @@ import {
   logDiagnostic,
   responseKind
 } from '@main/core/diagnosticLog'
-import { isHTTPSURL } from '@shared/config/network'
+import {
+  isHTTPSURL,
+  isTrackerHost,
+  normalizeTrackerHost,
+  trackerHTTPSURL
+} from '@shared/config/network'
 import {
   extractHtmlErrorMessage,
   extractSiteUploadError,
@@ -58,10 +63,6 @@ interface HttpResult {
   url: string
   status: number
   headers: Headers
-}
-
-export function normalizeTrackerUrl(value: string): string {
-  return value.trim().replace(/\/+$/, '')
 }
 
 export function parseTorrentGroupIdFromUrl(url: string): number | null {
@@ -152,7 +153,7 @@ interface SiteRateLimiters {
 const rateLimitersBySite = new Map<string, SiteRateLimiters>()
 
 function rateLimitersForSite(siteUrl: string, rateLimits: TrackerRateLimits): SiteRateLimiters {
-  const key = normalizeTrackerUrl(siteUrl)
+  const key = siteUrl
   const existing = rateLimitersBySite.get(key)
   if (existing) return existing
   const created: SiteRateLimiters = {
@@ -192,8 +193,16 @@ export class GazelleClient {
   private authenticated = false
 
   constructor(options: GazelleClientOptions) {
-    this.siteUrl = normalizeTrackerUrl(options.siteUrl)
-    this.announceUrl = normalizeTrackerUrl(options.announceUrl)
+    const siteHost = normalizeTrackerHost(options.siteUrl)
+    const announceHost = normalizeTrackerHost(options.announceUrl)
+    if (options.siteUrl.trim() !== '' && !isTrackerHost(siteHost)) {
+      throw new TrackerRequestError('Tracker site host is invalid')
+    }
+    if (options.announceUrl.trim() !== '' && !isTrackerHost(announceHost)) {
+      throw new TrackerRequestError('Tracker announce host is invalid')
+    }
+    this.siteUrl = trackerHTTPSURL(siteHost)
+    this.announceUrl = trackerHTTPSURL(announceHost)
     assertHTTPSURL(this.siteUrl, 'site URL')
     assertHTTPSURL(this.announceUrl, 'announce URL')
     this.apiKey = options.apiKey

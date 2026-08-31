@@ -9,7 +9,11 @@ import {
   sanitizeCoverImageHosts
 } from '@shared/config/imageHosts'
 import { sections } from '@shared/config/sections'
-import { canEnableRedactedImageHost } from '@shared/config/trackers'
+import {
+  canEnableRedactedImageHost,
+  normalizeTrackerHosts
+} from '@shared/config/trackers'
+import { normalizeTrackerHost } from '@shared/config/network'
 import {
   descriptionTemplateName,
   listDescriptionTemplateIds
@@ -164,7 +168,9 @@ export function SettingsScreen(props: {
   }
 
   const save = async (): Promise<boolean> => {
-    const result = await window.gravlax.config.save(draft())
+    const normalized = normalizeTrackerHosts(draft())
+    setDraft(normalized)
+    const result = await window.gravlax.config.save(normalized)
     if (!result.ok) {
       setIssues(result.issues)
       const first = result.issues[0]
@@ -179,7 +185,7 @@ export function SettingsScreen(props: {
     }
     setIssues([])
     setDirty(false)
-    props.onChange(draft())
+    props.onChange(normalized)
     props.onNotify({ level: 'success', message: 'Settings saved.' })
     return true
   }
@@ -394,6 +400,19 @@ export function SettingsScreen(props: {
                           }
                           onChange={async (value) => {
                             const next = await applyField(draft(), current().id, field, value)
+                            markDirty(next)
+                          }}
+                          onBlur={async () => {
+                            if (field.type !== 'host') return
+                            const value = fieldValue(draft(), current().id, field)
+                            const normalized = normalizeTrackerHost(value)
+                            if (normalized === value) return
+                            const next = await applyField(
+                              draft(),
+                              current().id,
+                              field,
+                              normalized
+                            )
                             markDirty(next)
                           }}
                           onPickPath={async () => {
@@ -744,6 +763,7 @@ function FieldRow(props: {
   disabled?: boolean
   onReveal: () => void
   onChange: (value: string | boolean | number) => void
+  onBlur: () => void
   onPickPath: () => void
 }) {
   const label = (): string => {
@@ -889,6 +909,19 @@ function FieldRow(props: {
               onClick={props.onReveal}
             />
           </Show>
+        </div>
+      </Show>
+      <Show when={props.field.type === 'host'}>
+        <div class="settings-host-field">
+          <span class="mono">https://</span>
+          <input
+            class="mono"
+            value={props.value}
+            placeholder={props.field.placeholder}
+            disabled={props.disabled}
+            onInput={(e) => props.onChange(e.currentTarget.value)}
+            onBlur={props.onBlur}
+          />
         </div>
       </Show>
       <Show when={props.issue}>

@@ -48,8 +48,8 @@ function stubFetch(
 
 function client(overrides: Partial<ConstructorParameters<typeof GazelleClient>[0]> = {}) {
   return new GazelleClient({
-    siteUrl: 'https://example.test/',
-    announceUrl: 'https://announce.example.test/',
+    siteUrl: 'example.test',
+    announceUrl: 'announce.example.test',
     apiKey: '',
     sessionCookie: 'sess',
     releaseTypes: REDACTED_RELEASE_TYPES,
@@ -129,9 +129,9 @@ describe('encodeSessionCookie', () => {
 })
 
 describe('GazelleClient', () => {
-  it('rejects HTTP tracker URLs before sending credentials', () => {
-    expect(() => client({ siteUrl: 'http://example.test' })).toThrow(
-      'Tracker site URL must use HTTPS'
+  it('forces HTTPS when given an old HTTP tracker URL', () => {
+    expect(client({ siteUrl: 'http://example.test/path' }).siteUrl).toBe(
+      'https://example.test'
     )
   })
 })
@@ -144,7 +144,7 @@ describe('parseTorrentGroupIdFromUrl', () => {
 })
 
 describe('GazelleClient', () => {
-  it('authenticates via index and strips trailing slashes from URLs', async () => {
+  it('authenticates via index and builds HTTPS URLs from hosts', async () => {
     const calls: Array<{ url: string; headers: Headers | Record<string, string> | undefined }> = []
     stubFetch(async (input, init) => {
       calls.push({ url: input, headers: init?.headers as Headers })
@@ -168,6 +168,15 @@ describe('GazelleClient', () => {
     const headers = new Headers(calls[0]?.headers)
     expect(headers.get('Authorization')).toBe('api-key')
     expect(headers.get('User-Agent')).toBe(GAZELLE_USER_AGENT)
+  })
+
+  it('drops an old announce passkey path before adding the current passkey', async () => {
+    stubFetch(async () => okIndex())
+    const c = client({ announceUrl: 'https://announce.example.test/old-passkey/announce' })
+
+    await c.authenticate()
+
+    expect(c.announce).toBe('https://announce.example.test/pk/announce')
   })
 
   it('throws TrackerRequestError on failed envelope', async () => {

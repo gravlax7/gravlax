@@ -14,16 +14,16 @@ function config(): Config {
   cfg.trackers.redacted = {
     ...cfg.trackers.redacted,
     enabled: true,
-    siteUrl: 'https://redacted.example',
-    announceUrl: 'https://announce.redacted.example',
+    siteUrl: 'redacted.example',
+    announceUrl: 'announce.redacted.example',
     apiKey: 'redacted-key',
     sessionCookie: 'redacted-session'
   }
   cfg.trackers.orpheus = {
     ...cfg.trackers.orpheus,
     enabled: true,
-    siteUrl: 'https://orpheus.example',
-    announceUrl: 'https://announce.orpheus.example',
+    siteUrl: 'orpheus.example',
+    announceUrl: 'announce.orpheus.example',
     apiKey: 'orpheus-key',
     sessionCookie: 'orpheus-session'
   }
@@ -91,13 +91,13 @@ describe('previewBbcode', () => {
 
   it('does not fall back after an enabled Redacted request fails', async () => {
     const fetch = stubPreviewFetch((input) => ({
-      status: input.includes('redacted.example') ? 401 : 200,
-      text: input.includes('redacted.example') ? '{"error":"invalid key"}' : '<b>OPS</b>'
+      status: input.includes('https://redacted.example') ? 401 : 200,
+      text: input.includes('https://redacted.example') ? '{"error":"invalid key"}' : '<b>OPS</b>'
     }))
 
     await expect(previewBbcode(config(), 'x')).rejects.toThrow('Redacted preview failed')
     expect(fetch).toHaveBeenCalledTimes(1)
-    expect(String(fetch.mock.calls[0]?.[0])).toContain('redacted.example')
+    expect(String(fetch.mock.calls[0]?.[0])).toContain('https://redacted.example')
   })
 
   it('rejects a preview when no tracker is enabled', async () => {

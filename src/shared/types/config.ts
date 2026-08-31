@@ -29,7 +29,16 @@ export const COVER_IMAGE_HOST_IDS = [
 
 export type CoverImageHostId = (typeof COVER_IMAGE_HOST_IDS)[number]
 
-export type FieldType = 'bool' | 'string' | 'number' | 'enum' | 'path' | 'file' | 'url' | 'separator'
+export type FieldType =
+  | 'bool'
+  | 'string'
+  | 'number'
+  | 'enum'
+  | 'path'
+  | 'file'
+  | 'url'
+  | 'host'
+  | 'separator'
 
 export interface Config {
   appearance: AppearanceConfig

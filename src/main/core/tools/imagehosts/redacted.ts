@@ -1,12 +1,11 @@
 import path from 'node:path'
 import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
-import { isHTTPSURL } from '@shared/config/network'
-import { normalizeTrackerUrl } from '@main/core/tools/trackers/gazelle'
+import { isHTTPSURL, normalizeTrackerHost, trackerHTTPSURL } from '@shared/config/network'
 import { imageFileBlob } from './file'
 import { ImageHostUploadError, type ImageHostProvider } from './provider'
 
 function uploadUrl(siteUrl: string): string {
-  return `${normalizeTrackerUrl(siteUrl)}/ajax.php?action=upload_image`
+  return `${trackerHTTPSURL(siteUrl)}/ajax.php?action=upload_image`
 }
 
 export const redactedProvider: ImageHostProvider = {
@@ -14,10 +13,11 @@ export const redactedProvider: ImageHostProvider = {
 
   async upload(cfg, filePath) {
     const tracker = cfg.trackers.redacted
-    const siteUrl = normalizeTrackerUrl(tracker.siteUrl)
-    if (!siteUrl) return null
+    const siteHost = normalizeTrackerHost(tracker.siteUrl)
+    if (!siteHost) return null
+    const siteUrl = trackerHTTPSURL(siteHost)
     if (!isHTTPSURL(siteUrl)) {
-      throw new ImageHostUploadError('RED image host requires a tracker HTTPS URL.')
+      throw new ImageHostUploadError('RED image host requires a valid tracker host.')
     }
     const apiKey = tracker.apiKey.trim()
     if (!apiKey) {

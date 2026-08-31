@@ -29,7 +29,7 @@ import {
 import { downloadCoverIfNonexistent } from '@main/core/tools/upload/cover'
 import { uploadImageToHost } from '@main/core/tools/imagehosts/upload'
 import { artistRoleToImportance } from '@shared/upload/artists'
-import { isCoverImageHostId } from '@shared/config/imageHosts'
+import { isCoverImageHostId, isValidCoverImageHost } from '@shared/config/imageHosts'
 import { trackerEncoding } from '@shared/upload/encodings'
 import { emptyGroupIds } from '@shared/upload/groupIds'
 import type { State } from './state'
@@ -299,9 +299,10 @@ export async function hostCoverImagesForSubmit(
     const host = cfg.trackers[trackerId].coverImageHost.trim()
     if (!host) {
       delete hostedCoverImages[trackerId]
+      errors.push(`${trackerName(trackerId)} has no cover image host selected.`)
       continue
     }
-    if (!isCoverImageHostId(host)) {
+    if (!isCoverImageHostId(host) || !isValidCoverImageHost(cfg, trackerId, host)) {
       delete hostedCoverImages[trackerId]
       errors.push(`${trackerName(trackerId)} has an invalid cover image host: ${host}.`)
       continue

@@ -1,5 +1,15 @@
 import type { Config, TrackerConfig } from '@shared/types/config'
 import { UPLOAD_TRACKER_IDS, type UploadTrackerId } from '@shared/trackers'
+import { isTrackerHost, normalizeTrackerHost } from './network'
+
+export function normalizeTrackerHosts(cfg: Config): Config {
+  const next = structuredClone(cfg)
+  for (const id of UPLOAD_TRACKER_IDS) {
+    next.trackers[id].siteUrl = normalizeTrackerHost(next.trackers[id].siteUrl)
+    next.trackers[id].announceUrl = normalizeTrackerHost(next.trackers[id].announceUrl)
+  }
+  return next
+}
 
 export function anyTrackerEnabled(cfg: Config): boolean {
   return UPLOAD_TRACKER_IDS.some((id) => cfg.trackers[id].enabled)
@@ -11,7 +21,9 @@ export function enabledTrackerOptions(cfg: Config): UploadTrackerId[] {
 
 export function isTrackerConfigured(tracker: TrackerConfig): boolean {
   if (!tracker.enabled) return false
-  if (tracker.siteUrl.trim() === '' || tracker.announceUrl.trim() === '') return false
+  const siteHost = normalizeTrackerHost(tracker.siteUrl)
+  const announceHost = normalizeTrackerHost(tracker.announceUrl)
+  if (!isTrackerHost(siteHost) || !isTrackerHost(announceHost)) return false
   if (tracker.apiKey.trim() === '' && tracker.sessionCookie.trim() === '') return false
   return true
 }

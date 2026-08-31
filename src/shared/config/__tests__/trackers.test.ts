@@ -97,8 +97,8 @@ describe('trackers', () => {
       isTrackerConfigured({
         ...emptyTracker,
         enabled: true,
-        siteUrl: 'https://redacted.example',
-        announceUrl: 'https://flacsfor.me',
+        siteUrl: 'redacted.example',
+        announceUrl: 'announce.redacted.example',
         apiKey: 'key'
       })
     ).toBe(true)
@@ -106,8 +106,8 @@ describe('trackers', () => {
       isTrackerConfigured({
         ...emptyTracker,
         enabled: true,
-        siteUrl: 'https://redacted.example',
-        announceUrl: 'https://flacsfor.me',
+        siteUrl: 'redacted.example',
+        announceUrl: 'announce.redacted.example',
         sessionCookie: 'cookie'
       })
     ).toBe(true)
@@ -115,10 +115,22 @@ describe('trackers', () => {
       isTrackerConfigured({
         ...emptyTracker,
         enabled: true,
-        siteUrl: 'https://redacted.example',
-        announceUrl: 'https://flacsfor.me'
+        siteUrl: 'redacted.example',
+        announceUrl: 'announce.redacted.example'
       })
     ).toBe(false)
+  })
+
+  it('accepts old HTTP URLs until startup migration cleans them', () => {
+    expect(
+      isTrackerConfigured({
+        ...emptyTracker,
+        enabled: true,
+        siteUrl: ' https://site.example/torrents.php ',
+        announceUrl: 'https://announce.example/private-key/announce',
+        apiKey: 'key'
+      })
+    ).toBe(true)
   })
 
   it('gates redacted image host on redacted tracker configuration', () => {
@@ -128,8 +140,8 @@ describe('trackers', () => {
         cfgWithRedacted({
           ...emptyTracker,
           enabled: true,
-          siteUrl: 'https://redacted.example',
-          announceUrl: 'https://flacsfor.me',
+          siteUrl: 'redacted.example',
+          announceUrl: 'announce.redacted.example',
           apiKey: 'key'
         })
       )
@@ -140,8 +152,8 @@ describe('trackers', () => {
         cfgWithRedacted({
           ...emptyTracker,
           enabled: true,
-          siteUrl: 'https://redacted.example',
-          announceUrl: 'https://flacsfor.me',
+          siteUrl: 'redacted.example',
+          announceUrl: 'announce.redacted.example',
           sessionCookie: 'cookie'
         })
       )

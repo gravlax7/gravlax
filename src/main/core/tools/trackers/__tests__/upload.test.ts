@@ -77,8 +77,8 @@ describe('tracker upload paths', () => {
     })
 
     const client = new GazelleClient({
-      siteUrl: 'https://example.test',
-      announceUrl: 'https://announce.example.test',
+      siteUrl: 'example.test',
+      announceUrl: 'announce.example.test',
       apiKey: 'key',
       sessionCookie: 'sess',
       releaseTypes: REDACTED_RELEASE_TYPES,
@@ -115,8 +115,8 @@ describe('tracker upload paths', () => {
     })
 
     const client = new GazelleClient({
-      siteUrl: 'https://example.test',
-      announceUrl: 'https://announce.example.test',
+      siteUrl: 'example.test',
+      announceUrl: 'announce.example.test',
       apiKey: '',
       sessionCookie: 'sess',
       releaseTypes: REDACTED_RELEASE_TYPES,
@@ -147,8 +147,8 @@ describe('tracker upload paths', () => {
     })
 
     const client = new RedactedClient({
-      siteUrl: 'https://example.test',
-      announceUrl: 'https://announce.example.test',
+      siteUrl: 'example.test',
+      announceUrl: 'announce.example.test',
       apiKey: 'key',
       sessionCookie: 'sess',
       releaseTypes: REDACTED_RELEASE_TYPES,
@@ -177,8 +177,8 @@ describe('tracker upload paths', () => {
     })
 
     const client = new OrpheusClient({
-      siteUrl: 'https://example.test',
-      announceUrl: 'https://announce.example.test',
+      siteUrl: 'example.test',
+      announceUrl: 'announce.example.test',
       apiKey: 'key',
       sessionCookie: 'sess',
       releaseTypes: ORPHEUS_RELEASE_TYPES,
@@ -223,8 +223,8 @@ describe('tracker upload paths', () => {
     })
 
     const client = new RedactedClient({
-      siteUrl: 'https://example.test',
-      announceUrl: 'https://announce.example.test',
+      siteUrl: 'example.test',
+      announceUrl: 'announce.example.test',
       apiKey: '',
       sessionCookie: 'sess',
       releaseTypes: REDACTED_RELEASE_TYPES,
@@ -247,8 +247,8 @@ describe('tracker upload paths', () => {
     })
 
     const client = new OrpheusClient({
-      siteUrl: 'https://example.test',
-      announceUrl: 'https://announce.example.test',
+      siteUrl: 'example.test',
+      announceUrl: 'announce.example.test',
       apiKey: '',
       sessionCookie: 'sess',
       releaseTypes: ORPHEUS_RELEASE_TYPES,
@@ -262,8 +262,8 @@ describe('tracker upload paths', () => {
 
   it('requires session cookie for site page upload', async () => {
     const client = new GazelleClient({
-      siteUrl: 'https://example.test',
-      announceUrl: 'https://announce.example.test',
+      siteUrl: 'example.test',
+      announceUrl: 'announce.example.test',
       apiKey: '',
       sessionCookie: '',
       releaseTypes: REDACTED_RELEASE_TYPES,
@@ -291,8 +291,8 @@ describe('lossy master reports', () => {
     })
 
     const client = new RedactedClient({
-      siteUrl: 'https://example.test',
-      announceUrl: 'https://announce.example.test',
+      siteUrl: 'example.test',
+      announceUrl: 'announce.example.test',
       apiKey: 'key',
       sessionCookie: 'sess',
       releaseTypes: REDACTED_RELEASE_TYPES,
@@ -325,8 +325,8 @@ describe('lossy master reports', () => {
     })
 
     const client = new OrpheusClient({
-      siteUrl: 'https://example.test',
-      announceUrl: 'https://announce.example.test',
+      siteUrl: 'example.test',
+      announceUrl: 'announce.example.test',
       apiKey: 'key',
       sessionCookie: 'sess',
       releaseTypes: ORPHEUS_RELEASE_TYPES,
@@ -348,8 +348,8 @@ describe('lossy master reports', () => {
     })
 
     const client = new RedactedClient({
-      siteUrl: 'https://example.test',
-      announceUrl: 'https://announce.example.test',
+      siteUrl: 'example.test',
+      announceUrl: 'announce.example.test',
       apiKey: '',
       sessionCookie: 'sess',
       releaseTypes: REDACTED_RELEASE_TYPES,

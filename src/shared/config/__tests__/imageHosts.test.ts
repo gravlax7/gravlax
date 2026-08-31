@@ -136,8 +136,8 @@ describe('imageHosts', () => {
       trackers: {
         redacted: {
           enabled: true,
-          siteUrl: 'https://redacted.example',
-          announceUrl: 'https://flacsfor.me',
+          siteUrl: 'redacted.example',
+          announceUrl: 'announce.redacted.example',
           apiKey: 'key',
           sessionCookie: '',
           coverImageHost: ''
@@ -175,16 +175,16 @@ describe('imageHosts', () => {
       trackers: {
         redacted: {
           enabled: true,
-          siteUrl: 'https://redacted.example',
-          announceUrl: 'https://flacsfor.me',
+          siteUrl: 'redacted.example',
+          announceUrl: 'announce.redacted.example',
           apiKey: 'key',
           sessionCookie: '',
           coverImageHost: ''
         },
         orpheus: {
           enabled: true,
-          siteUrl: 'https://orpheus.example',
-          announceUrl: 'https://home.opsfet.ch',
+          siteUrl: 'orpheus.example',
+          announceUrl: 'announce.orpheus.example',
           apiKey: 'key',
           sessionCookie: '',
           coverImageHost: ''

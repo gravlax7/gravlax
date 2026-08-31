@@ -35,8 +35,8 @@ function config() {
   cfg.trackers.redacted = {
     ...cfg.trackers.redacted,
     enabled: true,
-    siteUrl: 'https://redacted.example',
-    announceUrl: 'https://announce.redacted.example',
+    siteUrl: 'redacted.example',
+    announceUrl: 'announce.redacted.example',
     apiKey: 'api-key',
     sessionCookie: 'session-cookie'
   }

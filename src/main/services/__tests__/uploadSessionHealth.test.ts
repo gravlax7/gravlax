@@ -54,10 +54,11 @@ describe('UploadSession tracker health gate', () => {
     cfg.trackers.redacted = {
       ...cfg.trackers.redacted,
       enabled: true,
-      siteUrl: 'https://redacted.example',
-      announceUrl: 'https://announce.redacted.example',
+      siteUrl: 'redacted.example',
+      announceUrl: 'announce.redacted.example',
       apiKey: 'api-key',
-      sessionCookie: 'session-cookie'
+      sessionCookie: 'session-cookie',
+      coverImageHost: 'catbox'
     }
     mocks.healthcheckTrackers.mockResolvedValue([
       { id: 'trackers:redacted:api', name: 'Redacted API', status: 'available' },
@@ -97,12 +98,13 @@ describe('UploadSession tracker health gate', () => {
     cfg.trackers.redacted = {
       ...cfg.trackers.redacted,
       enabled: true,
-      siteUrl: 'https://redacted.example',
-      announceUrl: 'https://announce.redacted.example',
+      siteUrl: 'redacted.example',
+      announceUrl: 'announce.redacted.example',
       apiKey: 'api-key',
       sessionCookie: 'session-cookie',
       coverImageHost: 'imgbb'
     }
+    cfg.imageHosts.imgbb = { enabled: true, apiKey: 'image-key' }
     mocks.healthcheckTrackers.mockResolvedValue([
       { id: 'trackers:redacted:api', name: 'Redacted API', status: 'available' },
       { id: 'trackers:redacted:session', name: 'Redacted Session', status: 'available' }

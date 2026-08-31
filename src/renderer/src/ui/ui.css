@@ -2429,6 +2429,40 @@ button.toggle.toggle-on .toggle-thumb {
   color: var(--fg-primary);
 }
 
+.settings-host-field {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  overflow: hidden;
+}
+
+.settings-host-field:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-ring);
+}
+
+.settings-host-field > span {
+  display: flex;
+  align-items: center;
+  padding: 6px 0 6px 10px;
+  color: var(--fg-muted);
+  user-select: none;
+}
+
+.settings-host-field > input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  padding-left: 0;
+}
+
+.settings-host-field > input:focus {
+  box-shadow: none;
+}
+
 .upload-report-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

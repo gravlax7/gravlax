@@ -7,11 +7,19 @@ function trackerFields(): FieldMetadata[] {
   return UPLOAD_TRACKER_IDS.flatMap((id, index) => [
     ...(index > 0 ? [{ name: 'separator', label: '', type: 'separator' as const }] : []),
     { name: `${id}.enabled`, label: `${trackerName(id)} enabled`, type: 'bool' as const },
-    { name: `${id}.siteUrl`, label: `${trackerName(id)} site URL`, type: 'string' as const },
+    {
+      name: `${id}.siteUrl`,
+      label: `${trackerName(id)} site host`,
+      description: 'Gravlax always connects over HTTPS.',
+      placeholder: 'tracker.example',
+      type: 'host' as const
+    },
     {
       name: `${id}.announceUrl`,
-      label: `${trackerName(id)} announce URL`,
-      type: 'string' as const
+      label: `${trackerName(id)} announce host`,
+      description: 'Enter only the host. Gravlax adds HTTPS, your passkey and the announce path.',
+      placeholder: 'announce.example',
+      type: 'host' as const
     },
     {
       name: `${id}.apiKey`,
