@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -15,7 +15,7 @@ import {
   resolveUploadTags,
   uploadArtistsFromRelease
 } from '../uploadReport'
-import { emptyUpload } from '../upload'
+import { emptyUpload, ensureUploadReport } from '../upload'
 import { newState } from '../state'
 import { SOURCE_TORRENT_PLACEHOLDER } from '@main/core/tools/upload/descriptions'
 import { planSubmissions } from '@main/services/uploadSubmit'
@@ -304,6 +304,138 @@ describe('cover image report work', () => {
     expect(snapshot.image).toBe('')
     expect(snapshot.coverPath).toBe(path.join(dir, 'cover.jpg'))
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('copies a downloaded cover into every finished alternate format', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-cover-formats-'))
+    const source = path.join(root, 'Album [FLAC]')
+    const mp3 = path.join(root, 'Album [MP3 V0]')
+    const downconvert = path.join(root, 'Album [16bit FLAC]')
+    try {
+      await Promise.all([source, mp3, downconvert].map((folder) => mkdir(folder)))
+      await Promise.all([
+        writeFile(path.join(source, '01.flac'), 'source'),
+        writeFile(path.join(mp3, '01.mp3'), 'mp3'),
+        writeFile(path.join(downconvert, '01.flac'), 'downconvert')
+      ])
+      vi.stubGlobal('fetch', vi.fn(async () => new Response(JPEG)))
+
+      const state = newState()
+      state.draft.workspacePath = source
+      state.draft.sourceMedia = 'WEB'
+      state.tags.proposed = { title: 'Album', cover: 'https://example.test/cover.jpg' }
+      state.transcode = {
+        phase: 'done',
+        inspection: {
+          encoding: '24bit Lossless',
+          sampleRate: 96000,
+          trackCount: 1,
+          hybrid: false,
+          blockers: [],
+          options: [
+            {
+              id: 'transcode-V0',
+              name: 'MP3 V0',
+              action: 'transcode',
+              bitrate: 'V0',
+              outputFolderName: path.basename(mp3)
+            },
+            {
+              id: 'downconvert-16-48000',
+              name: '16bit 48.0 kHz',
+              action: 'downconvert',
+              targetBitDepth: 16,
+              targetSampleRate: 48000,
+              outputFolderName: path.basename(downconvert)
+            }
+          ]
+        },
+        selectedOptionIds: ['transcode-V0', 'downconvert-16-48000'],
+        jobs: [
+          { optionId: 'transcode-V0', status: 'succeeded', outputPath: mp3 },
+          {
+            optionId: 'downconvert-16-48000',
+            status: 'succeeded',
+            outputPath: downconvert
+          }
+        ]
+      }
+
+      const snapshot = await buildUploadSnapshot(state, cfgWithTrackers([]), {
+        version: TEST_VERSION
+      })
+
+      await expect(readFile(path.join(mp3, 'cover.jpg'))).resolves.toEqual(JPEG)
+      await expect(readFile(path.join(downconvert, 'cover.jpg'))).resolves.toEqual(JPEG)
+      expect(snapshot.formats?.map((format) => format.sizeBytes)).toEqual([
+        6 + JPEG.length,
+        3 + JPEG.length,
+        11 + JPEG.length
+      ])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('repairs a missing cover in a cached ready report', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-cover-cache-'))
+    const source = path.join(root, 'Album [FLAC]')
+    const mp3 = path.join(root, 'Album [MP3 V0]')
+    try {
+      await Promise.all([source, mp3].map((folder) => mkdir(folder)))
+      const coverPath = path.join(source, 'cover.jpg')
+      await Promise.all([
+        writeFile(path.join(source, '01.flac'), 'source'),
+        writeFile(path.join(mp3, '01.mp3'), 'mp3'),
+        writeFile(coverPath, JPEG)
+      ])
+
+      const cfg = cfgWithTrackers([])
+      const state = newState()
+      state.draft.workspacePath = source
+      state.draft.sourceMedia = 'WEB'
+      state.tags.proposed = { title: 'Album' }
+      state.upload = {
+        ...emptyUpload(),
+        phase: 'ready',
+        coverPath,
+        formats: [
+          {
+            id: 'source',
+            label: 'FLAC Lossless',
+            folderPath: source,
+            format: 'FLAC',
+            bitrate: 'Lossless',
+            otherBitrate: '',
+            vbr: false,
+            releaseDesc: '',
+            logfileNames: []
+          },
+          {
+            id: 'transcode-V0',
+            label: 'MP3 V0',
+            folderPath: mp3,
+            format: 'MP3',
+            bitrate: 'V0 (VBR)',
+            otherBitrate: '',
+            vbr: true,
+            releaseDesc: '',
+            logfileNames: []
+          }
+        ],
+        seededFrom: fingerprintUploadInputs(state, cfg, TEST_VERSION)
+      }
+
+      const next = await ensureUploadReport(state, cfg, TEST_VERSION)
+
+      await expect(readFile(path.join(mp3, 'cover.jpg'))).resolves.toEqual(JPEG)
+      expect(next.upload.formats?.map((format) => format.sizeBytes)).toEqual([
+        6 + JPEG.length,
+        3 + JPEG.length
+      ])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
   it('finds Cover.jpg case-insensitively and keeps coverPath without a host', async () => {

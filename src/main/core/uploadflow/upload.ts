@@ -16,7 +16,9 @@ import {
   buildUploadSnapshot,
   fingerprintUploadInputs,
   resolveCoverImage,
-  resolveUploadTags
+  resolveUploadTags,
+  sizeFormats,
+  syncCoverToAlternateFormats
 } from './uploadReport'
 
 export function emptyUpload(): UploadSnapshot {
@@ -206,13 +208,27 @@ export async function ensureUploadReport(s: State, cfg: Config, version: string)
     return backfillUploadFieldsIfNeeded(s)
   }
   if (current.seededFrom === fingerprint && current.phase === 'ready') {
-    return backfillUploadFieldsIfNeeded(s)
+    return repairReadyUploadCover(s)
   }
   const next = await buildUploadSnapshot(s, cfg, {
     version,
     previousImage: current.image
   })
   return setUpload(s, carryUserSelections(next, current))
+}
+
+async function repairReadyUploadCover(s: State): Promise<State> {
+  const next = await backfillUploadFieldsIfNeeded(s)
+  const formats = next.upload.formats ?? []
+  const changed = await syncCoverToAlternateFormats(next.upload.coverPath, formats)
+  if (!changed) return next
+  return {
+    ...next,
+    upload: {
+      ...next.upload,
+      formats: await sizeFormats(formats)
+    }
+  }
 }
 
 async function backfillUploadFieldsIfNeeded(s: State): Promise<State> {

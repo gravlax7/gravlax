@@ -1,3 +1,5 @@
+import { copyFile, readFile } from 'node:fs/promises'
+import { basename, join, resolve } from 'node:path'
 import type { Config, CoverImageHostId } from '@shared/types/config'
 import { trackerName } from '@shared/trackers'
 import type {
@@ -215,12 +217,8 @@ export async function buildUploadSnapshot(
     coverUrl: proposed.cover,
     previousImage: options.previousImage
   })
-  const sizedFormats = await Promise.all(
-    formats.map(async (format) => ({
-      ...format,
-      sizeBytes: totalSize(await enumerateReleaseFiles(format.folderPath))
-    }))
-  )
+  await syncCoverToAlternateFormats(cover.coverPath, formats)
+  const sizedFormats = await sizeFormats(formats)
 
   return {
     phase: 'ready',
@@ -247,6 +245,49 @@ export async function buildUploadSnapshot(
     groupSearch: emptyGroupSearch(),
     seededFrom: fingerprintUploadInputs(s, cfg, options.version),
     error: undefined
+  }
+}
+
+export async function syncCoverToAlternateFormats(
+  coverPath: string | undefined,
+  formats: readonly UploadFormatPayload[]
+): Promise<boolean> {
+  const sourcePath = (coverPath ?? '').trim()
+  const alternateFormats = formats.filter((format) => format.id !== 'source')
+  if (!sourcePath || alternateFormats.length === 0) return false
+
+  const source = resolve(sourcePath)
+  const sourceData = await readFile(source)
+  let changed = false
+
+  for (const format of alternateFormats) {
+    const destination = resolve(join(format.folderPath, basename(source)))
+    if (destination === source) continue
+    if (await fileMatches(destination, sourceData)) continue
+    await copyFile(source, destination)
+    changed = true
+  }
+
+  return changed
+}
+
+export async function sizeFormats(
+  formats: readonly UploadFormatPayload[]
+): Promise<UploadFormatPayload[]> {
+  return Promise.all(
+    formats.map(async (format) => ({
+      ...format,
+      sizeBytes: totalSize(await enumerateReleaseFiles(format.folderPath))
+    }))
+  )
+}
+
+async function fileMatches(path: string, expected: Buffer): Promise<boolean> {
+  try {
+    return (await readFile(path)).equals(expected)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false
+    throw err
   }
 }
 
