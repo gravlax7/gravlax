@@ -42,6 +42,7 @@ function defaultConfig(): Config {
     torrentClient: {
       enabled: false,
       url: '',
+      allowInsecureHTTP: false,
       username: '',
       password: '',
       category: '',

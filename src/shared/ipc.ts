@@ -162,6 +162,7 @@ const configInput: z.ZodType<Config> = z.object({
   torrentClient: z.object({
     enabled: z.boolean(),
     url: z.string(),
+    allowInsecureHTTP: z.boolean(),
     username: z.string(),
     password: z.string(),
     category: z.string(),

@@ -124,6 +124,8 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return String(c.enabled)
         case 'url':
           return c.url
+        case 'allowInsecureHTTP':
+          return String(c.allowInsecureHTTP)
         case 'username':
           return c.username
         case 'password':
@@ -348,6 +350,7 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
       break
     case 'torrentClient':
       if (field === 'enabled') next.torrentClient.enabled = value
+      if (field === 'allowInsecureHTTP') next.torrentClient.allowInsecureHTTP = value
       if (field === 'useAutoTMM') next.torrentClient.useAutoTMM = value
       if (field === 'startPaused') next.torrentClient.startPaused = value
       break

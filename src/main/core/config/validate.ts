@@ -92,11 +92,14 @@ export function validate(cfg: Config): ValidationIssue[] {
   if (cfg.torrentClient.enabled && cfg.torrentClient.url === '') {
     add('torrentClient', 'url', 'WebUI URL is required when torrent client is enabled')
   }
-  if (cfg.torrentClient.url !== '' && !isSafeQBittorrentURL(cfg.torrentClient.url)) {
+  if (
+    cfg.torrentClient.url !== '' &&
+    !isSafeQBittorrentURL(cfg.torrentClient.url, cfg.torrentClient.allowInsecureHTTP)
+  ) {
     add(
       'torrentClient',
       'url',
-      'WebUI URL must use HTTPS, or HTTP on localhost/loopback'
+      'WebUI URL must use HTTPS, use HTTP on localhost, or allow HTTP on a private LAN'
     )
   }
   if (cfg.torrentClient.enabled) {

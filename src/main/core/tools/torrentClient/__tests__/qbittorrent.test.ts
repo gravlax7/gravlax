@@ -13,10 +13,25 @@ describe('QBittorrentClient', () => {
       () =>
         new QBittorrentClient({
           url: 'http://192.168.1.20:8080',
+          allowInsecureHTTP: false,
           username: 'user',
           password: 'password'
         })
-    ).toThrow('qBittorrent WebUI URL must use HTTPS, or HTTP on localhost/loopback')
+    ).toThrow(
+      'qBittorrent WebUI URL must use HTTPS, use HTTP on localhost, or allow HTTP on a private LAN'
+    )
+  })
+
+  it('allows private LAN HTTP after opt-in', () => {
+    expect(
+      () =>
+        new QBittorrentClient({
+          url: 'http://192.168.1.20:8080',
+          allowInsecureHTTP: true,
+          username: 'user',
+          password: 'password'
+        })
+    ).not.toThrow()
   })
 
   it('logs in and stores SID cookie', async () => {
@@ -39,6 +54,7 @@ describe('QBittorrentClient', () => {
 
     const client = new QBittorrentClient({
       url: 'http://127.0.0.1:8080/',
+      allowInsecureHTTP: false,
       username: 'admin',
       password: 'secret'
     })
@@ -53,6 +69,7 @@ describe('QBittorrentClient', () => {
     )
     const client = new QBittorrentClient({
       url: 'http://127.0.0.1:8080',
+      allowInsecureHTTP: false,
       username: 'admin',
       password: 'wrong'
     })
@@ -89,6 +106,7 @@ describe('QBittorrentClient', () => {
 
     const client = new QBittorrentClient({
       url: 'http://127.0.0.1:8080',
+      allowInsecureHTTP: false,
       username: 'admin',
       password: 'secret'
     })
@@ -122,6 +140,7 @@ describe('QBittorrentClient', () => {
 
     const client = new QBittorrentClient({
       url: 'http://127.0.0.1:8080',
+      allowInsecureHTTP: false,
       username: 'admin',
       password: 'secret'
     })
@@ -159,6 +178,7 @@ describe('QBittorrentClient', () => {
 
     const client = new QBittorrentClient({
       url: 'http://127.0.0.1:8080',
+      allowInsecureHTTP: false,
       username: 'admin',
       password: 'secret'
     })

@@ -119,6 +119,8 @@ export interface ImageHostToggleConfig {
 export interface TorrentClientConfig {
   enabled: boolean
   url: string
+  /** Allow plain HTTP when the WebUI URL uses a private LAN IP address. */
+  allowInsecureHTTP: boolean
   username: string
   password: string
   category: string

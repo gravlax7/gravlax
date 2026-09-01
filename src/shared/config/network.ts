@@ -60,15 +60,40 @@ export function trackerHTTPSURL(raw: string): string {
   return isTrackerHost(host) ? `https://${host}` : ''
 }
 
-export function isSafeQBittorrentURL(raw: string): boolean {
+export function isSafeQBittorrentURL(raw: string, allowInsecureHTTP = false): boolean {
   try {
     const parsed = new URL(raw)
     if (parsed.hostname === '') return false
     if (parsed.protocol === 'https:') return true
-    return parsed.protocol === 'http:' && isLoopbackHostname(parsed.hostname)
+    if (parsed.protocol !== 'http:') return false
+    return (
+      isLoopbackHostname(parsed.hostname) ||
+      (allowInsecureHTTP && isPrivateIPAddress(parsed.hostname))
+    )
   } catch {
     return false
   }
+}
+
+export function isPrivateIPAddress(raw: string): boolean {
+  const hostname = raw.trim().toLowerCase().replace(/^\[|\]$/g, '')
+  if (hostname.includes(':') && /^f[cd]/.test(hostname)) return true
+
+  const octets = hostname.split('.')
+  if (
+    octets.length !== 4 ||
+    !octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
+  ) {
+    return false
+  }
+
+  const first = Number(octets[0])
+  const second = Number(octets[1])
+  return (
+    first === 10 ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168)
+  )
 }
 
 export function isLoopbackHostname(raw: string): boolean {

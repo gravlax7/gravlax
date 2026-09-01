@@ -32,6 +32,7 @@ describe('config', () => {
     expect(cfg.metadataProviders.bandcamp.enabled).toBe(true)
     expect(cfg.metadataProviders.discogs).toEqual({ enabled: false, token: '' })
     expect(cfg.imageHosts.catbox).toEqual({ enabled: true })
+    expect(cfg.torrentClient.allowInsecureHTTP).toBe(false)
     expect(cfg.spectral.defaultSpectralIds).toBe('Random')
     expect(cfg.spectral.defaultSpectralIdsForLossyMasters).toBe('All')
     expect(cfg.cleanup.deleteOriginalFolder).toBe(false)
@@ -211,20 +212,34 @@ describe('config', () => {
     expect(validate(cfg).some((i) => i.field === 'savePath')).toBe(false)
   })
 
-  it('only allows qBittorrent HTTP on localhost or loopback', () => {
+  it('allows qBittorrent HTTP on a private LAN only after opt-in', () => {
     const cfg = defaultConfig()
     cfg.torrentClient.url = 'http://192.168.1.20:8080'
     expect(validate(cfg)).toContainEqual({
       section: 'torrentClient',
       field: 'url',
-      message: 'WebUI URL must use HTTPS, or HTTP on localhost/loopback'
+      message: 'WebUI URL must use HTTPS, use HTTP on localhost, or allow HTTP on a private LAN'
     })
+
+    cfg.torrentClient.allowInsecureHTTP = true
+    expect(validate(cfg).some((issue) => issue.field === 'url')).toBe(false)
+
+    cfg.torrentClient.url = 'http://203.0.113.2:8080'
+    expect(validate(cfg).some((issue) => issue.field === 'url')).toBe(true)
 
     cfg.torrentClient.url = 'https://192.168.1.20:8080'
     expect(validate(cfg).some((issue) => issue.field === 'url')).toBe(false)
 
     cfg.torrentClient.url = 'http://[::1]:8080'
     expect(validate(cfg).some((issue) => issue.field === 'url')).toBe(false)
+  })
+
+  it('loads and updates the trusted LAN HTTP setting', () => {
+    expect(mergeLoadedConfig({ torrentClient: {} }).torrentClient.allowInsecureHTTP).toBe(false)
+    const loaded = mergeLoadedConfig({ torrentClient: { allowInsecureHTTP: true } })
+    expect(loaded.torrentClient.allowInsecureHTTP).toBe(true)
+    const changed = setFieldBool(defaultConfig(), 'torrentClient', 'allowInsecureHTTP', true)
+    expect(fieldBoolValue(changed, 'torrentClient', 'allowInsecureHTTP')).toBe(true)
   })
 
   it('validate requires a save path only when there is no seedbox to fall back to', () => {

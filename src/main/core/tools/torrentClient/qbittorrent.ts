@@ -28,8 +28,10 @@ export class QBittorrentClient {
   private readonly password: string
   private cookie = ''
 
-  constructor(cfg: Pick<TorrentClientConfig, 'url' | 'username' | 'password'>) {
-    this.baseUrl = normalizeBaseUrl(cfg.url)
+  constructor(
+    cfg: Pick<TorrentClientConfig, 'url' | 'allowInsecureHTTP' | 'username' | 'password'>
+  ) {
+    this.baseUrl = normalizeBaseUrl(cfg.url, cfg.allowInsecureHTTP)
     this.username = cfg.username
     this.password = cfg.password
   }
@@ -156,10 +158,12 @@ export function createQBittorrentClient(cfg: TorrentClientConfig): QBittorrentCl
   return new QBittorrentClient(cfg)
 }
 
-function normalizeBaseUrl(url: string): string {
+function normalizeBaseUrl(url: string, allowInsecureHTTP: boolean): string {
   const normalized = url.trim().replace(/\/+$/, '')
-  if (!isSafeQBittorrentURL(normalized)) {
-    throw new Error('qBittorrent WebUI URL must use HTTPS, or HTTP on localhost/loopback')
+  if (!isSafeQBittorrentURL(normalized, allowInsecureHTTP)) {
+    throw new Error(
+      'qBittorrent WebUI URL must use HTTPS, use HTTP on localhost, or allow HTTP on a private LAN'
+    )
   }
   return normalized
 }

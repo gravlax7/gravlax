@@ -40,6 +40,7 @@ function cfgWithRedacted(tracker: TrackerConfig): Config {
     torrentClient: {
       enabled: false,
       url: '',
+      allowInsecureHTTP: false,
       username: '',
       password: '',
       category: '',

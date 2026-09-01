@@ -150,6 +150,13 @@ export function sections(): SectionMetadata[] {
       fields: [
         { name: 'enabled', label: 'Enabled', type: 'bool' },
         { name: 'url', label: 'WebUI URL', type: 'url', description: 'e.g. http://127.0.0.1:8080' },
+        {
+          name: 'allowInsecureHTTP',
+          label: 'Allow HTTP on trusted LAN',
+          type: 'bool',
+          description:
+            'Allow plain HTTP to a private LAN IP address. Your qBittorrent password and session will not be encrypted.'
+        },
         { name: 'username', label: 'Username', type: 'string' },
         { name: 'password', label: 'Password', type: 'string', sensitive: true },
         {
