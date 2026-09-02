@@ -24,14 +24,21 @@ export interface QBittorrentTorrent {
 
 export class QBittorrentClient {
   private readonly baseUrl: string
+  private readonly useApiKey: boolean
+  private readonly apiKey: string
   private readonly username: string
   private readonly password: string
   private cookie = ''
 
   constructor(
-    cfg: Pick<TorrentClientConfig, 'url' | 'allowInsecureHTTP' | 'username' | 'password'>
+    cfg: Pick<
+      TorrentClientConfig,
+      'url' | 'allowInsecureHTTP' | 'useApiKey' | 'apiKey' | 'username' | 'password'
+    >
   ) {
     this.baseUrl = normalizeBaseUrl(cfg.url, cfg.allowInsecureHTTP)
+    this.useApiKey = cfg.useApiKey
+    this.apiKey = cfg.apiKey.trim()
     this.username = cfg.username
     this.password = cfg.password
   }
@@ -52,7 +59,7 @@ export class QBittorrentClient {
     if (text.trim() === 'Fails.') {
       throw new Error('qBittorrent login failed: incorrect credentials')
     }
-    const cookie = extractSidCookie(res.headers)
+    const cookie = extractSessionCookie(res.headers)
     if (!cookie) {
       throw new Error('qBittorrent login failed: no session cookie')
     }
@@ -100,7 +107,7 @@ export class QBittorrentClient {
     if (!res.ok) {
       throw new Error(`qBittorrent add torrent failed (${res.status}): ${text || 'unknown error'}`)
     }
-    if (text && text !== 'Ok.' && text.toLowerCase() !== 'ok') {
+    if (!isAcceptedAddResponse(text)) {
       throw new Error(`qBittorrent add torrent failed: ${text}`)
     }
   }
@@ -108,9 +115,9 @@ export class QBittorrentClient {
   /**
    * The torrent the client holds for `infoHash`, or null when it holds none.
    *
-   * `/torrents/add` answers "Ok." whether or not anything landed — a rejected
-   * or silently-dropped torrent looks identical to a successful one — so this
-   * is what turns "the POST returned 200" into "the client really took it".
+   * Older `/torrents/add` endpoints answer "Ok." whether or not anything
+   * landed, so this turns an accepted request into proof that the client has
+   * the torrent. It also confirms newer JSON responses reached the client.
    */
   async getTorrent(infoHash: string): Promise<QBittorrentTorrent | null> {
     const hash = infoHash.trim().toLowerCase()
@@ -137,14 +144,23 @@ export class QBittorrentClient {
    * qBittorrent drops them whenever its WebUI restarts).
    */
   private async request(path: string, init?: RequestInit): Promise<Response> {
-    if (!this.cookie) await this.login()
-
     const send = (): Promise<Response> => {
       const headers = new Headers(init?.headers)
-      if (this.cookie) headers.set('Cookie', this.cookie)
+      if (this.useApiKey) headers.set('Authorization', `Bearer ${this.apiKey}`)
+      else if (this.cookie) headers.set('Cookie', this.cookie)
       return fetch(`${this.baseUrl}${path}`, { ...init, headers })
     }
 
+    if (this.useApiKey) {
+      if (!this.apiKey) throw new Error('qBittorrent API key is missing')
+      const res = await send()
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(`qBittorrent API key authentication failed (${res.status})`)
+      }
+      return res
+    }
+
+    if (!this.cookie) await this.login()
     const res = await send()
     if (res.status !== 401 && res.status !== 403) return res
 
@@ -187,7 +203,39 @@ async function encodeMultipartForm(
   return { body, contentType }
 }
 
-function extractSidCookie(headers: Headers): string | null {
+function isAcceptedAddResponse(text: string): boolean {
+  if (!text) return true
+
+  const legacyResponse = text.toLowerCase()
+  if (legacyResponse === 'ok' || legacyResponse === 'ok.') return true
+
+  let value: unknown
+  try {
+    value = JSON.parse(text)
+  } catch {
+    return false
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+
+  const result = value as Record<string, unknown>
+  if (
+    !isCount(result.success_count) ||
+    !isCount(result.pending_count) ||
+    !isCount(result.failure_count) ||
+    !Array.isArray(result.added_torrent_ids) ||
+    !result.added_torrent_ids.every((id) => typeof id === 'string')
+  ) {
+    return false
+  }
+
+  return result.success_count > 0 || result.pending_count > 0
+}
+
+function isCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0
+}
+
+function extractSessionCookie(headers: Headers): string | null {
   const getSetCookie = (headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
   const lines =
     typeof getSetCookie === 'function'
@@ -197,8 +245,8 @@ function extractSidCookie(headers: Headers): string | null {
           return single ? [single] : []
         })()
   for (const line of lines) {
-    const match = /(?:^|,\s*)SID=([^;,\s]+)/i.exec(line)
-    if (match?.[1]) return `SID=${match[1]}`
+    const match = /(?:^|,\s*)((?:SID|QBT_SID_\d+)=[^;,\s]+)/i.exec(line)
+    if (match?.[1]) return match[1]
   }
   return null
 }

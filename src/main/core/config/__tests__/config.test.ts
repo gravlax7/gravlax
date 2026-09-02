@@ -33,6 +33,8 @@ describe('config', () => {
     expect(cfg.metadataProviders.discogs).toEqual({ enabled: false, token: '' })
     expect(cfg.imageHosts.catbox).toEqual({ enabled: true })
     expect(cfg.torrentClient.allowInsecureHTTP).toBe(false)
+    expect(cfg.torrentClient.useApiKey).toBe(false)
+    expect(cfg.torrentClient.apiKey).toBe('')
     expect(cfg.spectral.defaultSpectralIds).toBe('Random')
     expect(cfg.spectral.defaultSpectralIdsForLossyMasters).toBe('All')
     expect(cfg.cleanup.deleteOriginalFolder).toBe(false)
@@ -240,6 +242,37 @@ describe('config', () => {
     expect(loaded.torrentClient.allowInsecureHTTP).toBe(true)
     const changed = setFieldBool(defaultConfig(), 'torrentClient', 'allowInsecureHTTP', true)
     expect(fieldBoolValue(changed, 'torrentClient', 'allowInsecureHTTP')).toBe(true)
+  })
+
+  it('loads, updates, validates, and resets qBittorrent API key settings', () => {
+    const old = mergeLoadedConfig({ torrentClient: { username: 'admin' } })
+    expect(old.torrentClient.useApiKey).toBe(false)
+    expect(old.torrentClient.apiKey).toBe('')
+
+    const loaded = mergeLoadedConfig({
+      torrentClient: { useApiKey: true, apiKey: 'qbt_saved' }
+    })
+    expect(loaded.torrentClient.useApiKey).toBe(true)
+    expect(loaded.torrentClient.apiKey).toBe('qbt_saved')
+
+    let cfg = setFieldBool(defaultConfig(), 'torrentClient', 'useApiKey', true)
+    cfg = setFieldString(cfg, 'torrentClient', 'apiKey', 'qbt_updated')
+    expect(fieldBoolValue(cfg, 'torrentClient', 'useApiKey')).toBe(true)
+    expect(fieldValue(cfg, 'torrentClient', 'apiKey')).toBe('qbt_updated')
+
+    cfg.torrentClient.enabled = true
+    cfg.torrentClient.url = 'http://127.0.0.1:8080'
+    cfg.transfer.enabled = true
+    cfg.torrentClient.apiKey = '  '
+    expect(validate(cfg)).toContainEqual({
+      section: 'torrentClient',
+      field: 'apiKey',
+      message: 'API key is required when qBittorrent API key authentication is on'
+    })
+
+    cfg.torrentClient.apiKey = 'not-format-checked'
+    expect(validate(cfg).some((issue) => issue.field === 'apiKey')).toBe(false)
+    expect(resetSection(cfg, 'torrentClient').torrentClient).toEqual(defaultConfig().torrentClient)
   })
 
   it('validate requires a save path only when there is no seedbox to fall back to', () => {

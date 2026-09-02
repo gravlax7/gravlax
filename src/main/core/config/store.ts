@@ -99,6 +99,8 @@ export function normalizeTorrentClient(raw: unknown, base: Config['torrentClient
   if (typeof obj.url === 'string') next.url = obj.url
   else if (typeof obj.apiURL === 'string') next.url = obj.apiURL
   if (typeof obj.allowInsecureHTTP === 'boolean') next.allowInsecureHTTP = obj.allowInsecureHTTP
+  if (typeof obj.useApiKey === 'boolean') next.useApiKey = obj.useApiKey
+  if (typeof obj.apiKey === 'string') next.apiKey = obj.apiKey
   if (typeof obj.username === 'string') next.username = obj.username
   if (typeof obj.password === 'string') next.password = obj.password
   if (typeof obj.category === 'string') next.category = obj.category

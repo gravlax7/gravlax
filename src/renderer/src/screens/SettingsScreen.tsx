@@ -390,7 +390,13 @@ export function SettingsScreen(props: {
                             // turning ATM back off restores what was typed.
                             (current().id === 'torrentClient' &&
                               field.name === 'savePath' &&
-                              draft().torrentClient.useAutoTMM)
+                              draft().torrentClient.useAutoTMM) ||
+                            (current().id === 'torrentClient' &&
+                              field.name === 'apiKey' &&
+                              !draft().torrentClient.useApiKey) ||
+                            (current().id === 'torrentClient' &&
+                              (field.name === 'username' || field.name === 'password') &&
+                              draft().torrentClient.useApiKey)
                           }
                           onReveal={() =>
                             setRevealed((r) => ({
@@ -906,6 +912,7 @@ function FieldRow(props: {
             <IconButton
               icon={props.revealed ? 'eye-off' : 'eye'}
               label={props.revealed ? 'Hide' : 'Reveal'}
+              disabled={props.disabled}
               onClick={props.onReveal}
             />
           </Show>

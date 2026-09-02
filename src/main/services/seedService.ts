@@ -269,7 +269,7 @@ export async function runSeed(options: RunSeedOptions): Promise<SeedSnapshot> {
 
         const added = await waitForTorrent(client, torrent.infoHash, signal)
         if (!added) {
-          // The add endpoint answers "Ok." even when the client drops the
+          // Older add endpoints answer "Ok." even when the client drops the
           // torrent, so an unverified add is a failure, not a success.
           emit(
             patchSeedTask(seed, task.id, {

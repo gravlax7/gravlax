@@ -157,8 +157,18 @@ export function sections(): SectionMetadata[] {
           description:
             'Allow plain HTTP to a private LAN IP address. Your qBittorrent password and session will not be encrypted.'
         },
+        { name: 'separator', label: '', type: 'separator' },
         { name: 'username', label: 'Username', type: 'string' },
         { name: 'password', label: 'Password', type: 'string', sensitive: true },
+        {
+          name: 'useApiKey',
+          label: 'Use API key',
+          type: 'bool',
+          description:
+            'Generate one in qBittorrent Settings → Web UI → API Key; API key authentication is recommended for qBittorrent 5.2 and newer.'
+        },
+        { name: 'apiKey', label: 'API key', type: 'string', sensitive: true },
+        { name: 'separator', label: '', type: 'separator' },
         {
           name: 'category',
           label: 'Category',

@@ -126,6 +126,10 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return c.url
         case 'allowInsecureHTTP':
           return String(c.allowInsecureHTTP)
+        case 'useApiKey':
+          return String(c.useApiKey)
+        case 'apiKey':
+          return c.apiKey
         case 'username':
           return c.username
         case 'password':
@@ -263,6 +267,7 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       break
     case 'torrentClient':
       if (field === 'url') next.torrentClient.url = value
+      if (field === 'apiKey') next.torrentClient.apiKey = value
       if (field === 'username') next.torrentClient.username = value
       if (field === 'password') next.torrentClient.password = value
       if (field === 'category') next.torrentClient.category = value
@@ -351,6 +356,7 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
     case 'torrentClient':
       if (field === 'enabled') next.torrentClient.enabled = value
       if (field === 'allowInsecureHTTP') next.torrentClient.allowInsecureHTTP = value
+      if (field === 'useApiKey') next.torrentClient.useApiKey = value
       if (field === 'useAutoTMM') next.torrentClient.useAutoTMM = value
       if (field === 'startPaused') next.torrentClient.startPaused = value
       break

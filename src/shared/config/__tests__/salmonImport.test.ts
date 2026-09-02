@@ -43,6 +43,8 @@ function defaultConfig(): Config {
       enabled: false,
       url: '',
       allowInsecureHTTP: false,
+      useApiKey: false,
+      apiKey: '',
       username: '',
       password: '',
       category: '',

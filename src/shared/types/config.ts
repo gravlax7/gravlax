@@ -121,6 +121,8 @@ export interface TorrentClientConfig {
   url: string
   /** Allow plain HTTP when the WebUI URL uses a private LAN IP address. */
   allowInsecureHTTP: boolean
+  useApiKey: boolean
+  apiKey: string
   username: string
   password: string
   category: string

@@ -24,6 +24,33 @@ describe('settings sections', () => {
     }
   })
 
+  it('explains and masks qBittorrent API key authentication', () => {
+    const fields = sections().find((section) => section.id === 'torrentClient')?.fields ?? []
+    expect(fields.map((field) => field.name)).toEqual([
+      'enabled',
+      'url',
+      'allowInsecureHTTP',
+      'separator',
+      'username',
+      'password',
+      'useApiKey',
+      'apiKey',
+      'separator',
+      'category',
+      'useAutoTMM',
+      'savePath',
+      'startPaused'
+    ])
+    expect(fields.find((field) => field.name === 'useApiKey')?.description).toBe(
+      'Generate one in qBittorrent Settings → Web UI → API Key; API key authentication is recommended for qBittorrent 5.2 and newer.'
+    )
+    expect(fields.find((field) => field.name === 'apiKey')).toMatchObject({
+      label: 'API key',
+      type: 'string',
+      sensitive: true
+    })
+  })
+
   it('builds the same settings fields for every tracker', () => {
     const fields = sections().find((section) => section.id === 'trackers')?.fields ?? []
     for (const id of UPLOAD_TRACKER_IDS) {

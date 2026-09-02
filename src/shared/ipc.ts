@@ -163,6 +163,8 @@ const configInput: z.ZodType<Config> = z.object({
     enabled: z.boolean(),
     url: z.string(),
     allowInsecureHTTP: z.boolean(),
+    useApiKey: z.boolean(),
+    apiKey: z.string(),
     username: z.string(),
     password: z.string(),
     category: z.string(),

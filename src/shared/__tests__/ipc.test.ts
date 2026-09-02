@@ -102,6 +102,16 @@ describe('IPC argument contract', () => {
     expect(parseIpcArguments('config:save', [cfg])).toEqual([cfg])
     expect(parseIpcArguments('config:resetSection', ['tools'])).toEqual(['tools'])
   })
+
+  it('validates qBittorrent API key settings before saving', () => {
+    const cfg = configInput()
+    cfg.torrentClient.useApiKey = true
+    cfg.torrentClient.apiKey = 'qbt_api_key'
+    expect(parseIpcArguments('config:save', [cfg])).toEqual([cfg])
+
+    ;(cfg.torrentClient as { useApiKey: unknown }).useApiKey = 'yes'
+    expect(() => parseIpcArguments('config:save', [cfg])).toThrow()
+  })
 })
 
 function configInput(): Config {
@@ -135,6 +145,8 @@ function configInput(): Config {
       enabled: false,
       url: '',
       allowInsecureHTTP: false,
+      useApiKey: false,
+      apiKey: '',
       username: '',
       password: '',
       category: '',

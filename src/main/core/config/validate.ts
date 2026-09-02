@@ -103,6 +103,13 @@ export function validate(cfg: Config): ValidationIssue[] {
     )
   }
   if (cfg.torrentClient.enabled) {
+    if (cfg.torrentClient.useApiKey && cfg.torrentClient.apiKey.trim() === '') {
+      add(
+        'torrentClient',
+        'apiKey',
+        'API key is required when qBittorrent API key authentication is on'
+      )
+    }
     if (cfg.torrentClient.useAutoTMM) {
       // Without a category ATM falls back to qBittorrent's global default save
       // path, which silently puts the torrent somewhere the release is not.
