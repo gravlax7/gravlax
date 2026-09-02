@@ -574,7 +574,7 @@ export function UploadStep(props: {
           />
 
           <div class="upload-report-field">
-            <span>Remaster year</span>
+            <span>Edition year</span>
             <div class="mono upload-report-readonly">{displayOrEmpty(upload().remasterYear)}</div>
           </div>
 
