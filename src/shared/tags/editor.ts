@@ -362,6 +362,78 @@ export function artistNameKey(name: string): string {
     .toLowerCase()
 }
 
+export interface ArtistRename {
+  from: string
+  to: string
+}
+
+export interface ArtistEditRow {
+  artist: Artist
+  sourceName: string | null
+}
+
+export function artistRenamesFromRows(rows: readonly ArtistEditRow[]): ArtistRename[] {
+  const edits = new Map<string, { from: string; targets: Set<string> }>()
+  for (const row of rows) {
+    const from = row.sourceName?.trim().normalize('NFC') ?? ''
+    const to = (row.artist.name ?? '').trim().normalize('NFC')
+    if (!from || !to) continue
+    const key = artistNameKey(from)
+    const edit = edits.get(key) ?? { from, targets: new Set<string>() }
+    edit.targets.add(to)
+    edits.set(key, edit)
+  }
+  return [...edits.values()].flatMap(({ from, targets }) => {
+    if (targets.size !== 1) return []
+    const [to] = targets
+    return to && from !== to ? [{ from, to }] : []
+  })
+}
+
+export function applyArtistRenamesToTracks(
+  release: Release,
+  renames: readonly ArtistRename[]
+): Release {
+  const names = new Map<string, string>()
+  for (const rename of renames) {
+    const from = artistNameKey(rename.from)
+    const to = rename.to.trim().normalize('NFC')
+    if (from && to) names.set(from, to)
+  }
+  if (names.size === 0 || !release.tracks) return release
+
+  let releaseChanged = false
+  const tracks = release.tracks.map((track) => {
+    let trackChanged = false
+    const renamedKeys = new Set<string>()
+    const renamed = (track.artists ?? []).map((artist) => {
+      const name = names.get(artistNameKey(artist.name ?? ''))
+      if (!name) return artist
+      trackChanged = true
+      const next = { ...artist, name }
+      renamedKeys.add(artistCreditKey(next))
+      return next
+    })
+    if (!trackChanged) return track
+
+    releaseChanged = true
+    const seen = new Set<string>()
+    const artists = renamed.filter((artist) => {
+      const key = artistCreditKey(artist)
+      if (!renamedKeys.has(key)) return true
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    return { ...track, artists }
+  })
+  return releaseChanged ? { ...release, tracks } : release
+}
+
+function artistCreditKey(artist: Artist): string {
+  return `${artistNameKey(artist.name ?? '')}\0${normalizeArtistRole(artist.role ?? '')}`
+}
+
 export function deriveAlbumArtist(artists: Artist[]): string {
   const main: string[] = []
   const seen = new Set<string>()

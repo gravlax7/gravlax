@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyFeaturedArtistsFromTitle,
+  applyArtistRenamesToTracks,
   applySeparatorArtistAction,
+  artistRenamesFromRows,
   artistRoleLabel,
   cycleArtistRole,
   deriveAlbumArtist,
@@ -116,6 +118,114 @@ describe('tags editor', () => {
     expect(fieldDisplayName('trackNumber')).toBe('Track')
     expect(trackHeading(release.tracks?.[0], 0, true)).toBe('2-03. Updated')
     expect(isMultiDiscTracks(release.tracks ?? [])).toBe(true)
+  })
+
+  it('finds only artist row renames', () => {
+    expect(
+      artistRenamesFromRows([
+        { sourceName: 'Main', artist: { name: 'Main', role: 'guest' } },
+        { sourceName: 'Guest', artist: { name: 'Renamed Guest', role: 'guest' } },
+        { sourceName: null, artist: { name: 'Added', role: 'main' } }
+      ])
+    ).toEqual([{ from: 'Guest', to: 'Renamed Guest' }])
+    expect(
+      artistRenamesFromRows([
+        { sourceName: 'Artist', artist: { name: 'ARTIST', role: 'main' } }
+      ])
+    ).toEqual([{ from: 'Artist', to: 'ARTIST' }])
+  })
+
+  it('deduplicates matching renames and ignores conflicting ones', () => {
+    expect(
+      artistRenamesFromRows([
+        { sourceName: 'Artist', artist: { name: 'Renamed', role: 'main' } },
+        { sourceName: 'Artist', artist: { name: 'Renamed', role: 'producer' } }
+      ])
+    ).toEqual([{ from: 'Artist', to: 'Renamed' }])
+    expect(
+      artistRenamesFromRows([
+        { sourceName: 'Artist', artist: { name: 'First', role: 'main' } },
+        { sourceName: 'Artist', artist: { name: 'Second', role: 'producer' } }
+      ])
+    ).toEqual([])
+  })
+
+  it('applies album artist renames to every matching track role', () => {
+    const release: Release = {
+      albumArtist: 'Lead',
+      artists: [
+        { name: 'Lead', role: 'main' },
+        { name: 'Guest', role: 'guest' }
+      ],
+      tracks: [
+        {
+          title: 'One',
+          artists: [
+            { name: 'Lead', role: 'main' },
+            { name: 'Guest', role: 'guest' }
+          ]
+        },
+        {
+          title: 'Two',
+          artists: [
+            { name: ' guest ', role: 'main' },
+            { name: 'Other', role: 'producer' }
+          ]
+        }
+      ]
+    }
+
+    const renamed = applyArtistRenamesToTracks(release, [{ from: 'Guest', to: 'New Guest' }])
+
+    expect(renamed.albumArtist).toBe('Lead')
+    expect(renamed.artists).toEqual(release.artists)
+    expect(renamed.tracks?.[0]?.artists).toEqual([
+      { name: 'Lead', role: 'main' },
+      { name: 'New Guest', role: 'guest' }
+    ])
+    expect(renamed.tracks?.[1]?.artists).toEqual([
+      { name: 'New Guest', role: 'main' },
+      { name: 'Other', role: 'producer' }
+    ])
+    expect(release.tracks?.[0]?.artists?.[1]?.name).toBe('Guest')
+  })
+
+  it('applies artist renames at once and removes collisions', () => {
+    const release: Release = {
+      tracks: [
+        {
+          artists: [
+            { name: 'A', role: 'main' },
+            { name: 'B', role: 'main' },
+            { name: 'B', role: 'producer' },
+            { name: 'C', role: 'main' }
+          ]
+        }
+      ]
+    }
+
+    const renamed = applyArtistRenamesToTracks(release, [
+      { from: 'A', to: 'B' },
+      { from: 'B', to: 'C' }
+    ])
+
+    expect(renamed.tracks?.[0]?.artists).toEqual([
+      { name: 'B', role: 'main' },
+      { name: 'C', role: 'main' },
+      { name: 'C', role: 'producer' }
+    ])
+  })
+
+  it('matches normalized artist names while applying display changes', () => {
+    const release: Release = {
+      tracks: [{ artists: [{ name: ' O\u2019Connor  ', role: 'composer' }] }]
+    }
+    const renamed = applyArtistRenamesToTracks(release, [
+      { from: "o'connor", to: "O'CONNOR" }
+    ])
+    expect(renamed.tracks?.[0]?.artists).toEqual([
+      { name: "O'CONNOR", role: 'composer' }
+    ])
   })
 
   it('parses featured artists as guest by default', () => {

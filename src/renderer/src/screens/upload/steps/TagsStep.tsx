@@ -27,7 +27,7 @@ import {
 import { Button, Callout, IconButton, Spinner, StatusDot } from '../../../ui'
 import { Toggle } from '../../../components/Toggle'
 import { Select } from '../../../components/Select'
-import { ArtistsEditor } from '../ArtistsEditor'
+import { ArtistsEditor, type ArtistEditAction } from '../ArtistsEditor'
 import { SeparatorArtistBanner } from '../SeparatorArtistBanner'
 
 export function TagsStep(props: {
@@ -41,7 +41,7 @@ export function TagsStep(props: {
   onCancelEdit: () => void
   onCommitEdit: () => void
   onEditValueChange: (value: string) => void
-  onEditArtistsChange: (artists: Artist[]) => void
+  onEditArtist: (action: ArtistEditAction) => void
   onFieldBlur: () => void
   focusFieldEditor: (el: HTMLInputElement | HTMLTextAreaElement) => void
   onReload: () => void
@@ -221,7 +221,7 @@ export function TagsStep(props: {
                               editValue={props.editValue}
                               editArtists={props.editArtists}
                               onEditValueChange={props.onEditValueChange}
-                              onEditArtistsChange={props.onEditArtistsChange}
+                              onEditArtist={props.onEditArtist}
                               onCommitEdit={props.onCommitEdit}
                               onFieldBlur={props.onFieldBlur}
                               focusFieldEditor={props.focusFieldEditor}
@@ -346,7 +346,7 @@ export function TagsStep(props: {
                                         editValue={props.editValue}
                                         editArtists={props.editArtists}
                                         onEditValueChange={props.onEditValueChange}
-                                        onEditArtistsChange={props.onEditArtistsChange}
+                                        onEditArtist={props.onEditArtist}
                                         onCommitEdit={props.onCommitEdit}
                                         onFieldBlur={props.onFieldBlur}
                                         focusFieldEditor={props.focusFieldEditor}
@@ -572,7 +572,7 @@ function FieldEditor(props: {
   editValue: string
   editArtists: Artist[]
   onEditValueChange: (value: string) => void
-  onEditArtistsChange: (artists: Artist[]) => void
+  onEditArtist: (action: ArtistEditAction) => void
   onCommitEdit: () => void
   onFieldBlur: () => void
   focusFieldEditor: (el: HTMLInputElement | HTMLTextAreaElement) => void
@@ -633,7 +633,7 @@ function FieldEditor(props: {
     >
       <ArtistsEditor
         artists={props.editArtists}
-        onChange={props.onEditArtistsChange}
+        onEdit={props.onEditArtist}
         onCommit={props.onCommitEdit}
         onFieldBlur={props.onFieldBlur}
       />

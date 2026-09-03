@@ -13,28 +13,30 @@ import { Select } from '../../components/Select'
 
 const ROLE_OPTIONS = [...ARTIST_ROLE_PRESETS]
 
+export type ArtistEditAction =
+  | { type: 'name'; index: number; name: string }
+  | { type: 'role'; index: number; role: string }
+  | { type: 'remove'; index: number }
+  | { type: 'add' }
+
 export function ArtistsEditor(props: {
   artists: Artist[]
-  onChange: (artists: Artist[]) => void
+  onEdit: (action: ArtistEditAction) => void
   onCommit: () => void
   onFieldBlur: () => void
 }) {
-  const updateAt = (index: number, patch: Partial<Artist>): void => {
-    if (patch.role != null) {
-      const nextRole = normalizeArtistRole(patch.role)
-      const current = props.artists[index]
-      if (
-        current &&
-        artistHasMainRole(current) &&
-        nextRole !== DEFAULT_ARTIST_ROLE &&
-        props.artists.filter(artistHasMainRole).length <= 1
-      ) {
-        return
-      }
+  const updateRole = (index: number, role: string): void => {
+    const nextRole = normalizeArtistRole(role)
+    const current = props.artists[index]
+    if (
+      current &&
+      artistHasMainRole(current) &&
+      nextRole !== DEFAULT_ARTIST_ROLE &&
+      props.artists.filter(artistHasMainRole).length <= 1
+    ) {
+      return
     }
-    props.onChange(
-      props.artists.map((artist, i) => (i === index ? { ...artist, ...patch } : artist))
-    )
+    props.onEdit({ type: 'role', index, role: nextRole })
   }
 
   const removeAt = (index: number): void => {
@@ -43,11 +45,11 @@ export function ArtistsEditor(props: {
     if (artistHasMainRole(current) && props.artists.filter(artistHasMainRole).length <= 1) {
       return
     }
-    props.onChange(props.artists.filter((_, i) => i !== index))
+    props.onEdit({ type: 'remove', index })
   }
 
   const addArtist = (): void => {
-    props.onChange([...props.artists, { name: '', role: DEFAULT_ARTIST_ROLE }])
+    props.onEdit({ type: 'add' })
   }
 
   const canRemove = (index: number): boolean => {
@@ -81,7 +83,11 @@ export function ArtistsEditor(props: {
               }}
               value={artist().name ?? ''}
               placeholder="Artist"
-              onInput={(event) => updateAt(index, { name: event.currentTarget.value })}
+              onInput={(event) => props.onEdit({
+                type: 'name',
+                index,
+                name: event.currentTarget.value
+              })}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault()
@@ -99,7 +105,7 @@ export function ArtistsEditor(props: {
               value={normalizeArtistRole(artist().role ?? '')}
               options={ROLE_OPTIONS}
               labelFor={artistRoleLabel}
-              onChange={(role) => updateAt(index, { role })}
+              onChange={(role) => updateRole(index, role)}
               style={{ 'min-width': '0', width: '150px', display: 'block', flex: '0 0 150px' }}
             />
             <button

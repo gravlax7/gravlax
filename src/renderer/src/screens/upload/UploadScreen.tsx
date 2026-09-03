@@ -11,6 +11,9 @@ import {
   DEFAULT_ARTIST_ROLE
 } from '@shared/types/upload'
 import {
+  applyArtistRenamesToTracks,
+  artistNameKey,
+  artistRenamesFromRows,
   editorTrackValue,
   editorValue,
   fieldEditable,
@@ -20,7 +23,8 @@ import {
   normalizeArtistRole,
   pendingSeparatorArtists,
   setFieldEditorValue,
-  setTrackFieldEditorValue
+  setTrackFieldEditorValue,
+  type ArtistEditRow
 } from '@shared/tags/editor'
 import {
   UPLOAD_STEPS,
@@ -32,6 +36,7 @@ import { Button, Icon, ProgressBar, Spinner } from '../../ui'
 import { basename } from './pathUtil'
 import { Lightbox } from './Lightbox'
 import { Stepper } from './Stepper'
+import type { ArtistEditAction } from './ArtistsEditor'
 import { FileChecksStep } from './steps/FileChecksStep'
 import { MetadataStep } from './steps/MetadataStep'
 import { SeedStep } from './steps/SeedStep'
@@ -66,7 +71,8 @@ export function UploadScreen(props: {
   const [editingField, setEditingField] = createSignal<string | null>(null)
   const [editingTrackIndex, setEditingTrackIndex] = createSignal<number | null>(null)
   const [editValue, setEditValue] = createSignal('')
-  const [editArtists, setEditArtists] = createSignal<Artist[]>([])
+  const [editArtistRows, setEditArtistRows] = createSignal<ArtistEditRow[]>([])
+  const editArtists = (): Artist[] => editArtistRows().map((row) => row.artist)
   const [pendingMetadataSelection, setPendingMetadataSelection] =
     createSignal<MetadataSelection | null>(null)
   const [pendingWriteStep, setPendingWriteStep] = createSignal<number | null>(null)
@@ -183,13 +189,16 @@ export function UploadScreen(props: {
         trackIndex == null
           ? (props.state.tags.proposed?.artists ?? [])
           : (props.state.tags.proposed?.tracks?.[trackIndex]?.artists ?? [])
-      setEditArtists(
+      setEditArtistRows(
         artists.length > 0
           ? artists.map((artist) => ({
-              name: artist.name ?? '',
-              role: normalizeArtistRole(artist.role ?? '')
+              artist: {
+                name: artist.name ?? '',
+                role: normalizeArtistRole(artist.role ?? '')
+              },
+              sourceName: artist.name ?? ''
             }))
-          : [{ name: '', role: DEFAULT_ARTIST_ROLE }]
+          : [{ artist: { name: '', role: DEFAULT_ARTIST_ROLE }, sourceName: null }]
       )
       return
     }
@@ -207,29 +216,57 @@ export function UploadScreen(props: {
 
   let suppressFieldBlur = false
 
+  const editArtist = (action: ArtistEditAction): void => {
+    setEditArtistRows((rows) => {
+      switch (action.type) {
+        case 'name': {
+          const current = rows[action.index]
+          if (!current) return rows
+          const sourceKey = artistNameKey(current.sourceName ?? '')
+          return rows.map((row, index) => {
+            const sameArtist =
+              sourceKey !== '' && artistNameKey(row.sourceName ?? '') === sourceKey
+            if (index !== action.index && !sameArtist) return row
+            return { ...row, artist: { ...row.artist, name: action.name } }
+          })
+        }
+        case 'role': {
+          const current = rows[action.index]
+          if (!current) return rows
+          return rows.map((row, index) =>
+            index === action.index
+              ? { ...row, artist: { ...row.artist, role: action.role } }
+              : row
+          )
+        }
+        case 'remove':
+          return rows[action.index]
+            ? rows.filter((_, index) => index !== action.index)
+            : rows
+        case 'add':
+          return [
+            ...rows,
+            { artist: { name: '', role: DEFAULT_ARTIST_ROLE }, sourceName: null }
+          ]
+      }
+    })
+  }
+
   const commitFieldEdit = (suppressBlur = true): void => {
     const field = editingField()
     if (!field) return
     if (field === FIELD_ARTISTS && !hasNamedMainArtist(editArtists())) return
     suppressFieldBlur = suppressBlur
     const trackIndex = editingTrackIndex()
-    const artistsValue = formatArtists(editArtists()).join('\n')
-    const next =
+    const value = field === FIELD_ARTISTS ? formatArtists(editArtists()).join('\n') : editValue()
+    let next =
       trackIndex == null
-        ? field === FIELD_ARTISTS
-          ? setFieldEditorValue(props.state.tags.proposed ?? {}, field, artistsValue)
-          : setFieldEditorValue(props.state.tags.proposed ?? {}, field, editValue())
-        : field === FIELD_ARTISTS
-          ? setTrackFieldEditorValue(props.state.tags.proposed ?? {}, trackIndex, field, artistsValue)
-          : setTrackFieldEditorValue(
-              props.state.tags.proposed ?? {},
-              trackIndex,
-              field,
-              editValue()
-            )
+        ? setFieldEditorValue(props.state.tags.proposed ?? {}, field, value)
+        : setTrackFieldEditorValue(props.state.tags.proposed ?? {}, trackIndex, field, value)
     if (field === FIELD_ARTISTS) {
       if (trackIndex == null) {
         next.artists = keepSeparatorArtists(next.artists ?? [])
+        next = applyArtistRenamesToTracks(next, artistRenamesFromRows(editArtistRows()))
       } else if (next.tracks?.[trackIndex]) {
         const track = next.tracks[trackIndex]
         next.tracks[trackIndex] = {
@@ -395,7 +432,7 @@ export function UploadScreen(props: {
               onCancelEdit={cancelFieldEdit}
               onCommitEdit={commitFieldEdit}
               onEditValueChange={setEditValue}
-              onEditArtistsChange={setEditArtists}
+              onEditArtist={editArtist}
               onFieldBlur={onFieldBlur}
               focusFieldEditor={focusFieldEditor}
               onReload={() => {
