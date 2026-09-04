@@ -57,6 +57,7 @@ const api = {
     setPayloadNameOverride: (id: string, value?: string) => invoke('upload:setPayloadNameOverride', id, value),
     setFolderNameOverride: (value?: string) => invoke('upload:setFolderNameOverride', value),
     setRenameReleaseFolder: (value: boolean) => invoke('upload:setRenameReleaseFolder', value),
+    setRenameTrackFiles: (value: boolean) => invoke('upload:setRenameTrackFiles', value),
     setStripEmbeddedCoverArt: (value: boolean) => invoke('upload:setStripEmbeddedCoverArt', value),
     applyTagsAndNames: (confirmed = false) => invoke('upload:applyTagsAndNames', confirmed),
     revertFiles: () => invoke('upload:revertFiles'),

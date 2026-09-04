@@ -24,6 +24,16 @@ describe('settings sections', () => {
     }
   })
 
+  it('shows the existing-tag default in Workflow Toggles', () => {
+    const workflow = sections().find((section) => section.id === 'workflow')
+    expect(workflow?.fields).toContainEqual({
+      name: 'keepExistingTagsByDefault',
+      label: 'Keep existing tags by default',
+      description: 'Preselect Keep existing tags for new uploads.',
+      type: 'bool'
+    })
+  })
+
   it('explains and masks qBittorrent API key authentication', () => {
     const fields = sections().find((section) => section.id === 'torrentClient')?.fields ?? []
     expect(fields.map((field) => field.name)).toEqual([

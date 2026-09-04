@@ -26,6 +26,7 @@ describe('config', () => {
     expect(cfg.workflow.confirmBeforeWrites).toBe(true)
     expect(cfg.workflow.useUpcAsCatNo).toBe(true)
     expect(cfg.workflow.autoRepairFlacIntegrity).toBe(false)
+    expect(cfg.workflow.keepExistingTagsByDefault).toBe(false)
     expect(cfg.metadataProviders.requestTimeoutSeconds).toBe(10)
     expect(cfg.metadataProviders.musicBrainz.enabled).toBe(true)
     expect(cfg.metadataProviders.deezer.enabled).toBe(true)
@@ -71,6 +72,15 @@ describe('config', () => {
     expect(loaded.workflow.autoRepairFlacIntegrity).toBe(true)
     const changed = setFieldBool(defaultConfig(), 'workflow', 'autoRepairFlacIntegrity', true)
     expect(fieldBoolValue(changed, 'workflow', 'autoRepairFlacIntegrity')).toBe(true)
+  })
+
+  it('loads, updates, and resets the existing-tag default without enabling it for old configs', () => {
+    expect(mergeLoadedConfig({ workflow: {} }).workflow.keepExistingTagsByDefault).toBe(false)
+    const loaded = mergeLoadedConfig({ workflow: { keepExistingTagsByDefault: true } })
+    expect(loaded.workflow.keepExistingTagsByDefault).toBe(true)
+    const changed = setFieldBool(defaultConfig(), 'workflow', 'keepExistingTagsByDefault', true)
+    expect(fieldBoolValue(changed, 'workflow', 'keepExistingTagsByDefault')).toBe(true)
+    expect(resetSection(changed, 'workflow').workflow.keepExistingTagsByDefault).toBe(false)
   })
 
   it.each(['aurora', 'plum'])('replaces retired %s theme settings', (theme) => {

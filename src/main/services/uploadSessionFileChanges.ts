@@ -11,12 +11,16 @@ import {
   emptyUpload,
   failFilesApply,
   finishFilesApply,
+  finishFilesNoop,
   finishFilesRestore,
+  isKeepExistingSelection,
   markFilesDirty,
   setFilenameOverride,
   setPayloadNameOverride,
   setFolderNameOverride,
   setRenameReleaseFolder,
+  setRenameTrackFiles,
+  setRenameFlags,
   setFilesApplyProgress,
   setEmbeddedCoverArtCount,
   setStripEmbeddedCoverArt,
@@ -26,10 +30,10 @@ import {
 } from '@main/core/uploadflow'
 import { pendingSeparatorArtists } from '@shared/tags/editor'
 import { invalidReleaseDateFields } from '@shared/tags/dates'
-import { buildFilesRenamePlan } from '@shared/upload/naming'
+import { buildFilesRenamePlan, nextRenameFlagsForPathLimits } from '@shared/upload/naming'
 import { sourceRestoreUnavailableMessage } from '@shared/upload/sourceRestore'
 import { applyTagsAndRenames as writeTagsAndRenames } from '@main/core/tools/files/apply'
-import { extractAlbumRelease, extractAlbumReleaseWithEmbeddedCoverArt } from '@main/core/tags/extract'
+import { extractAlbumReleaseWithEmbeddedCoverArt } from '@main/core/tags/extract'
 import { replaceWorkingCopyFromSource } from '@main/core/appdata/workspace'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { enumerateReleasePaths } from '@main/core/tools/releaseFiles'
@@ -87,6 +91,11 @@ export class UploadSessionFileChanges {
     this.context.apply(setRenameReleaseFolder(this.context.getState(), value))
   }
 
+  setRenameTrackFiles(value: boolean): void {
+    this.assertUnlocked()
+    this.context.apply(setRenameTrackFiles(this.context.getState(), value))
+  }
+
   setStripEmbeddedCoverArt(value: boolean): void {
     this.assertUnlocked()
     this.context.apply(setStripEmbeddedCoverArt(this.context.getState(), value))
@@ -95,7 +104,7 @@ export class UploadSessionFileChanges {
   async applyTagsAndNames(confirmedWrites = false): Promise<FileChangeResult> {
     let stillCurrent = (): boolean => true
     try {
-      const state = this.context.getState()
+      let state = this.context.getState()
       if (state.files.apply.phase === 'applying' || state.files.apply.phase === 'restoring') {
         return { ok: false, error: 'File changes are already running.' }
       }
@@ -112,12 +121,31 @@ export class UploadSessionFileChanges {
         return { ok: false, error: 'Dates must be YYYY, YYYY-MM, or YYYY-MM-DD.' }
       }
       stillCurrent = this.context.createWorkspaceGuard(workspacePath)
-      const plan = buildFilesRenamePlan({
+      const writeTags = !isKeepExistingSelection(state.metadata.selected)
+      const naming = this.context.getConfig().naming
+      const planInput = {
         release,
         files: state.files,
-        naming: this.context.getConfig().naming,
+        naming,
         sourceMedia: state.draft.sourceMedia,
-        encoding: state.transcode.inspection?.encoding
+        encoding: state.transcode.inspection?.encoding,
+        writeTags
+      }
+      const nextFlags = nextRenameFlagsForPathLimits(planInput)
+      if (
+        nextFlags.renameReleaseFolder !== state.files.apply.renameReleaseFolder ||
+        nextFlags.renameTrackFiles !== state.files.apply.renameTrackFiles
+      ) {
+        this.context.apply(setRenameFlags(
+          state,
+          nextFlags.renameReleaseFolder,
+          nextFlags.renameTrackFiles
+        ))
+        state = this.context.getState()
+      }
+      const plan = buildFilesRenamePlan({
+        ...planInput,
+        files: state.files
       })
       if (state.files.apply.appliedHash === plan.hash) {
         // A prior folder rename may have finished before navigation did. Make
@@ -136,12 +164,22 @@ export class UploadSessionFileChanges {
       }
       this.assertUnlocked()
       if (plan.errors.length > 0) return this.fail(plan.errors[0]!)
+      const renameFiles =
+        plan.folderName !== basename(workspacePath) ||
+        (plan.payloadFiles ?? plan.files).some((file) => file.changed)
+      const stripCover = state.files.apply.stripEmbeddedCoverArt
+      if (!writeTags && !renameFiles && !stripCover) {
+        this.context.apply(finishFilesNoop(state, plan.hash))
+        this.context.startTranscodeInspection()
+        return { ok: true }
+      }
       if (this.context.getConfig().workflow.confirmBeforeWrites && !confirmedWrites) {
         return { ok: false, error: 'Confirmation required.', needsConfirmation: true }
       }
 
       this.context.cancelGeneratedWork()
-      const progressTotal = plan.files.length + 1
+      const progressTotal =
+        (writeTags || stripCover ? plan.files.length : 0) + (renameFiles ? 1 : 0)
       const reportProgress = (current: number, label: string): void => {
         if (!stillCurrent()) return
         this.context.apply(
@@ -150,7 +188,12 @@ export class UploadSessionFileChanges {
         )
       }
       this.context.apply(
-        setFilesApplyProgress(beginFilesApply(state), 0, progressTotal, 'Applying tags…'),
+        setFilesApplyProgress(
+          beginFilesApply(state),
+          0,
+          progressTotal,
+          fileChangeProgressLabel(writeTags, renameFiles, stripCover)
+        ),
         { persist: false }
       )
       await this.context.persistNow()
@@ -164,7 +207,8 @@ export class UploadSessionFileChanges {
             workspacePath,
             release,
             plan,
-            stripEmbeddedCoverArt: this.context.getState().files.apply.stripEmbeddedCoverArt,
+            writeTags,
+            stripEmbeddedCoverArt: stripCover,
             signal: handle.signal,
             tools: this.context.tools,
             onProgress: (current, _total, label) => reportProgress(current, label)
@@ -177,23 +221,25 @@ export class UploadSessionFileChanges {
 
       await this.invalidateGeneratedFiles()
       if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
-      let applied = release
+      let applied = writeTags ? release : (state.tags.current ?? release)
+      let embeddedCoverArtCount = stripCover
+        ? Math.max(0, (state.files.original.embeddedCoverArtCount ?? 0) - result.strippedPictureCount)
+        : state.files.original.embeddedCoverArtCount
       try {
-        const extracted = await extractAlbumRelease(result.workspacePath)
-        if ((release.urls?.length ?? 0) > 0) {
-          extracted.urls = [...(release.urls ?? [])]
+        const extracted = await extractAlbumReleaseWithEmbeddedCoverArt(result.workspacePath)
+        applied = extracted.release
+        embeddedCoverArtCount = extracted.embeddedCoverArtCount
+        if (writeTags && (release.urls?.length ?? 0) > 0) {
+          applied.urls = [...(release.urls ?? [])]
         }
-        if (release.cover) {
-          extracted.cover = release.cover
+        if (writeTags && release.cover) {
+          applied.cover = release.cover
         }
-        applied = extracted
       } catch {
-        applied = release
+        applied = writeTags ? release : (state.tags.current ?? release)
       }
       if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
-      this.context.apply(
-        acceptAppliedTags(
-          finishFilesApply(
+      let next = finishFilesApply(
             this.context.getState(),
             result.workspacePath,
             result.folderName,
@@ -204,17 +250,19 @@ export class UploadSessionFileChanges {
               strippedPictureCount: result.strippedPictureCount
             },
             result.payloadPaths
-          ),
-          applied
-        )
       )
+      next = writeTags ? acceptAppliedTags(next, applied) : setTagsCurrent(next, applied)
+      if (embeddedCoverArtCount !== undefined) {
+        next = setEmbeddedCoverArtCount(next, embeddedCoverArtCount)
+      }
+      this.context.apply(next)
       // Renaming the release folder changes workspacePath on purpose. Follow
       // that path so the guard does not treat our own rename as a source swap.
       stillCurrent = this.context.createWorkspaceGuard(result.workspacePath)
       await this.context.persistNow()
       if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
       this.context.startTranscodeInspection()
-      this.context.notify('success', 'Tags and filenames were applied.')
+      this.context.notify('success', fileChangeSuccessMessage(writeTags, renameFiles, stripCover))
       return { ok: true }
     } catch (error) {
       if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
@@ -377,4 +425,32 @@ export class UploadSessionFileChanges {
       }
     })
   }
+}
+
+function fileChangeProgressLabel(
+  writeTags: boolean,
+  renameFiles: boolean,
+  stripCover: boolean
+): string {
+  if (writeTags) return renameFiles ? 'Applying tags and filenames…' : 'Applying tags…'
+  if (stripCover) return renameFiles ? 'Removing cover art and renaming files…' : 'Removing cover art…'
+  return 'Renaming files…'
+}
+
+function fileChangeSuccessMessage(
+  writeTags: boolean,
+  renameFiles: boolean,
+  stripCover: boolean
+): string {
+  const changes = [
+    writeTags ? 'tags' : '',
+    renameFiles ? 'filenames' : '',
+    stripCover ? 'embedded cover art' : ''
+  ].filter(Boolean)
+  if (changes.length === 1) return `${capitalize(changes[0]!)} changed.`
+  return `${capitalize(changes.slice(0, -1).join(', '))} and ${changes.at(-1)} changed.`
+}
+
+function capitalize(value: string): string {
+  return `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`
 }

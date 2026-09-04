@@ -6,6 +6,7 @@ import {
   FIELD_ARTISTS,
   FIELD_ORDER,
   FIELD_RELEASE_TYPE,
+  METADATA_PROVIDER_KEEP_EXISTING,
   TRACK_FIELD_ORDER
 } from '@shared/types/upload'
 import { STANDARD_RELEASE_TYPES } from '@shared/upload/releaseTypes'
@@ -48,6 +49,8 @@ export function TagsStep(props: {
   focusFieldEditor: (el: HTMLInputElement | HTMLTextAreaElement) => void
   onReload: () => void
 }) {
+  const keepExistingTags = (): boolean =>
+    props.state.metadata.selected?.provider === METADATA_PROVIDER_KEEP_EXISTING
   const currentTracks = (): Track[] => props.state.tags.current?.tracks ?? []
   const proposedTracks = (): Track[] => props.state.tags.proposed?.tracks ?? []
   const trackCount = (): number => Math.max(currentTracks().length, proposedTracks().length)
@@ -58,7 +61,8 @@ export function TagsStep(props: {
     files: props.state.files,
     naming: props.config.naming,
     sourceMedia: props.state.draft.sourceMedia,
-    encoding: props.state.transcode.inspection?.encoding
+    encoding: props.state.transcode.inspection?.encoding,
+    writeTags: !keepExistingTags()
   }))
   const locked = (): boolean =>
     (props.state.upload.submissions ?? []).some((item) => item.status === 'done') ||
@@ -72,6 +76,8 @@ export function TagsStep(props: {
     )
   const payloadState = (id: string) =>
     (props.state.files.apply.payloadPaths ?? []).find((item) => item.id === id)
+  const currentFolders = () =>
+    (props.state.files.apply.payloadPaths ?? []).filter((item) => item.kind === 'directory')
   const pathErrors = (currentPath: string, targetPath: string): string[] =>
     plan().errors.filter((error) =>
       error.startsWith(`${currentPath}:`) || error.startsWith(`${targetPath}:`)
@@ -104,14 +110,28 @@ export function TagsStep(props: {
           <div>
             <strong>Files on disk:</strong>{' '}
             {props.state.files.apply.phase === 'applying'
-              ? 'applying tags and filenames…'
+              ? 'applying selected changes…'
               : props.state.files.apply.phase === 'restoring'
                 ? 'restoring original files…'
                 : props.state.files.apply.phase === 'applied'
-                  ? `tags applied, ${props.state.files.apply.changedFileCount ?? 0} renamed, ${props.state.files.apply.strippedPictureCount ?? 0} cover images stripped`
+                  ? keepExistingTags() &&
+                    (props.state.files.apply.changedFileCount ?? 0) === 0 &&
+                    (props.state.files.apply.strippedPictureCount ?? 0) === 0
+                    ? 'no file changes needed'
+                    : `${keepExistingTags() ? 'tags kept' : 'tags applied'}, ${props.state.files.apply.changedFileCount ?? 0} renamed, ${props.state.files.apply.strippedPictureCount ?? 0} cover images stripped`
                   : props.state.files.apply.phase === 'failed'
                     ? props.state.files.apply.error
-                    : props.state.files.apply.onDiskModified ? 'modified (new changes pending)' : 'original'}
+                  : props.state.files.apply.onDiskModified ? 'modified (new changes pending)' : 'original'}
+            <Show when={
+              props.state.files.original.restoreAvailable === false &&
+              (props.state.files.apply.onDiskModified || props.state.files.apply.phase === 'failed')
+            }>
+              <div class="files-restore-unavailable">
+                Restore unavailable: {sourceRestoreUnavailableMessage(
+                  props.state.files.original.restoreUnavailableReason ?? 'unknown'
+                )}
+              </div>
+            </Show>
           </div>
         </div>
         <Button
@@ -123,7 +143,7 @@ export function TagsStep(props: {
               : undefined
           }
           disabled={
-            busy() || locked() ||
+            busy() || locked() || props.state.files.original.restoreAvailable === false ||
             (!props.state.files.apply.onDiskModified && props.state.files.apply.phase !== 'failed')
           }
           onClick={() => void window.gravlax.upload.revertFiles()}
@@ -153,6 +173,11 @@ export function TagsStep(props: {
       </Show>
 
       <Show when={props.state.tags.releaseStatus !== 'loading'}>
+        <Show when={keepExistingTags()}>
+          <Callout tone="info" class="tags-release-status">
+            Gravlax will use the tags read from these FLAC files and will not rewrite them.
+          </Callout>
+        </Show>
         <SeparatorArtistBanner
           release={props.state.tags.proposed}
           onResolve={(next) => {
@@ -166,100 +191,109 @@ export function TagsStep(props: {
           </Callout>
         </Show>
         <div class="tags-table-wrap">
-          <table class="tags-table">
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Current</th>
-              <th>Proposed</th>
-            </tr>
-          </thead>
-          <tbody>
-            <For each={[...FIELD_ORDER]}>
-              {(field) => {
-                const current = (): string[] =>
-                  displayValueLines(props.state.tags.current ?? {}, field)
-                const proposed = (): string[] =>
-                  displayValueLines(props.state.tags.proposed ?? {}, field)
-                const changed = (): boolean => !textValueLinesEqual(current(), proposed())
-                const editing = (): boolean =>
-                  props.editingTrackIndex == null && props.editingField === field
-                const separatorPending = (): boolean =>
-                  field === FIELD_ARTISTS &&
-                  (props.state.tags.proposed?.artists ?? []).some(artistCreditIsPending)
-                return (
-                  <tr
-                    classList={{
-                      'tags-row-changed': changed(),
-                      'tags-row-separator-pending': separatorPending()
-                    }}
-                  >
-                    <td class="tags-field-name">
-                      <div class="tags-field-label">
-                        <span class="tags-change-slot" aria-hidden={!changed()}>
-                          <Show when={changed()}>
-                            <StatusDot color="var(--accent)" title="Changed" />
-                          </Show>
-                        </span>
-                        {fieldDisplayName(field)}
-                      </div>
-                    </td>
-                    <td class="mono tags-cell-current">
-                      <TagsValueLines lines={current()} />
-                    </td>
-                    <td class="tags-cell-proposed">
-                      <div class="tags-proposed-wrap">
-                        <div class="tags-proposed-main">
-                          <Show
-                            when={editing()}
-                            fallback={
-                              <span
-                                class="mono tags-proposed-value"
-                                classList={{ 'tags-proposed-changed': changed() }}
-                                role={fieldEditable(field) ? 'button' : undefined}
-                                tabIndex={fieldEditable(field) ? 0 : undefined}
-                                onClick={() => props.onStartEdit(field)}
-                                onKeyDown={(event) => {
-                                  if (!fieldEditable(field)) return
-                                  if (event.key === 'Enter' || event.key === ' ') {
-                                    event.preventDefault()
-                                    props.onStartEdit(field)
-                                  }
-                                }}
+          <table
+            class="tags-table"
+            classList={{ 'tags-table-readonly': keepExistingTags() }}
+          >
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Current</th>
+                <Show when={!keepExistingTags()}>
+                  <th>Proposed</th>
+                </Show>
+              </tr>
+            </thead>
+            <tbody>
+              <For each={[...FIELD_ORDER]}>
+                {(field) => {
+                  const current = (): string[] =>
+                    displayValueLines(props.state.tags.current ?? {}, field)
+                  const proposed = (): string[] =>
+                    displayValueLines(props.state.tags.proposed ?? {}, field)
+                  const changed = (): boolean =>
+                    !keepExistingTags() && !textValueLinesEqual(current(), proposed())
+                  const editing = (): boolean =>
+                    props.editingTrackIndex == null && props.editingField === field
+                  const separatorPending = (): boolean =>
+                    !keepExistingTags() &&
+                    field === FIELD_ARTISTS &&
+                    (props.state.tags.proposed?.artists ?? []).some(artistCreditIsPending)
+                  return (
+                    <tr
+                      classList={{
+                        'tags-row-changed': changed(),
+                        'tags-row-separator-pending': separatorPending()
+                      }}
+                    >
+                      <td class="tags-field-name">
+                        <div class="tags-field-label">
+                          <span class="tags-change-slot" aria-hidden={!changed()}>
+                            <Show when={changed()}>
+                              <StatusDot color="var(--accent)" title="Changed" />
+                            </Show>
+                          </span>
+                          {fieldDisplayName(field)}
+                        </div>
+                      </td>
+                      <td class="mono tags-cell-current">
+                        <TagsValueLines lines={current()} />
+                      </td>
+                      <Show when={!keepExistingTags()}>
+                        <td class="tags-cell-proposed">
+                          <div class="tags-proposed-wrap">
+                            <div class="tags-proposed-main">
+                              <Show
+                                when={editing()}
+                                fallback={
+                                  <span
+                                    class="mono tags-proposed-value"
+                                    classList={{ 'tags-proposed-changed': changed() }}
+                                    role={fieldEditable(field) ? 'button' : undefined}
+                                    tabIndex={fieldEditable(field) ? 0 : undefined}
+                                    onClick={() => props.onStartEdit(field)}
+                                    onKeyDown={(event) => {
+                                      if (!fieldEditable(field)) return
+                                      if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault()
+                                        props.onStartEdit(field)
+                                      }
+                                    }}
+                                  >
+                                    <TagsValueLines lines={proposed()} />
+                                  </span>
+                                }
                               >
-                                <TagsValueLines lines={proposed()} />
-                              </span>
-                            }
-                          >
-                            <FieldEditor
-                              field={field}
-                              editValue={props.editValue}
-                              editArtists={props.editArtists}
-                              onEditValueChange={props.onEditValueChange}
-                              onEditArtist={props.onEditArtist}
-                              onCommitEdit={props.onCommitEdit}
-                              onFieldBlur={props.onFieldBlur}
-                              focusFieldEditor={props.focusFieldEditor}
-                            />
-                          </Show>
-                        </div>
-                        <div class="tags-revert-slot">
-                          <Show when={changed() && !editing()}>
-                            <IconButton
-                              icon="refresh-cw"
-                              label="Revert field"
-                              size="sm"
-                              onClick={() => revertField(field)}
-                            />
-                          </Show>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              }}
-            </For>
-          </tbody>
+                                <FieldEditor
+                                  field={field}
+                                  editValue={props.editValue}
+                                  editArtists={props.editArtists}
+                                  onEditValueChange={props.onEditValueChange}
+                                  onEditArtist={props.onEditArtist}
+                                  onCommitEdit={props.onCommitEdit}
+                                  onFieldBlur={props.onFieldBlur}
+                                  focusFieldEditor={props.focusFieldEditor}
+                                />
+                              </Show>
+                            </div>
+                            <div class="tags-revert-slot">
+                              <Show when={changed() && !editing()}>
+                                <IconButton
+                                  icon="refresh-cw"
+                                  label="Revert field"
+                                  size="sm"
+                                  onClick={() => revertField(field)}
+                                />
+                              </Show>
+                            </div>
+                          </div>
+                        </td>
+                      </Show>
+                    </tr>
+                  )
+                }}
+              </For>
+            </tbody>
           </table>
         </div>
 
@@ -276,120 +310,128 @@ export function TagsStep(props: {
 
         <Show when={trackCount() > 0}>
           <section class="tags-tracks">
-          <h3 class="tags-tracks-heading">Tracks</h3>
-          <For each={Array.from({ length: trackCount() }, (_, index) => index)}>
-            {(trackIndex) => {
-              const currentTrack = (): Track | undefined => currentTracks()[trackIndex]
-              const proposedTrack = (): Track | undefined => proposedTracks()[trackIndex]
-              return (
-                <div class="tags-track">
-                  <h4 class="tags-track-title">
-                    {trackHeading(
-                      proposedTrack() ?? currentTrack(),
-                      trackIndex,
-                      multiDisc()
-                    )}
-                  </h4>
-                  <table class="tags-table">
-                    <thead>
-                      <tr>
-                        <th>Field</th>
-                        <th>Current</th>
-                        <th>Proposed</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <For each={[...TRACK_FIELD_ORDER]}>
-                        {(field) => {
-                          const current = (): string[] =>
-                            displayTrackValueLines(currentTrack(), field)
-                          const proposed = (): string[] =>
-                            displayTrackValueLines(proposedTrack(), field)
-                          const changed = (): boolean =>
-                            !textValueLinesEqual(current(), proposed())
-                          const editing = (): boolean =>
-                            props.editingTrackIndex === trackIndex &&
-                            props.editingField === field
-                          const separatorPending = (): boolean =>
-                            field === FIELD_ARTISTS &&
-                            (proposedTrack()?.artists ?? []).some(artistCreditIsPending)
-                          return (
-                            <tr
-                              classList={{
-                                'tags-row-changed': changed(),
-                                'tags-row-separator-pending': separatorPending()
-                              }}
-                            >
-                              <td class="tags-field-name">
-                                <div class="tags-field-label">
-                                  <span class="tags-change-slot" aria-hidden={!changed()}>
-                                    <Show when={changed()}>
-                                      <StatusDot color="var(--accent)" title="Changed" />
-                                    </Show>
-                                  </span>
-                                  {fieldDisplayName(field)}
-                                </div>
-                              </td>
-                              <td class="mono tags-cell-current">
-                                <TagsValueLines lines={current()} />
-                              </td>
-                              <td class="tags-cell-proposed">
-                                <div class="tags-proposed-wrap">
-                                  <div class="tags-proposed-main">
-                                    <Show
-                                      when={editing()}
-                                      fallback={
-                                        <span
-                                          class="mono tags-proposed-value"
-                                          classList={{ 'tags-proposed-changed': changed() }}
-                                          role="button"
-                                          tabIndex={0}
-                                          onClick={() => props.onStartEdit(field, trackIndex)}
-                                          onKeyDown={(event) => {
-                                            if (event.key === 'Enter' || event.key === ' ') {
-                                              event.preventDefault()
-                                              props.onStartEdit(field, trackIndex)
-                                            }
-                                          }}
+            <h3 class="tags-tracks-heading">Tracks</h3>
+            <For each={Array.from({ length: trackCount() }, (_, index) => index)}>
+              {(trackIndex) => {
+                const currentTrack = (): Track | undefined => currentTracks()[trackIndex]
+                const proposedTrack = (): Track | undefined => proposedTracks()[trackIndex]
+                return (
+                  <div class="tags-track">
+                    <h4 class="tags-track-title">
+                      {trackHeading(
+                        keepExistingTags() ? currentTrack() : proposedTrack() ?? currentTrack(),
+                        trackIndex,
+                        multiDisc()
+                      )}
+                    </h4>
+                    <table
+                      class="tags-table"
+                      classList={{ 'tags-table-readonly': keepExistingTags() }}
+                    >
+                      <thead>
+                        <tr>
+                          <th>Field</th>
+                          <th>Current</th>
+                          <Show when={!keepExistingTags()}>
+                            <th>Proposed</th>
+                          </Show>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <For each={[...TRACK_FIELD_ORDER]}>
+                          {(field) => {
+                            const current = (): string[] =>
+                              displayTrackValueLines(currentTrack(), field)
+                            const proposed = (): string[] =>
+                              displayTrackValueLines(proposedTrack(), field)
+                            const changed = (): boolean =>
+                              !keepExistingTags() && !textValueLinesEqual(current(), proposed())
+                            const editing = (): boolean =>
+                              props.editingTrackIndex === trackIndex &&
+                              props.editingField === field
+                            const separatorPending = (): boolean =>
+                              !keepExistingTags() &&
+                              field === FIELD_ARTISTS &&
+                              (proposedTrack()?.artists ?? []).some(artistCreditIsPending)
+                            return (
+                              <tr
+                                classList={{
+                                  'tags-row-changed': changed(),
+                                  'tags-row-separator-pending': separatorPending()
+                                }}
+                              >
+                                <td class="tags-field-name">
+                                  <div class="tags-field-label">
+                                    <span class="tags-change-slot" aria-hidden={!changed()}>
+                                      <Show when={changed()}>
+                                        <StatusDot color="var(--accent)" title="Changed" />
+                                      </Show>
+                                    </span>
+                                    {fieldDisplayName(field)}
+                                  </div>
+                                </td>
+                                <td class="mono tags-cell-current">
+                                  <TagsValueLines lines={current()} />
+                                </td>
+                                <Show when={!keepExistingTags()}>
+                                  <td class="tags-cell-proposed">
+                                    <div class="tags-proposed-wrap">
+                                      <div class="tags-proposed-main">
+                                        <Show
+                                          when={editing()}
+                                          fallback={
+                                            <span
+                                              class="mono tags-proposed-value"
+                                              classList={{ 'tags-proposed-changed': changed() }}
+                                              role="button"
+                                              tabIndex={0}
+                                              onClick={() => props.onStartEdit(field, trackIndex)}
+                                              onKeyDown={(event) => {
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                  event.preventDefault()
+                                                  props.onStartEdit(field, trackIndex)
+                                                }
+                                              }}
+                                            >
+                                              <TagsValueLines lines={proposed()} />
+                                            </span>
+                                          }
                                         >
-                                          <TagsValueLines lines={proposed()} />
-                                        </span>
-                                      }
-                                    >
-                                      <FieldEditor
-                                        field={field}
-                                        editValue={props.editValue}
-                                        editArtists={props.editArtists}
-                                        onEditValueChange={props.onEditValueChange}
-                                        onEditArtist={props.onEditArtist}
-                                        onCommitEdit={props.onCommitEdit}
-                                        onFieldBlur={props.onFieldBlur}
-                                        focusFieldEditor={props.focusFieldEditor}
-                                      />
-                                    </Show>
-                                  </div>
-                                  <div class="tags-revert-slot">
-                                    <Show when={changed() && !editing()}>
-                                      <IconButton
-                                        icon="refresh-cw"
-                                        label="Revert field"
-                                        size="sm"
-                                        onClick={() => revertTrackField(trackIndex, field)}
-                                      />
-                                    </Show>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        }}
-                      </For>
-                    </tbody>
-                  </table>
-                </div>
-              )
-            }}
-          </For>
+                                          <FieldEditor
+                                            field={field}
+                                            editValue={props.editValue}
+                                            editArtists={props.editArtists}
+                                            onEditValueChange={props.onEditValueChange}
+                                            onEditArtist={props.onEditArtist}
+                                            onCommitEdit={props.onCommitEdit}
+                                            onFieldBlur={props.onFieldBlur}
+                                            focusFieldEditor={props.focusFieldEditor}
+                                          />
+                                        </Show>
+                                      </div>
+                                      <div class="tags-revert-slot">
+                                        <Show when={changed() && !editing()}>
+                                          <IconButton
+                                            icon="refresh-cw"
+                                            label="Revert field"
+                                            size="sm"
+                                            onClick={() => revertTrackField(trackIndex, field)}
+                                          />
+                                        </Show>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </Show>
+                              </tr>
+                            )
+                          }}
+                        </For>
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              }}
+            </For>
           </section>
         </Show>
       </Show>
@@ -398,7 +440,7 @@ export function TagsStep(props: {
         <div class="filenames-heading">
           <div>
             <h3>Filenames</h3>
-            <p>Names come from Settings → Naming. You can override any name for this upload.</p>
+            <p>Current names stay visible. Turn on a rename option to edit them for this upload.</p>
           </div>
         </div>
 
@@ -411,9 +453,12 @@ export function TagsStep(props: {
           <span><strong>Rename release folder</strong><small>{props.config.naming.releaseFolderTemplate}</small></span>
         </label>
 
-        <Show when={props.state.files.apply.renameReleaseFolder}>
-          <div class="filename-edit-row">
-            <span class="mono filename-current">{props.state.files.apply.currentFolderName}</span>
+        <div
+          class="filename-edit-row"
+          classList={{ 'filename-edit-row-readonly': !props.state.files.apply.renameReleaseFolder }}
+        >
+          <span class="mono filename-current">{props.state.files.apply.currentFolderName}</span>
+          <Show when={props.state.files.apply.renameReleaseFolder}>
             <span>→</span>
             <input
               class="mono filename-input"
@@ -429,13 +474,40 @@ export function TagsStep(props: {
               disabled={!props.state.files.apply.folderNameOverride || busy() || locked()}
               onClick={() => void window.gravlax.upload.setFolderNameOverride()}
             />
-          </div>
-        </Show>
+          </Show>
+        </div>
 
-        <Show when={(plan().folders?.length ?? 0) > 0}>
+        <label class="filename-toggle-row">
+          <Toggle
+            on={props.state.files.apply.renameTrackFiles}
+            disabled={busy() || locked()}
+            onChange={(value) => void window.gravlax.upload.setRenameTrackFiles(value)}
+          />
+          <span><strong>Rename FLAC tracks</strong><small>{props.config.naming.trackFileTemplate}</small></span>
+        </label>
+
+        <Show when={
+          props.state.files.apply.renameTrackFiles
+            ? (plan().folders?.length ?? 0) > 0
+            : currentFolders().length > 0
+        }>
           <div class="filename-group-label">Folders</div>
-          <div class="filename-list">
-            <For each={plan().folders ?? []}>
+          <Show
+            when={props.state.files.apply.renameTrackFiles}
+            fallback={
+              <div class="filename-list">
+                <For each={currentFolders()}>
+                  {(folder) => (
+                    <div class="filename-edit-row filename-edit-row-readonly">
+                      <span class="mono filename-current">{folder.currentPath}</span>
+                    </div>
+                  )}
+                </For>
+              </div>
+            }
+          >
+            <div class="filename-list">
+              <For each={plan().folders ?? []}>
               {(folder) => (
                 <div class="filename-entry">
                   <div class="filename-edit-row">
@@ -468,87 +540,136 @@ export function TagsStep(props: {
                   </For>
                 </div>
               )}
-            </For>
-          </div>
+              </For>
+            </div>
+          </Show>
         </Show>
 
-        <div class="filename-group-label">FLAC tracks</div>
-        <div class="filename-list">
-          <Index each={plan().files}>
-            {(file) => {
-              const stateFile = () =>
-                props.state.files.apply.files.find((item) => item.id === file().id)
-              return (
-                <div class="filename-entry">
-                  <div class="filename-edit-row">
-                    <span class="mono filename-current">{file().currentPath}</span>
-                    <span>→</span>
-                    <div class="filename-target">
-                      <Show when={file().targetPath.slice(0, -file().targetFilename.length)}>
-                        <span class="mono filename-directory">
-                          {file().targetPath.slice(0, -file().targetFilename.length)}
-                        </span>
+        <Show when={plan().files.length > 0}>
+          <div class="filename-group-label">FLAC tracks</div>
+          <div class="filename-list">
+            <Index each={plan().files}>
+              {(file) => {
+                const stateFile = () =>
+                  props.state.files.apply.files.find((item) => item.id === file().id)
+                return (
+                  <div
+                    class="filename-entry"
+                    classList={{
+                      'filename-entry-readonly': !props.state.files.apply.renameTrackFiles
+                    }}
+                  >
+                    <div
+                      class="filename-edit-row"
+                      classList={{
+                        'filename-edit-row-readonly': !props.state.files.apply.renameTrackFiles
+                      }}
+                    >
+                      <span class="mono filename-current">{file().currentPath}</span>
+                      <Show when={props.state.files.apply.renameTrackFiles}>
+                        <span>→</span>
+                        <div class="filename-target">
+                          <Show when={file().targetPath.slice(0, -file().targetFilename.length)}>
+                            <span class="mono filename-directory">
+                              {file().targetPath.slice(0, -file().targetFilename.length)}
+                            </span>
+                          </Show>
+                          <FixedExtensionInput
+                            disabled={busy() || locked()}
+                            extension=".flac"
+                            value={withoutExtension(file().targetFilename, '.flac')}
+                            onChange={(value) =>
+                              void window.gravlax.upload.setFilenameOverride(
+                                file().id,
+                                withExtension(value, '.flac')
+                              )
+                            }
+                            label={`Filename without the fixed FLAC extension for ${file().currentPath}`}
+                          />
+                        </div>
+                        <IconButton
+                          icon="refresh-cw"
+                          label="Reset filename"
+                          size="sm"
+                          disabled={!stateFile()?.filenameOverride || busy() || locked()}
+                          onClick={() => void window.gravlax.upload.setFilenameOverride(file().id)}
+                        />
                       </Show>
-                      <input
-                        class="mono filename-input"
-                        disabled={busy() || locked()}
-                        value={stateFile()?.filenameOverride ?? file().targetFilename}
-                        onChange={(event) =>
-                          void window.gravlax.upload.setFilenameOverride(
-                            file().id,
-                            event.currentTarget.value
-                          )
-                        }
-                        aria-label={`Filename for ${file().currentPath}`}
-                      />
                     </div>
-                    <IconButton
-                      icon="refresh-cw"
-                      label="Reset filename"
-                      size="sm"
-                      disabled={!stateFile()?.filenameOverride || busy() || locked()}
-                      onClick={() => void window.gravlax.upload.setFilenameOverride(file().id)}
-                    />
+                    <For each={pathErrors(file().currentPath, file().targetPath)}>
+                      {(error) => <div class="filename-row-error">{error}</div>}
+                    </For>
                   </div>
-                  <For each={pathErrors(file().currentPath, file().targetPath)}>
-                    {(error) => <div class="filename-row-error">{error}</div>}
-                  </For>
-                </div>
-              )
-            }}
-          </Index>
-        </div>
+                )
+              }}
+            </Index>
+          </div>
+        </Show>
 
         <Show when={(plan().payloadFiles ?? []).some((file) => !file.track)}>
           <div class="filename-group-label">Other files</div>
           <div class="filename-list">
             <For each={(plan().payloadFiles ?? []).filter((file) => !file.track)}>
               {(file) => (
-                <div class="filename-entry">
-                  <div class="filename-edit-row">
+                <div
+                  class="filename-entry"
+                  classList={{
+                    'filename-entry-readonly': !props.state.files.apply.renameTrackFiles
+                  }}
+                >
+                  <div
+                    class="filename-edit-row"
+                    classList={{
+                      'filename-edit-row-readonly': !props.state.files.apply.renameTrackFiles
+                    }}
+                  >
                     <span class="mono filename-current">{file.currentPath}</span>
-                    <span>→</span>
-                    <div class="filename-target">
-                      <Show when={file.targetPath.slice(0, -file.targetName.length)}>
-                        <span class="mono filename-directory">
-                          {file.targetPath.slice(0, -file.targetName.length)}
-                        </span>
-                      </Show>
-                      <input
-                        class="mono filename-input"
-                        disabled={busy() || locked()}
-                        value={payloadState(file.id)?.nameOverride ?? file.targetName}
-                        onChange={(event) => void window.gravlax.upload.setPayloadNameOverride(file.id, event.currentTarget.value)}
-                        aria-label={`Filename for ${file.currentPath}`}
+                    <Show when={props.state.files.apply.renameTrackFiles}>
+                      <span>→</span>
+                      <div class="filename-target">
+                        <Show when={file.targetPath.slice(0, -file.targetName.length)}>
+                          <span class="mono filename-directory">
+                            {file.targetPath.slice(0, -file.targetName.length)}
+                          </span>
+                        </Show>
+                        <Show
+                          when={filenameExtension(
+                            payloadState(file.id)?.originalPath ?? file.currentPath
+                          )}
+                          fallback={
+                            <input
+                              class="mono filename-input"
+                              disabled={busy() || locked()}
+                              value={payloadState(file.id)?.nameOverride ?? file.targetName}
+                              onChange={(event) => void window.gravlax.upload.setPayloadNameOverride(file.id, event.currentTarget.value)}
+                              aria-label={`Filename for ${file.currentPath}`}
+                            />
+                          }
+                        >
+                          {(extension) => (
+                            <FixedExtensionInput
+                              disabled={busy() || locked()}
+                              extension={extension()}
+                              value={withoutExtension(file.targetName, extension())}
+                              onChange={(value) =>
+                                void window.gravlax.upload.setPayloadNameOverride(
+                                  file.id,
+                                  withExtension(value, extension())
+                                )
+                              }
+                              label={`Filename without the fixed ${extension()} extension for ${file.currentPath}`}
+                            />
+                          )}
+                        </Show>
+                      </div>
+                      <IconButton
+                        icon="refresh-cw"
+                        label="Reset filename"
+                        size="sm"
+                        disabled={!payloadState(file.id)?.nameOverride || busy() || locked()}
+                        onClick={() => void window.gravlax.upload.setPayloadNameOverride(file.id)}
                       />
-                    </div>
-                    <IconButton
-                      icon="refresh-cw"
-                      label="Reset filename"
-                      size="sm"
-                      disabled={!payloadState(file.id)?.nameOverride || busy() || locked()}
-                      onClick={() => void window.gravlax.upload.setPayloadNameOverride(file.id)}
-                    />
+                    </Show>
                   </div>
                   <For each={pathErrors(file.currentPath, file.targetPath)}>
                     {(error) => <div class="filename-row-error">{error}</div>}
@@ -572,6 +693,42 @@ export function TagsStep(props: {
       </section>
     </div>
   )
+}
+
+function FixedExtensionInput(props: {
+  disabled: boolean
+  extension: string
+  value: string
+  onChange: (value: string) => void
+  label: string
+}) {
+  return (
+    <label class="filename-fixed-extension-field">
+      <input
+        class="mono filename-input"
+        disabled={props.disabled}
+        value={props.value}
+        onChange={(event) => props.onChange(event.currentTarget.value)}
+        aria-label={props.label}
+      />
+      <span class="mono filename-extension" aria-hidden="true">{props.extension}</span>
+    </label>
+  )
+}
+
+function withoutExtension(filename: string, extension: string): string {
+  return filename.toLocaleLowerCase().endsWith(extension.toLocaleLowerCase())
+    ? filename.slice(0, -extension.length)
+    : filename
+}
+
+function withExtension(stem: string, extension: string): string | undefined {
+  return stem ? `${stem}${extension}` : undefined
+}
+
+function filenameExtension(filename: string): string {
+  const index = filename.lastIndexOf('.')
+  return index > 0 ? filename.slice(index) : ''
 }
 
 function TagsValueLines(props: { lines: string[] }) {

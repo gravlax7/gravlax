@@ -19,11 +19,11 @@ type SessionRuntime = {
   apply: (next: State) => void
 }
 
-function newSession(): UploadSession {
+function newSession(config = defaultConfig()): UploadSession {
   return new UploadSession({
     appVersion: '9.8.7',
     userDataPath: '',
-    getConfig: defaultConfig,
+    getConfig: () => config,
     trashItem: async () => undefined,
     tools: automaticToolResolver,
     send: () => undefined
@@ -110,6 +110,87 @@ describe('UploadSession', () => {
     await expect(session.setCurrentStep(stepIndex('metadata') ?? 2)).resolves.toEqual({ ok: true })
 
     expect(session.getState().metadata.selected).toEqual({ provider: 'manual' })
+  })
+
+  it('preselects existing tags and turns file changes off when configured', async () => {
+    const config = defaultConfig()
+    config.workflow.keepExistingTagsByDefault = true
+    const session = newSession(config)
+    const runtime = runtimeOf(session)
+    let state = setSourceMedia(selectSourcePath(newState(), '/source'), 'WEB')
+    state.fileChecks.structure.ready = true
+    state.fileChecks.integrity.status = 'passed'
+    state = markBackgroundTaskCompleted(state, 'file-checks', 'done')
+    state.currentStep = stepIndex('spectrals') ?? 1
+    runtime.apply(state)
+
+    await expect(session.setCurrentStep(stepIndex('metadata') ?? 2)).resolves.toEqual({ ok: true })
+
+    expect(session.getState().metadata.selected).toEqual({ provider: 'keep-existing-tags' })
+    expect(session.getState().files.apply).toMatchObject({
+      renameReleaseFolder: false,
+      renameTrackFiles: false,
+      stripEmbeddedCoverArt: false
+    })
+  })
+
+  it('keeps a user metadata choice when the configured default differs', async () => {
+    const config = defaultConfig()
+    config.workflow.keepExistingTagsByDefault = true
+    const session = newSession(config)
+    const runtime = runtimeOf(session)
+    let state = setSourceMedia(selectSourcePath(newState(), '/source'), 'WEB')
+    state.fileChecks.structure.ready = true
+    state.fileChecks.integrity.status = 'passed'
+    state = markBackgroundTaskCompleted(state, 'file-checks', 'done')
+    state.currentStep = stepIndex('spectrals') ?? 1
+    state.metadata.selected = { provider: 'manual' }
+    runtime.apply(state)
+
+    await expect(session.setCurrentStep(stepIndex('metadata') ?? 2)).resolves.toEqual({ ok: true })
+
+    expect(session.getState().metadata.selected).toEqual({ provider: 'manual' })
+  })
+
+  it('turns existing-tag file choices off without turning them back on for Manual', () => {
+    const session = newSession()
+
+    session.selectMetadataMatch({ provider: 'keep-existing-tags' })
+    expect(session.getState().files.apply).toMatchObject({
+      renameReleaseFolder: false,
+      renameTrackFiles: false,
+      stripEmbeddedCoverArt: false
+    })
+
+    session.selectMetadataMatch({ provider: 'manual' })
+    expect(session.getState().files.apply).toMatchObject({
+      renameReleaseFolder: false,
+      renameTrackFiles: false,
+      stripEmbeddedCoverArt: false
+    })
+  })
+
+  it('copies the release read from disk into existing-tag upload data', () => {
+    const session = newSession()
+    const runtime = runtimeOf(session)
+    runtime.apply({
+      ...runtime.current,
+      draft: { ...runtime.current.draft, workspacePath: '/workspace/Album' },
+      tags: {
+        current: {
+          title: 'Album',
+          artists: [{ name: 'Artist', role: 'main' }],
+          tracks: [{ title: 'Track' }]
+        },
+        currentStatus: 'ready'
+      }
+    })
+
+    session.selectMetadataMatch({ provider: 'keep-existing-tags' })
+
+    expect(session.getState().tags.selected).toEqual(session.getState().tags.current)
+    expect(session.getState().tags.proposed).toEqual(session.getState().tags.current)
+    expect(session.getState().tags.proposed).not.toBe(session.getState().tags.current)
   })
 
   it('starts read-only preflight work before FLAC integrity passes', () => {

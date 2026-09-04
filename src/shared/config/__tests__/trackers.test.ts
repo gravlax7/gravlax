@@ -79,7 +79,8 @@ function cfgWithRedacted(tracker: TrackerConfig): Config {
     workflow: {
       confirmBeforeWrites: true,
       useUpcAsCatNo: true,
-      autoRepairFlacIntegrity: false
+      autoRepairFlacIntegrity: false,
+      keepExistingTagsByDefault: false
     }
   }
 }

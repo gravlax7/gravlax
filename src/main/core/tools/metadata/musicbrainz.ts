@@ -249,6 +249,7 @@ function musicBrainzRelationArtists(raw: Record<string, unknown>): Artist[] {
     composer: 'composer',
     conductor: 'conductor',
     remixer: 'remixer',
+    'mix-dj': 'dj/compiler',
     producer: 'producer',
     arranger: 'arranger'
   }

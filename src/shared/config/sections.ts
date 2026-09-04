@@ -273,6 +273,12 @@ export function sections(): SectionMetadata[] {
       fields: [
         { name: 'confirmBeforeWrites', label: 'Confirm before writes', type: 'bool' },
         {
+          name: 'keepExistingTagsByDefault',
+          label: 'Keep existing tags by default',
+          description: 'Preselect Keep existing tags for new uploads.',
+          type: 'bool'
+        },
+        {
           name: 'useUpcAsCatNo',
           label: 'Use UPC as catalogue number',
           description: 'When a catalogue number is missing, use the UPC/barcode instead.',

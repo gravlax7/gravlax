@@ -64,6 +64,7 @@ export function registerIpc(deps: IpcDeps): void {
   handle('upload:setPayloadNameOverride', (id, value) => upload.setPayloadNameOverride(id, value))
   handle('upload:setFolderNameOverride', (value) => upload.setFolderNameOverride(value))
   handle('upload:setRenameReleaseFolder', (value) => upload.setRenameReleaseFolder(value))
+  handle('upload:setRenameTrackFiles', (value) => upload.setRenameTrackFiles(value))
   handle('upload:setStripEmbeddedCoverArt', (value) => upload.setStripEmbeddedCoverArt(value))
   handle('upload:applyTagsAndNames', (confirmed = false) => upload.applyTagsAndNames(confirmed))
   handle('upload:revertFiles', () => upload.revertFiles())

@@ -1548,6 +1548,12 @@ button.toggle.toggle-on .toggle-thumb {
   gap: var(--space-1);
 }
 
+.metadata-choice-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
 .metadata-result-card {
   flex: 1;
   min-width: 0;
@@ -1616,6 +1622,12 @@ button.toggle.toggle-on .toggle-thumb {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.files-restore-unavailable {
+  margin-top: var(--space-1);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
 }
 
 .tags-release-status {
@@ -1732,6 +1744,10 @@ button.toggle.toggle-on .toggle-thumb {
   gap: 10px;
 }
 
+.filename-edit-row-readonly {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .filename-current {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1750,6 +1766,43 @@ button.toggle.toggle-on .toggle-thumb {
   min-width: 0;
 }
 
+.filename-fixed-extension-field {
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.filename-fixed-extension-field:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-ring);
+}
+
+.filename-fixed-extension-field .filename-input {
+  field-sizing: content;
+  flex: 0 1 auto;
+  width: auto;
+  border: 0;
+  border-radius: 0;
+  padding-right: 0;
+}
+
+.filename-fixed-extension-field .filename-input:focus {
+  box-shadow: none;
+}
+
+.filename-extension {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px 6px 0;
+  color: var(--fg-muted);
+  user-select: none;
+}
+
 .filename-entry {
   display: grid;
   gap: var(--space-1);
@@ -1766,6 +1819,10 @@ button.toggle.toggle-on .toggle-thumb {
   padding-left: calc(38% + var(--space-3));
   color: var(--error);
   font-size: var(--text-sm);
+}
+
+.filename-entry-readonly .filename-row-error {
+  padding-left: 0;
 }
 
 .filename-directory {
@@ -1824,6 +1881,16 @@ button.toggle.toggle-on .toggle-thumb {
 .tags-table th:nth-child(2),
 .tags-table td:nth-child(2) {
   width: 32%;
+}
+
+.tags-table.tags-table-readonly th:nth-child(1),
+.tags-table.tags-table-readonly td:nth-child(1) {
+  width: 220px;
+}
+
+.tags-table.tags-table-readonly th:nth-child(2),
+.tags-table.tags-table-readonly td:nth-child(2) {
+  width: auto;
 }
 
 .tags-table td {

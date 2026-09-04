@@ -21,7 +21,8 @@ import {
   clearMetadataSelection,
   clearFileChecks,
   clearTagsRelease,
-  manualMetadataSelection,
+  defaultMetadataSelection,
+  isKeepExistingSelection,
   markBackgroundTaskCompleted,
   markBackgroundTaskFailed,
   markBackgroundTaskProgress,
@@ -81,6 +82,7 @@ import {
   reconcilePayloadPaths,
   setEmbeddedCoverArtCount,
   setSourceRestoreStatus,
+  setKeepExistingFileChoices,
   emptyFileChecks
 } from '@main/core/uploadflow'
 import { runSeed, seedFormatsFromUpload } from '@main/services/seedService'
@@ -284,9 +286,19 @@ export class UploadSession {
     const defaultedMetadata =
       metadataIdx !== null && index === metadataIdx && !this.state.metadata.selected
     const next = defaultedMetadata
-      ? setMetadataSelection(this.state, manualMetadataSelection())
+      ? setMetadataSelection(
+          this.state,
+          defaultMetadataSelection(this.deps.getConfig().workflow.keepExistingTagsByDefault)
+        )
       : this.state
-    this.apply(setCurrentStep(next, index))
+    this.apply(
+      setCurrentStep(
+        defaultedMetadata && isKeepExistingSelection(next.metadata.selected)
+          ? setKeepExistingFileChoices(next)
+          : next,
+        index
+      )
+    )
     if (defaultedMetadata) void this.startTagsReleaseIfNeeded()
     if (transcodeIdx !== null && from <= transcodeIdx && index > transcodeIdx) {
       void this.runTranscode({ quiet: true })
@@ -884,7 +896,13 @@ export class UploadSession {
     }
     try {
       const snap = await readUploadFlow(workspaceRootPath)
-      this.apply(restoreState(workspacePath, snap))
+      this.apply(
+        restoreState(
+          workspacePath,
+          snap,
+          this.deps.getConfig().workflow.keepExistingTagsByDefault
+        )
+      )
     } catch {
       this.notify('warning', 'Could not restore all saved upload progress. Continuing from File Checks.')
       this.apply(setWorkspacePath(selectSourcePath(newState(), sourcePath), workspacePath))
@@ -989,7 +1007,8 @@ export class UploadSession {
         files: next.files,
         naming: this.deps.getConfig().naming,
         sourceMedia: next.draft.sourceMedia,
-        encoding: next.transcode.inspection?.encoding
+        encoding: next.transcode.inspection?.encoding,
+        writeTags: !isKeepExistingSelection(next.metadata.selected)
       })
       next = {
         ...next,
@@ -1096,7 +1115,9 @@ export class UploadSession {
       this.apply(clearTagsRelease(clearMetadataSelection(this.state)))
       return
     }
-    this.apply(setMetadataSelection(clearTagsRelease(this.state), selection))
+    let next = setMetadataSelection(clearTagsRelease(this.state), selection)
+    if (isKeepExistingSelection(selection)) next = setKeepExistingFileChoices(next)
+    this.apply(next)
     void this.startTagsReleaseIfNeeded()
   }
 
@@ -1118,6 +1139,10 @@ export class UploadSession {
 
   setRenameReleaseFolder(value: boolean): void {
     this.fileChangesService.setRenameReleaseFolder(value)
+  }
+
+  setRenameTrackFiles(value: boolean): void {
+    this.fileChangesService.setRenameTrackFiles(value)
   }
 
   setStripEmbeddedCoverArt(value: boolean): void {
@@ -1753,7 +1778,10 @@ export class UploadSession {
           ),
           embeddedCoverArtCount
         ))
-        if (this.state.metadata.selected?.provider === METADATA_PROVIDER_MANUAL) {
+        if (
+          this.state.metadata.selected?.provider === METADATA_PROVIDER_MANUAL ||
+          isKeepExistingSelection(this.state.metadata.selected)
+        ) {
           this.apply(setTagsReleaseManual(this.state))
         }
         loaded = true
@@ -1775,7 +1803,10 @@ export class UploadSession {
     const status = this.state.tags.releaseStatus
     if (status === 'ready' || status === 'loading') return
 
-    if (selection.provider === METADATA_PROVIDER_MANUAL) {
+    if (
+      selection.provider === METADATA_PROVIDER_MANUAL ||
+      isKeepExistingSelection(selection)
+    ) {
       if (this.state.tags.currentStatus === 'ready') {
         this.apply(setTagsReleaseManual(this.state))
       } else {

@@ -1,8 +1,13 @@
 import type { UploadFlowSnapshot } from '@shared/types'
 import { resetBackgroundTask, withTaskSnapshotStatuses } from './background'
 import { setFileChecks } from './fileChecks'
-import { setFiles } from './files'
-import { manualMetadataSelection, setMetadata, setMetadataSelection } from './metadata'
+import { setFiles, setKeepExistingFileChoices } from './files'
+import {
+  defaultMetadataSelection,
+  isKeepExistingSelection,
+  setMetadata,
+  setMetadataSelection
+} from './metadata'
 import {
   newState,
   selectSourcePath,
@@ -70,7 +75,11 @@ export function snapshot(s: State): UploadFlowSnapshot {
   return result
 }
 
-export function restoreState(workspacePath: string, snap: UploadFlowSnapshot): State {
+export function restoreState(
+  workspacePath: string,
+  snap: UploadFlowSnapshot,
+  keepExistingTagsByDefault = false
+): State {
   if (!snap.sourcePath) {
     throw new Error('missing source path')
   }
@@ -110,11 +119,18 @@ export function restoreState(workspacePath: string, snap: UploadFlowSnapshot): S
     }
   }
   state = setMetadata(state, snap.metadata ?? {})
-  if (getCurrentStep(state).id === 'metadata' && !state.metadata.selected) {
-    state = setMetadataSelection(state, manualMetadataSelection())
+  const defaultedMetadata = getCurrentStep(state).id === 'metadata' && !state.metadata.selected
+  if (defaultedMetadata) {
+    state = setMetadataSelection(
+      state,
+      defaultMetadataSelection(keepExistingTagsByDefault)
+    )
   }
   state = setTags(state, snap.tags ?? {})
   if (snap.files) state = setFiles(state, snap.files)
+  if (defaultedMetadata && isKeepExistingSelection(state.metadata.selected)) {
+    state = setKeepExistingFileChoices(state)
+  }
   state = setTranscode(state, snap.transcode ?? {})
   if (snap.fileChecks) {
     state = setFileChecks(state, snap.fileChecks)

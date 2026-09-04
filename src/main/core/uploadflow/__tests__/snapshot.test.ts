@@ -46,6 +46,58 @@ describe('snapshot round-trip', () => {
     expect(restored.metadata.selected).toEqual({ provider: 'manual' })
   })
 
+  it('preselects existing tags and its safe file choices when configured', () => {
+    let state = selectSourcePath(newState(), '/music/album')
+    state = setCurrentStep(state, stepIndex('metadata')!)
+
+    const restored = restoreState('/workspace/upload-abc123', snapshot(state), true)
+
+    expect(restored.metadata.selected).toEqual({ provider: 'keep-existing-tags' })
+    expect(restored.files.apply).toMatchObject({
+      renameReleaseFolder: false,
+      renameTrackFiles: false,
+      stripEmbeddedCoverArt: false
+    })
+  })
+
+  it('does not replace a saved metadata choice with the configured default', () => {
+    let state = selectSourcePath(newState(), '/music/album')
+    state = setCurrentStep(state, stepIndex('metadata')!)
+    state.metadata.selected = { provider: 'manual' }
+
+    const restored = restoreState('/workspace/upload-abc123', snapshot(state), true)
+
+    expect(restored.metadata.selected).toEqual({ provider: 'manual' })
+  })
+
+  it('restores a saved existing-tag choice and its per-upload file choices', () => {
+    let state = selectSourcePath(newState(), '/music/album')
+    state = setCurrentStep(state, stepIndex('metadata')!)
+    state.metadata.selected = { provider: 'keep-existing-tags' }
+    state.files.apply.renameReleaseFolder = false
+    state.files.apply.renameTrackFiles = true
+    state.files.apply.stripEmbeddedCoverArt = false
+
+    const restored = restoreState('/workspace/upload-abc123', snapshot(state), false)
+
+    expect(restored.metadata.selected).toEqual({ provider: 'keep-existing-tags' })
+    expect(restored.files.apply).toMatchObject({
+      renameReleaseFolder: false,
+      renameTrackFiles: true,
+      stripEmbeddedCoverArt: false
+    })
+  })
+
+  it('treats a missing track-rename choice in an old snapshot as on', () => {
+    const state = selectSourcePath(newState(), '/music/album')
+    const saved = snapshot(state)
+    delete (saved.files!.apply as { renameTrackFiles?: boolean }).renameTrackFiles
+
+    const restored = restoreState('/workspace/upload-abc123', saved)
+
+    expect(restored.files.apply.renameTrackFiles).toBe(true)
+  })
+
   it('migrates a legacy Source snapshot to File Checks', () => {
     const restored = restoreState('/workspace/upload-abc123', {
       sourcePath: '/music/album',

@@ -22,9 +22,10 @@ vi.mock('@main/core/tags/extract', () => ({
   extractAlbumReleaseWithEmbeddedCoverArt: mocks.extractAlbumReleaseWithEmbeddedCoverArt
 }))
 
-vi.mock('@shared/upload/naming', () => ({
-  buildFilesRenamePlan: mocks.buildFilesRenamePlan
-}))
+vi.mock('@shared/upload/naming', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@shared/upload/naming')>()
+  return { ...actual, buildFilesRenamePlan: mocks.buildFilesRenamePlan }
+})
 
 vi.mock('@main/core/appdata/workspace', () => ({
   replaceWorkingCopyFromSource: mocks.replaceWorkingCopyFromSource
@@ -72,6 +73,7 @@ function setup() {
         onDiskModified: false,
         stripEmbeddedCoverArt: true,
         renameReleaseFolder: true,
+        renameTrackFiles: true,
         currentFolderName: 'Old Album',
         files: [{ id: 'track-1', currentPath: 'old.flac' }]
       }
@@ -83,6 +85,7 @@ function setup() {
   const goToFileChecks = vi.fn()
   const refreshSourceRestoreStatus = vi.fn(async () => {})
   const notify = vi.fn()
+  const cancelGeneratedWork = vi.fn()
   const scope = new TaskScope()
   const service = new UploadSessionFileChanges(
     {
@@ -91,10 +94,18 @@ function setup() {
         state = next
       },
       persistNow: async () => {},
-      getConfig: () => ({ workflow: { confirmBeforeWrites: false } }) as Config,
+      getConfig: () => ({
+        workflow: { confirmBeforeWrites: false },
+        naming: {
+          albumDescriptionTemplateId: 'x',
+          releaseFolderTemplate: '{artists} - {title} ({year}) [{source} {format}]',
+          trackFileTemplate: '{trackNumber}. {title}',
+          multiDiscFolderTemplate: 'Disc {discNumber}'
+        }
+      }) as Config,
       tools: automaticToolResolver,
       createWorkspaceGuard: (workspacePath) => () => state.draft.workspacePath === workspacePath,
-      cancelGeneratedWork: vi.fn(),
+      cancelGeneratedWork,
       startTranscodeInspection,
       runFileChecksAndWait,
       fileChecksNeedAttention,
@@ -111,7 +122,8 @@ function setup() {
     runFileChecksAndWait,
     fileChecksNeedAttention,
     goToFileChecks,
-    notify
+    notify,
+    cancelGeneratedWork
   }
 }
 
@@ -170,7 +182,7 @@ describe('UploadSessionFileChanges folder renames', () => {
     expect(getState().files.apply.phase).toBe('applying')
     expect(getState().files.apply.progressCurrent).toBe(0)
     expect(getState().files.apply.progressTotal).toBe(2)
-    expect(getState().files.apply.progressLabel).toBe('Applying tags…')
+    expect(getState().files.apply.progressLabel).toBe('Applying tags and filenames…')
     finishApply?.({
       workspacePath: '/workspace/New Album',
       folderName: 'New Album',
@@ -225,6 +237,129 @@ describe('UploadSessionFileChanges folder renames', () => {
     await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
     expect(startTranscodeInspection).toHaveBeenCalledOnce()
     expect(mocks.applyTagsAndRenames).toHaveBeenCalledOnce()
+  })
+
+  it('marks a keep-existing no-op complete without a worker or confirmation', async () => {
+    const { service, getState, startTranscodeInspection, cancelGeneratedWork } = setup()
+    getState().metadata.selected = { provider: 'keep-existing-tags' }
+    getState().files.apply.renameReleaseFolder = false
+    getState().files.apply.renameTrackFiles = false
+    getState().files.apply.stripEmbeddedCoverArt = false
+    mocks.buildFilesRenamePlan.mockReturnValueOnce({
+      folderName: 'Old Album',
+      files: [{
+        id: 'track-1',
+        currentPath: 'old.flac',
+        targetPath: 'old.flac',
+        targetFilename: 'old.flac',
+        changed: false
+      }],
+      payloadFiles: [{
+        id: 'track-1',
+        kind: 'file',
+        currentPath: 'old.flac',
+        targetPath: 'old.flac',
+        targetName: 'old.flac',
+        changed: false,
+        track: true
+      }],
+      folders: [],
+      errors: [],
+      warnings: [],
+      hash: 'keep-noop'
+    })
+
+    await expect(service.applyTagsAndNames()).resolves.toEqual({ ok: true })
+
+    expect(mocks.applyTagsAndRenames).not.toHaveBeenCalled()
+    expect(cancelGeneratedWork).not.toHaveBeenCalled()
+    expect(startTranscodeInspection).toHaveBeenCalledOnce()
+    expect(getState().files.apply).toMatchObject({
+      phase: 'applied',
+      appliedHash: 'keep-noop',
+      onDiskModified: false
+    })
+  })
+
+  it('turns both renames on when current names are over the upload path limit', async () => {
+    const { service, getState } = setup()
+    getState().metadata.selected = { provider: 'keep-existing-tags' }
+    getState().files.apply.renameReleaseFolder = false
+    getState().files.apply.renameTrackFiles = false
+    getState().files.apply.stripEmbeddedCoverArt = false
+    getState().files.apply.currentFolderName = 'Album'
+    getState().files.apply.files = [{ id: 'track-1', currentPath: `${'x'.repeat(180)}.flac` }]
+    getState().tags.proposed = { title: 'Album', tracks: [{ title: 'Song' }] }
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
+
+    expect(getState().files.apply.renameTrackFiles).toBe(true)
+    expect(getState().files.apply.renameReleaseFolder).toBe(true)
+  })
+
+  it('passes rename-only work to the worker with tag writing off', async () => {
+    const { service, getState } = setup()
+    getState().metadata.selected = { provider: 'keep-existing-tags' }
+    getState().files.apply.stripEmbeddedCoverArt = false
+    mocks.applyTagsAndRenames.mockResolvedValueOnce({
+      workspacePath: '/workspace/New Album',
+      folderName: 'New Album',
+      currentPaths: [{ id: 'track-1', currentPath: '01. Track.flac' }],
+      payloadPaths: [],
+      changedFileCount: 1,
+      strippedPictureCount: 0
+    })
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
+
+    expect(mocks.applyTagsAndRenames).toHaveBeenCalledWith(
+      expect.objectContaining({ writeTags: false, stripEmbeddedCoverArt: false })
+    )
+  })
+
+  it('keeps parsed upload metadata after cover-only work', async () => {
+    const { service, getState } = setup()
+    getState().metadata.selected = { provider: 'keep-existing-tags' }
+    getState().files.apply.renameReleaseFolder = false
+    getState().files.apply.renameTrackFiles = false
+    getState().files.original.embeddedCoverArtCount = 1
+    getState().tags.proposed = {
+      title: 'Old Album',
+      artists: [{ name: 'Bach, Johann Sebastian', role: 'composer', separatorKept: true }],
+      tracks: [{ title: 'Track' }]
+    }
+    mocks.buildFilesRenamePlan.mockReturnValueOnce({
+      folderName: 'Old Album',
+      files: [{
+        id: 'track-1',
+        currentPath: 'old.flac',
+        targetPath: 'old.flac',
+        targetFilename: 'old.flac',
+        changed: false
+      }],
+      payloadFiles: [],
+      folders: [],
+      errors: [],
+      warnings: [],
+      hash: 'cover-only'
+    })
+    mocks.applyTagsAndRenames.mockResolvedValueOnce({
+      workspacePath: '/workspace/Old Album',
+      folderName: 'Old Album',
+      currentPaths: [{ id: 'track-1', currentPath: 'old.flac' }],
+      payloadPaths: [],
+      changedFileCount: 0,
+      strippedPictureCount: 1
+    })
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
+
+    expect(mocks.applyTagsAndRenames).toHaveBeenCalledWith(
+      expect.objectContaining({ writeTags: false, stripEmbeddedCoverArt: true })
+    )
+    expect(getState().tags.proposed?.artists).toEqual([
+      { name: 'Bach, Johann Sebastian', role: 'composer', separatorKept: true }
+    ])
   })
 
   it('allows navigation past unchanged tags after seeding', async () => {

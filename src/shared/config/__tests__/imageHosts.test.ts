@@ -95,7 +95,8 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
     workflow: {
       confirmBeforeWrites: true,
       useUpcAsCatNo: true,
-      autoRepairFlacIntegrity: false
+      autoRepairFlacIntegrity: false,
+      keepExistingTagsByDefault: false
     },
     ...overrides
   }

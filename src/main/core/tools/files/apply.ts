@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import { chmod, copyFile, mkdir, mkdtemp, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, sep } from 'node:path'
 import type { FilesRenamePlan, PlannedFileName, PlannedPayloadPath } from '@shared/upload/naming'
 import type { Release } from '@shared/types'
@@ -30,6 +30,7 @@ export async function applyTagsAndRenames(input: {
   workspacePath: string
   release: Release
   plan: FilesRenamePlan
+  writeTags: boolean
   stripEmbeddedCoverArt: boolean
   signal?: AbortSignal
   tools?: ToolResolver
@@ -38,32 +39,56 @@ export async function applyTagsAndRenames(input: {
   const { release, plan, signal } = input
   const tools = input.tools ?? automaticToolResolver
   if (plan.errors.length > 0) throw new Error(plan.errors[0])
-  if ((release.tracks?.length ?? 0) !== plan.files.length) {
+  if (input.writeTags && (release.tracks?.length ?? 0) !== plan.files.length) {
     throw new Error('Track count changed before the files could be written.')
   }
-  const progressTotal = plan.files.length + 1
+  const changeFlacs = input.writeTags || input.stripEmbeddedCoverArt
   const payloadFiles = plan.payloadFiles ?? plan.files.map(trackAsPayload)
-  input.onProgress?.(0, progressTotal, 'Checking filenames…')
-  await preflightFileRenames(input.workspacePath, payloadFiles)
-  if (plan.folderName !== basename(input.workspacePath)) {
+  const renameFolder = plan.folderName !== basename(input.workspacePath)
+  const renamePayload = payloadFiles.some((file) => file.changed)
+  const changeNames = renameFolder || renamePayload
+  const progressTotal = (changeFlacs ? plan.files.length : 0) + (changeNames ? 1 : 0)
+  input.onProgress?.(
+    0,
+    progressTotal,
+    changeNames
+      ? 'Checking filenames…'
+      : input.writeTags ? 'Applying tags…' : 'Removing embedded cover art…'
+  )
+  if (changeNames) await preflightFileRenames(input.workspacePath, payloadFiles)
+  if (renameFolder) {
     await assertMissingOrSame(join(uploadWorkspaceRootForPath(input.workspacePath), plan.folderName), input.workspacePath)
   }
   let strippedPictureCount = 0
-  for (const [index, file] of plan.files.entries()) {
-    input.onProgress?.(index, progressTotal, `Applying tags: ${file.currentPath}`)
-    const absolutePath = join(input.workspacePath, fromPosix(file.currentPath))
-    const values = await tagValues(release, index, absolutePath, signal, tools)
-    if (input.stripEmbeddedCoverArt) {
-      strippedPictureCount += await countEmbeddedCoverArt(absolutePath, signal, tools)
+  if (changeFlacs) {
+    for (const [index, file] of plan.files.entries()) {
+      const action = input.writeTags
+        ? 'Applying tags'
+        : 'Removing embedded cover art'
+      const done = input.writeTags
+        ? 'Applied tags'
+        : 'Removed embedded cover art'
+      input.onProgress?.(index, progressTotal, `${action}: ${file.currentPath}`)
+      const absolutePath = join(input.workspacePath, fromPosix(file.currentPath))
+      if (input.writeTags) {
+        const values = await tagValues(release, index, absolutePath, signal, tools)
+        if (input.stripEmbeddedCoverArt) {
+          strippedPictureCount += await countEmbeddedCoverArt(absolutePath, signal, tools)
+        }
+        await rewriteFlac(absolutePath, values, input.stripEmbeddedCoverArt, signal, tools)
+      } else {
+        strippedPictureCount += await stripFlacCoverArt(absolutePath, signal, tools)
+      }
+      input.onProgress?.(index + 1, progressTotal, `${done}: ${file.currentPath}`)
     }
-    await rewriteFlac(absolutePath, values, input.stripEmbeddedCoverArt, signal, tools)
-    input.onProgress?.(index + 1, progressTotal, `Applied tags: ${file.currentPath}`)
   }
 
-  input.onProgress?.(plan.files.length, progressTotal, 'Renaming files…')
-  await renameFiles(input.workspacePath, payloadFiles)
+  if (changeNames) {
+    input.onProgress?.(progressTotal - 1, progressTotal, 'Renaming files…')
+    await renameFiles(input.workspacePath, payloadFiles)
+  }
   let workspacePath = input.workspacePath
-  if (plan.folderName !== basename(workspacePath)) {
+  if (renameFolder) {
     const root = uploadWorkspaceRootForPath(workspacePath)
     const target = join(root, plan.folderName)
     await assertMissingOrSame(target, workspacePath)
@@ -86,6 +111,42 @@ export async function applyTagsAndRenames(input: {
     payloadPaths: payloadFiles.map((file) => ({ id: file.id, currentPath: file.targetPath })),
     changedFileCount: payloadFiles.filter((file) => file.changed).length,
     strippedPictureCount
+  }
+}
+
+async function stripFlacCoverArt(
+  sourcePath: string,
+  signal: AbortSignal | undefined,
+  tools: ToolResolver
+): Promise<number> {
+  const count = await countEmbeddedCoverArt(sourcePath, signal, tools)
+  if (count === 0) return 0
+  const sourceInfo = await stat(sourcePath)
+  const workDir = await mkdtemp(join(dirname(sourcePath), '.gravlax-cover-'))
+  const temporary = join(workDir, 'output.flac')
+  try {
+    await copyFile(sourcePath, temporary)
+    await runCommand(
+      'metaflac',
+      ['--no-utf8-convert', '--remove-tag=COVERART', '--remove-tag=COVERARTMIME', temporary],
+      signal,
+      undefined,
+      tools
+    )
+    await runCommand(
+      'metaflac',
+      ['--dont-use-padding', '--remove', '--block-type=PICTURE', temporary],
+      signal,
+      undefined,
+      tools
+    )
+    await runCommand('flac', ['-t', '--silent', temporary], signal, undefined, tools)
+    await chmod(temporary, sourceInfo.mode)
+    await utimes(temporary, sourceInfo.atime, sourceInfo.mtime)
+    await rename(temporary, sourcePath)
+    return count
+  } finally {
+    await rm(workDir, { recursive: true, force: true })
   }
 }
 

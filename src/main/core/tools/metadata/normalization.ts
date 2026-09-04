@@ -36,6 +36,16 @@ export function normalizeProviderArtistRole(role: string): string {
   const normalized = role.trim().toLowerCase()
   if (!normalized || normalized === 'main' || normalized === 'primary') return 'main'
   if (['featured', 'featuring', 'feat', 'ft', 'ft.'].includes(normalized)) return 'guest'
+  if (
+    normalized === 'dj/compiler' ||
+    normalized === 'djcompiler' ||
+    normalized === 'djmixer' ||
+    normalized === 'dj mixer' ||
+    normalized === 'mix-dj' ||
+    normalized === 'mix dj'
+  ) {
+    return 'dj/compiler'
+  }
   return normalizeArtistRole(normalized)
 }
 

@@ -1,6 +1,9 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import type { MetadataSearchResult, MetadataSelection, UploadFlowStateJSON } from '@shared/types'
-import { METADATA_PROVIDER_MANUAL } from '@shared/types/upload'
+import {
+  METADATA_PROVIDER_KEEP_EXISTING,
+  METADATA_PROVIDER_MANUAL
+} from '@shared/types/upload'
 import { ProviderIcon } from '../../../components/ProviderIcon'
 import { Badge, Button, Callout, Card, Icon, IconButton, Section } from '../../../ui'
 import {
@@ -20,6 +23,8 @@ export function MetadataStep(props: {
 
   const manualSelected = () =>
     props.state.metadata.selected?.provider === METADATA_PROVIDER_MANUAL
+  const keepExistingSelected = () =>
+    props.state.metadata.selected?.provider === METADATA_PROVIDER_KEEP_EXISTING
 
   const toggleExpanded = (provider: string): void => {
     setExpandedProviders((prev) => {
@@ -67,8 +72,45 @@ export function MetadataStep(props: {
   return (
     <Section
       title="Metadata"
-      description="Choose a release match from a provider or enter metadata manually."
+      description="Choose how Gravlax should prepare the upload metadata."
     >
+      <div class="metadata-choice-row">
+        <Card
+          interactive
+          selected={manualSelected()}
+          onClick={() => props.onSelect({ provider: METADATA_PROVIDER_MANUAL })}
+        >
+          <div class="metadata-card-row">
+            <div class="metadata-card-main">
+              <div class="metadata-card-title">Manual</div>
+            <div class="metadata-card-desc">
+              Review or edit the current tags. Gravlax will rewrite and standardize them even if
+              you make no changes.
+            </div>
+            </div>
+            <Show when={manualSelected()}>
+              <Icon name="check" size={16} class="metadata-check" />
+            </Show>
+          </div>
+        </Card>
+
+        <Card
+          interactive
+          selected={keepExistingSelected()}
+          onClick={() => props.onSelect({ provider: METADATA_PROVIDER_KEEP_EXISTING })}
+        >
+          <div class="metadata-card-row">
+            <div class="metadata-card-main">
+              <div class="metadata-card-title">Keep existing tags</div>
+              <div class="metadata-card-desc">Use the FLAC tags without writing them back to disk.</div>
+            </div>
+            <Show when={keepExistingSelected()}>
+              <Icon name="check" size={16} class="metadata-check" />
+            </Show>
+          </div>
+        </Card>
+      </div>
+
       <form
         class="metadata-url-form"
         onSubmit={(event) => {
@@ -103,22 +145,6 @@ export function MetadataStep(props: {
       <Show when={urlError()}>
         {(error) => <Callout tone="error">{error()}</Callout>}
       </Show>
-
-      <Card
-        interactive
-        selected={manualSelected()}
-        onClick={() => props.onSelect({ provider: METADATA_PROVIDER_MANUAL })}
-      >
-        <div class="metadata-card-row">
-          <div class="metadata-card-main">
-            <div class="metadata-card-title">Manual</div>
-            <div class="metadata-card-desc">Enter tags yourself without a provider match.</div>
-          </div>
-          <Show when={manualSelected()}>
-            <Icon name="check" size={16} class="metadata-check" />
-          </Show>
-        </div>
-      </Card>
 
       <For
         each={(props.state.metadata.providers ?? []).filter((p) => p.status !== 'inactive')}

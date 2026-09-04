@@ -42,8 +42,7 @@ export const FIELD_ORDER = [
   FIELD_UPC,
   FIELD_GENRES,
   FIELD_RELEASE_TYPE,
-  FIELD_COMMENT,
-  FIELD_URLS
+  FIELD_COMMENT
 ] as const
 
 export const TRACK_FIELD_ORDER = [
@@ -151,6 +150,7 @@ export type MetadataProviderStatus =
   | 'inactive'
 
 export const METADATA_PROVIDER_MANUAL = 'manual'
+export const METADATA_PROVIDER_KEEP_EXISTING = 'keep-existing-tags'
 
 export interface MetadataBaseline {
   artists?: string[]
@@ -263,6 +263,7 @@ export interface FilesApplySnapshot {
   onDiskModified: boolean
   stripEmbeddedCoverArt: boolean
   renameReleaseFolder: boolean
+  renameTrackFiles: boolean
   currentFolderName: string
   folderNameOverride?: string
   files: FileNameState[]

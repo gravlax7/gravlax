@@ -180,6 +180,9 @@ export function normalizeWorkflow(raw: unknown, base: Config['workflow']): Confi
   if (typeof obj.autoRepairFlacIntegrity === 'boolean') {
     next.autoRepairFlacIntegrity = obj.autoRepairFlacIntegrity
   }
+  if (typeof obj.keepExistingTagsByDefault === 'boolean') {
+    next.keepExistingTagsByDefault = obj.keepExistingTagsByDefault
+  }
   return next
 }
 

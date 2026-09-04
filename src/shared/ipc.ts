@@ -57,6 +57,7 @@ export interface IpcInvokeMap {
   'upload:setPayloadNameOverride': { args: [string, string?]; result: void }
   'upload:setFolderNameOverride': { args: [string?]; result: void }
   'upload:setRenameReleaseFolder': { args: [boolean]; result: void }
+  'upload:setRenameTrackFiles': { args: [boolean]; result: void }
   'upload:setStripEmbeddedCoverArt': { args: [boolean]; result: void }
   'upload:applyTagsAndNames': { args: [boolean?]; result: StepChangeResult }
   'upload:revertFiles': { args: []; result: { ok: true } | { ok: false; error: string } }
@@ -201,7 +202,8 @@ const configInput: z.ZodType<Config> = z.object({
   workflow: z.object({
     confirmBeforeWrites: z.boolean(),
     useUpcAsCatNo: z.boolean(),
-    autoRepairFlacIntegrity: z.boolean()
+    autoRepairFlacIntegrity: z.boolean(),
+    keepExistingTagsByDefault: z.boolean()
   })
 })
 
@@ -233,6 +235,7 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'upload:setPayloadNameOverride': z.tuple([z.string().min(1), z.string().optional()]),
   'upload:setFolderNameOverride': optionalOneArgument(z.string()),
   'upload:setRenameReleaseFolder': z.tuple([z.boolean()]),
+  'upload:setRenameTrackFiles': z.tuple([z.boolean()]),
   'upload:setStripEmbeddedCoverArt': z.tuple([z.boolean()]),
   'upload:applyTagsAndNames': optionalOneArgument(z.boolean()),
   'upload:revertFiles': noArgs,

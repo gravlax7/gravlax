@@ -142,6 +142,7 @@ describe('Discogs provider', () => {
     rawTracks[0]!.extraartists = [{ name: 'Mixer (3)*', role: 'Remix' }]
     rawTracks[1]!.artists = [{ name: 'Producer (4)*' }]
     rawTracks[1]!.extraartists = [{ name: 'Producer (4)*', role: 'Producer' }]
+    rawTracks[2]!.extraartists = [{ name: 'Selector (5)*', role: 'DJ Mix' }]
     rawTracks.splice(4, 0, { type_: 'heading', position: '', title: 'Disc Two' })
 
     const release = finalizeNormalizedRelease(
@@ -183,6 +184,10 @@ describe('Discogs provider', () => {
       { name: 'Mixer', role: 'remixer' }
     ])
     expect(release.tracks?.[1]?.artists).toEqual([{ name: 'Producer', role: 'producer' }])
+    expect(release.tracks?.[2]?.artists).toEqual([
+      { name: 'Four Tet', role: 'main' },
+      { name: 'Selector', role: 'dj/compiler' }
+    ])
     expect(release.tracks?.[4]?.discNumber).toBe('2')
   })
 

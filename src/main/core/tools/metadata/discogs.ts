@@ -59,7 +59,10 @@ const ARTIST_ROLES: Record<string, string> = {
   Vocals: 'guest',
   'Featuring [Vocals]': 'guest',
   Remix: 'remixer',
-  Remixer: 'remixer'
+  Remixer: 'remixer',
+  'DJ Mix': 'dj/compiler',
+  'DJ Mixer': 'dj/compiler',
+  'Compiled By': 'dj/compiler'
 }
 
 const SOURCES: Array<[string, string]> = [

@@ -82,6 +82,11 @@ describe('IPC argument contract', () => {
     expect(parseIpcArguments('upload:repairFlacIntegrity', [])).toEqual([])
   })
 
+  it('checks the track-rename upload toggle', () => {
+    expect(parseIpcArguments('upload:setRenameTrackFiles', [false])).toEqual([false])
+    expect(() => parseIpcArguments('upload:setRenameTrackFiles', ['false'])).toThrow()
+  })
+
   it('accepts clipboard text and rejects an empty value', () => {
     expect(parseIpcArguments('clipboard:writeText', ['/downloads/music'])).toEqual([
       '/downloads/music'
@@ -180,6 +185,6 @@ function configInput(): Config {
       deleteTemporaryFiles: true,
       deleteSpectralsAfterUpload: false
     },
-    workflow: { confirmBeforeWrites: true, useUpcAsCatNo: true, autoRepairFlacIntegrity: false }
+    workflow: { confirmBeforeWrites: true, useUpcAsCatNo: true, autoRepairFlacIntegrity: false, keepExistingTagsByDefault: false }
   }
 }

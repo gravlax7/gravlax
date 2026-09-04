@@ -184,6 +184,7 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
         'COMPOSER=Writer',
         'CONDUCTOR=Maestro',
         'REMIXER=Remixer',
+        'DJMIXER=DJ',
         'PRODUCER=Producer',
         'ARRANGER=Arranger',
         'BARCODE=012345678901',
@@ -200,6 +201,7 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
       { name: 'Writer', role: 'composer' },
       { name: 'Maestro', role: 'conductor' },
       { name: 'Remixer', role: 'remixer' },
+      { name: 'DJ', role: 'dj/compiler' },
       { name: 'Producer', role: 'producer' },
       { name: 'Arranger', role: 'arranger' }
     ])

@@ -4,15 +4,30 @@ import type {
   MetadataSearchSnapshot,
   MetadataSelection
 } from '@shared/types'
-import { METADATA_PROVIDER_MANUAL } from '@shared/types/upload'
+import {
+  METADATA_PROVIDER_KEEP_EXISTING,
+  METADATA_PROVIDER_MANUAL
+} from '@shared/types/upload'
 import type { State } from './state'
 
 export function manualMetadataSelection(): MetadataSelection {
   return { provider: METADATA_PROVIDER_MANUAL }
 }
 
+export function keepExistingMetadataSelection(): MetadataSelection {
+  return { provider: METADATA_PROVIDER_KEEP_EXISTING }
+}
+
+export function defaultMetadataSelection(keepExistingTags: boolean): MetadataSelection {
+  return keepExistingTags ? keepExistingMetadataSelection() : manualMetadataSelection()
+}
+
 export function isManualSelection(s: MetadataSelection): boolean {
   return s.provider === METADATA_PROVIDER_MANUAL
+}
+
+export function isKeepExistingSelection(s: MetadataSelection | null | undefined): boolean {
+  return s?.provider === METADATA_PROVIDER_KEEP_EXISTING
 }
 
 export function metadata(s: State): MetadataSearchSnapshot {

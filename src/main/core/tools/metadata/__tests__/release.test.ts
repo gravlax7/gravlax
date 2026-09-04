@@ -433,7 +433,8 @@ describe('normalizeProviderRelease artists', () => {
                   relations: [
                     { type: 'composer', artist: { name: 'Bach' } },
                     { type: 'conductor', artist: { name: 'Maestro' } },
-                    { type: 'producer', artist: { name: 'Producer' } }
+                    { type: 'producer', artist: { name: 'Producer' } },
+                    { type: 'mix-DJ', artist: { name: 'Selector' } }
                   ]
                 }
               }
@@ -454,7 +455,8 @@ describe('normalizeProviderRelease artists', () => {
       { name: 'Orchestra', role: 'main' },
       { name: 'Bach', role: 'composer' },
       { name: 'Maestro', role: 'conductor' },
-      { name: 'Producer', role: 'producer' }
+      { name: 'Producer', role: 'producer' },
+      { name: 'Selector', role: 'dj/compiler' }
     ])
   })
 

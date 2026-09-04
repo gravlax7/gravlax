@@ -9,6 +9,7 @@ export function emptyFiles(): FilesSnapshot {
       onDiskModified: false,
       stripEmbeddedCoverArt: true,
       renameReleaseFolder: true,
+      renameTrackFiles: true,
       currentFolderName: '',
       files: [],
       payloadPaths: []
@@ -27,6 +28,7 @@ export function setFiles(s: State, files: FilesSnapshot): State {
       apply: {
         ...files.apply,
         onDiskModified: files.apply.onDiskModified ?? files.apply.phase === 'applied',
+        renameTrackFiles: files.apply.renameTrackFiles ?? true,
         files: files.apply.files.map((file) => ({ ...file })),
         payloadPaths: (files.apply.payloadPaths ?? []).map((item) => ({ ...item }))
       }
@@ -177,6 +179,67 @@ export function setRenameReleaseFolder(s: State, value: boolean): State {
   }
 }
 
+export function setRenameTrackFiles(s: State, value: boolean): State {
+  return {
+    ...s,
+    files: {
+      ...s.files,
+      apply: {
+        ...s.files.apply,
+        phase: 'idle',
+        grandfathered: false,
+        error: undefined,
+        renameTrackFiles: value
+      }
+    }
+  }
+}
+
+export function setRenameFlags(
+  s: State,
+  renameReleaseFolder: boolean,
+  renameTrackFiles: boolean
+): State {
+  if (
+    s.files.apply.renameReleaseFolder === renameReleaseFolder &&
+    s.files.apply.renameTrackFiles === renameTrackFiles
+  ) {
+    return s
+  }
+  return {
+    ...s,
+    files: {
+      ...s.files,
+      apply: {
+        ...s.files.apply,
+        phase: 'idle',
+        grandfathered: false,
+        error: undefined,
+        renameReleaseFolder,
+        renameTrackFiles
+      }
+    }
+  }
+}
+
+export function setKeepExistingFileChoices(s: State): State {
+  return {
+    ...s,
+    files: {
+      ...s.files,
+      apply: {
+        ...s.files.apply,
+        phase: 'idle',
+        grandfathered: false,
+        error: undefined,
+        renameReleaseFolder: false,
+        renameTrackFiles: false,
+        stripEmbeddedCoverArt: false
+      }
+    }
+  }
+}
+
 export function setStripEmbeddedCoverArt(s: State, value: boolean): State {
   return {
     ...s,
@@ -190,6 +253,26 @@ export function beginFilesApply(s: State): State {
     files: {
       ...s.files,
       apply: { ...s.files.apply, phase: 'applying', error: undefined }
+    }
+  }
+}
+
+export function finishFilesNoop(s: State, appliedHash: string): State {
+  return {
+    ...s,
+    files: {
+      ...s.files,
+      apply: {
+        ...s.files.apply,
+        phase: 'applied',
+        appliedHash,
+        changedFileCount: 0,
+        strippedPictureCount: 0,
+        error: undefined,
+        progressCurrent: undefined,
+        progressTotal: undefined,
+        progressLabel: undefined
+      }
     }
   }
 }
@@ -367,6 +450,7 @@ export function finishFilesRestore(
         ...emptyFiles().apply,
         stripEmbeddedCoverArt: s.files.apply.stripEmbeddedCoverArt,
         renameReleaseFolder: s.files.apply.renameReleaseFolder,
+        renameTrackFiles: s.files.apply.renameTrackFiles,
         currentFolderName: folderName,
         files: tracks.map((currentPath, index) => ({ id: `track-${index + 1}`, currentPath })),
         payloadPaths: buildPayloadPaths(tracks, payload),

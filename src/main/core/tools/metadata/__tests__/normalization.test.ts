@@ -12,5 +12,7 @@ describe('normalizeProviderArtistRole', () => {
 
   it('uses the shared artist-role cleanup for other roles', () => {
     expect(normalizeProviderArtistRole('  Remixer  ')).toBe('remixer')
+    expect(normalizeProviderArtistRole('mix-DJ')).toBe('dj/compiler')
+    expect(normalizeProviderArtistRole('DJ Mixer')).toBe('dj/compiler')
   })
 })

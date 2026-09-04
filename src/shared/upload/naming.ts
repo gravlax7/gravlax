@@ -107,47 +107,56 @@ export const validateTrackFileTemplate = (template: string): string[] => validat
 export const validateMultiDiscFolderTemplate = (template: string): string[] => validateNamingTemplate(template, DISC_KEYS)
 export const validateReleaseFolderTemplate = (template: string): string[] => validateNamingTemplate(template, FOLDER_KEYS)
 
-export function buildFilesRenamePlan(input: {
+export type FilesRenamePlanInput = {
   release: Release
   files: FilesSnapshot
   naming: NamingConfig
   sourceMedia: SourceMedia | ''
   encoding?: TranscodeEncoding
-}): FilesRenamePlan {
+  writeTags?: boolean
+}
+
+const PATH_LENGTH_LIMIT = 180
+
+export function buildFilesRenamePlan(input: FilesRenamePlanInput): FilesRenamePlan {
   const { release, files, naming } = input
+  const writeTags = input.writeTags ?? true
+  const renameTrackFiles = files.apply.renameTrackFiles !== false
   const warnings: string[] = []
   const errors = [
-    ...validateNamingTemplate(naming.trackFileTemplate, TRACK_KEYS),
-    ...validateNamingTemplate(naming.multiDiscFolderTemplate, DISC_KEYS),
-    ...validateNamingTemplate(naming.releaseFolderTemplate, FOLDER_KEYS)
+    ...(renameTrackFiles ? validateNamingTemplate(naming.trackFileTemplate, TRACK_KEYS) : []),
+    ...(renameTrackFiles ? validateNamingTemplate(naming.multiDiscFolderTemplate, DISC_KEYS) : []),
+    ...(files.apply.renameReleaseFolder
+      ? validateNamingTemplate(naming.releaseFolderTemplate, FOLDER_KEYS)
+      : [])
   ]
   const trackTotal = release.tracks?.length ?? 0
-  if (trackTotal !== files.apply.files.length) {
+  if ((writeTags || renameTrackFiles) && trackTotal !== files.apply.files.length) {
     errors.push(`The release has ${trackTotal} tracks but the folder has ${files.apply.files.length} FLAC files.`)
   }
   const discTotal = Math.max(1, ...(release.tracks ?? []).map((track) => numberValue(track.discNumber)))
   const proposedTracks = files.apply.files.map((file, index): PlannedFileName => {
     const track = release.tracks?.[index] ?? {}
-    const manual = file.filenameOverride
+    const manual = renameTrackFiles ? file.filenameOverride : undefined
     const generated = renderTemplate(naming.trackFileTemplate, {
       trackNumber: padNumber(track.trackNumber, index + 1),
       discNumber: padNumber(track.discNumber, 1),
       title: track.title ?? '',
       artist: mainArtists(track.artists)
     })
-    const targetFilename = files.apply.grandfathered
+    const targetFilename = !renameTrackFiles || files.apply.grandfathered
       ? file.currentPath.split('/').at(-1) ?? file.currentPath
       : manual ? normalizeManualFlacName(manual) : `${sanitize(generated)}.flac`
     const manualError = manual ? validateManualName(manual) : undefined
     if (manualError) errors.push(`${file.currentPath}: ${manualError}`)
     if (targetFilename.toLocaleLowerCase() === '.flac') errors.push(`${file.currentPath}: Filename cannot be empty.`)
-    const discFolder = discTotal > 1
+    const discFolder = renameTrackFiles && discTotal > 1
       ? sanitize(renderTemplate(naming.multiDiscFolderTemplate, {
           discNumber: padNumber(track.discNumber, 1),
           discTotal: String(discTotal).padStart(2, '0')
         }))
       : ''
-    const targetPath = files.apply.grandfathered
+    const targetPath = !renameTrackFiles || files.apply.grandfathered
       ? file.currentPath
       : discFolder ? `${discFolder}/${targetFilename}` : targetFilename
     return { id: file.id, currentPath: file.currentPath, targetPath, targetFilename, changed: file.currentPath !== targetPath }
@@ -176,7 +185,9 @@ export function buildFilesRenamePlan(input: {
     : files.apply.renameReleaseFolder
     ? (files.apply.folderNameOverride ? normalizeManualName(files.apply.folderNameOverride) : generatedFolder)
     : files.apply.currentFolderName
-  const folderError = files.apply.folderNameOverride ? validateManualName(files.apply.folderNameOverride) : undefined
+  const folderError = files.apply.renameReleaseFolder && files.apply.folderNameOverride
+    ? validateManualName(files.apply.folderNameOverride)
+    : undefined
   if (folderError) errors.push(`Release folder: ${folderError}`)
   if (!folderName) errors.push('The release folder name is empty.')
   const payloadState: PayloadPathState[] = files.apply.payloadPaths ?? proposedTracks.map((file) => ({
@@ -185,6 +196,39 @@ export function buildFilesRenamePlan(input: {
     currentPath: file.currentPath,
     originalPath: file.currentPath
   }))
+  if (!renameTrackFiles) {
+    const payloadFiles = payloadState
+      .filter((item) => item.kind === 'file')
+      .map((item): PlannedPayloadPath => ({
+        id: item.id,
+        kind: 'file',
+        currentPath: item.currentPath,
+        targetPath: item.currentPath,
+        targetName: basenamePosix(item.currentPath),
+        changed: false,
+        track: proposedTracks.some((track) => track.id === item.id)
+      }))
+    errors.push(...payloadPathErrors(folderName, payloadFiles))
+    const hash = stableHash(JSON.stringify({
+      folderName,
+      files: proposedTracks.map((file) => [file.id, file.targetPath]),
+      payloadFiles: payloadFiles.map((file) => [file.id, file.targetPath]),
+      folders: [],
+      writeTags,
+      renameTrackFiles,
+      strip: files.apply.stripEmbeddedCoverArt,
+      release
+    }))
+    return {
+      folderName,
+      files: proposedTracks,
+      payloadFiles,
+      folders: [],
+      errors: [...new Set(errors)],
+      warnings,
+      hash
+    }
+  }
   const sourceDirTargets = new Map<string, Set<string>>()
   for (const track of proposedTracks) {
     const sourceDir = dirnamePosix(track.currentPath)
@@ -246,7 +290,9 @@ export function buildFilesRenamePlan(input: {
       }
     }
     const manual = item.nameOverride
-    const targetName = manual ? normalizeManualName(manual) : basenamePosix(item.currentPath)
+    const targetName = manual
+      ? normalizePayloadFileName(manual, item.originalPath)
+      : basenamePosix(item.currentPath)
     const manualError = manual ? validateManualName(manual) : undefined
     if (manualError) errors.push(`${item.currentPath}: ${manualError}`)
     const sourceDir = dirnamePosix(item.currentPath)
@@ -267,25 +313,14 @@ export function buildFilesRenamePlan(input: {
     return { ...file, targetPath, changed: file.currentPath !== targetPath }
   })
 
-  const lowered = new Map<string, string>()
-  for (const file of payloadFiles) {
-    const key = unicodePathKey(file.targetPath)
-    const prior = lowered.get(key)
-    if (prior && prior !== file.currentPath) errors.push(`Two files would be named ${file.targetPath}.`)
-    lowered.set(key, file.currentPath)
-  }
-  const projectedFolders = projectedOutputFolderNames(folderName)
-  for (const file of payloadFiles) {
-    const longest = Math.max(...projectedFolders.map((name) => unicodeLength(`${name}/${file.targetPath}`)))
-    if (longest > 180) {
-      errors.push(`${file.targetPath}: Path would be ${longest} characters; the limit is 180.`)
-    }
-  }
+  errors.push(...payloadPathErrors(folderName, payloadFiles))
   const hash = stableHash(JSON.stringify({
     folderName,
     files: proposed.map((file) => [file.id, file.targetPath]),
     payloadFiles: payloadFiles.map((file) => [file.id, file.targetPath]),
     folders: folders.map((folder) => [folder.id, folder.targetPath]),
+    writeTags,
+    renameTrackFiles,
     strip: files.apply.stripEmbeddedCoverArt,
     release
   }))
@@ -375,6 +410,21 @@ function normalizeManualFlacName(value: string): string {
   return `${normalizeManualName(value).replace(/\.flac$/i, '')}.flac`
 }
 
+function normalizePayloadFileName(value: string, originalPath: string): string {
+  const name = normalizeManualName(value)
+  const extension = filenameExtension(originalPath)
+  if (!extension) return name
+  const enteredExtension = filenameExtension(name)
+  const stem = enteredExtension ? name.slice(0, -enteredExtension.length) : name
+  return `${stem}${extension}`
+}
+
+function filenameExtension(path: string): string {
+  const name = basenamePosix(path)
+  const index = name.lastIndexOf('.')
+  return index > 0 ? name.slice(index) : ''
+}
+
 function dirnamePosix(path: string): string {
   const index = path.lastIndexOf('/')
   return index < 0 ? '' : path.slice(0, index)
@@ -400,6 +450,27 @@ function unicodePathKey(value: string): string {
   return value.normalize('NFC').toLocaleLowerCase()
 }
 
+function payloadPathErrors(folderName: string, files: readonly PlannedPayloadPath[]): string[] {
+  const errors: string[] = []
+  const lowered = new Map<string, string>()
+  for (const file of files) {
+    const key = unicodePathKey(file.targetPath)
+    const prior = lowered.get(key)
+    if (prior && prior !== file.currentPath) errors.push(`Two files would be named ${file.targetPath}.`)
+    lowered.set(key, file.currentPath)
+  }
+  const projectedFolders = projectedOutputFolderNames(folderName)
+  for (const file of files) {
+    const longest = Math.max(...projectedFolders.map((name) => unicodeLength(`${name}/${file.targetPath}`)))
+    if (longest > PATH_LENGTH_LIMIT) {
+      errors.push(
+        `${file.targetPath}: Path would be ${longest} characters; the limit is ${PATH_LENGTH_LIMIT}.`
+      )
+    }
+  }
+  return errors
+}
+
 /** Every folder form a later transcode can create from the base FLAC name. */
 function projectedOutputFolderNames(folderName: string): string[] {
   const values = new Set([folderName])
@@ -408,6 +479,22 @@ function projectedOutputFolderNames(folderName: string): string[] {
   values.add(projectDownconvertFolderName(folderName, 24, 88))
   values.add(projectDownconvertFolderName(folderName, 24, 96))
   return [...values]
+}
+
+function hasPathLengthError(plan: FilesRenamePlan): boolean {
+  return plan.errors.some((error) => error.includes(`the limit is ${PATH_LENGTH_LIMIT}.`))
+}
+
+export function nextRenameFlagsForPathLimits(input: FilesRenamePlanInput): {
+  renameReleaseFolder: boolean
+  renameTrackFiles: boolean
+} {
+  const folder = input.files.apply.renameReleaseFolder
+  const tracks = input.files.apply.renameTrackFiles !== false
+  if (!hasPathLengthError(buildFilesRenamePlan(input))) {
+    return { renameReleaseFolder: folder, renameTrackFiles: tracks }
+  }
+  return { renameReleaseFolder: true, renameTrackFiles: true }
 }
 
 export function projectMp3FolderName(folderName: string, bitrate: string): string {

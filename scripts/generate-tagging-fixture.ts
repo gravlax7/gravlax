@@ -338,7 +338,7 @@ What it covers
 - Punctuation that makes generic ARTIST splitting hard: AC/DC and Earth, Wind & Fire.
 - Mixed genre, label, URL, and year values.
 - An embedded picture block plus legacy COVERART tags.
-- ISRC, ReplayGain, custom, producer, arranger, remixer, and DJ tags that Gravlax must not erase.
+- ISRC, ReplayGain, custom, producer, arranger, remixer, and DJ tags. DJMIXER is a managed role tag.
 
 Focused current-change checks
 1. Track 1 should show North Sea Orchestra [main], Ada Lovelace [conductor], and

@@ -218,6 +218,7 @@ function buildTrack(tagSet: FlacTags): Track {
   const composers = parseRoleCreditValues(mergeAliasValues(tagSet.values, 'COMPOSER'), 'composer')
   const conductors = parseRoleCreditValues(mergeAliasValues(tagSet.values, 'CONDUCTOR'), 'conductor')
   const remixers = parseRoleCreditValues(mergeAliasValues(tagSet.values, 'REMIXER'), 'remixer')
+  const djMixers = parseRoleCreditValues(mergeAliasValues(tagSet.values, 'DJMIXER'), 'dj/compiler')
   const producers = parseRoleCreditValues(mergeAliasValues(tagSet.values, 'PRODUCER'), 'producer')
   const arrangers = parseRoleCreditValues(mergeAliasValues(tagSet.values, 'ARRANGER'), 'arranger')
   const conductorNames = new Set(conductors.map((artist) => artistNameKey(artist.name ?? '')))
@@ -234,6 +235,7 @@ function buildTrack(tagSet: FlacTags): Track {
     composers,
     conductors,
     remixers,
+    djMixers,
     producers,
     arrangers
   )

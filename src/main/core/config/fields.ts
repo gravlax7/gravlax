@@ -214,6 +214,8 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return String(c.useUpcAsCatNo)
         case 'autoRepairFlacIntegrity':
           return String(c.autoRepairFlacIntegrity)
+        case 'keepExistingTagsByDefault':
+          return String(c.keepExistingTagsByDefault)
       }
       break
     }
@@ -372,6 +374,7 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
       if (field === 'confirmBeforeWrites') next.workflow.confirmBeforeWrites = value
       if (field === 'useUpcAsCatNo') next.workflow.useUpcAsCatNo = value
       if (field === 'autoRepairFlacIntegrity') next.workflow.autoRepairFlacIntegrity = value
+      if (field === 'keepExistingTagsByDefault') next.workflow.keepExistingTagsByDefault = value
       break
   }
   return next

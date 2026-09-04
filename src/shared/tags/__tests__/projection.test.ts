@@ -130,7 +130,7 @@ describe('managedTagProjection', () => {
     expect(tags.has('COMMENT')).toBe(false)
   })
 
-  it('keeps DJ/compiler tracker-only and writes the other role tags', () => {
+  it('writes DJ/compiler as DJMIXER with the other role tags', () => {
     const tags = managedTagProjection(
       release({
         tracks: [{
@@ -156,9 +156,9 @@ describe('managedTagProjection', () => {
     expect(tags.get('COMPOSER')).toEqual(['Writer'])
     expect(tags.get('CONDUCTOR')).toEqual(['Maestro'])
     expect(tags.get('REMIXER')).toEqual(['Remixer'])
+    expect(tags.get('DJMIXER')).toEqual(['DJ'])
     expect(tags.get('PRODUCER')).toEqual(['Producer'])
     expect(tags.get('ARRANGER')).toEqual(['Arranger'])
-    expect([...tags.values()].flat().join('\n')).not.toContain('DJ')
   })
 
   it('counts TRACKTOTAL per disc', () => {
@@ -197,6 +197,7 @@ describe('aliases and preserved tags', () => {
       'A',
       'B'
     ])
+    expect(mergeAliasValues({ 'DJ MIXER': ['Selector'] }, 'DJMIXER')).toEqual(['Selector'])
   })
 
   it('removes managed aliases and keeps unrelated source tags', () => {
@@ -244,6 +245,7 @@ describe('aliases and preserved tags', () => {
     expect(keys).toContain('YEAR')
     expect(keys).toContain('EDITIONTITLE')
     expect(keys).toContain('CATNO')
+    expect(keys).toContain('DJMIXER')
     expect(keys).not.toContain('PUBLISHER')
     expect(keys).not.toContain('COPYRIGHT')
   })

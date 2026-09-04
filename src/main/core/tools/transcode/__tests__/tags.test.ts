@@ -66,6 +66,7 @@ describe('id3TagsFromFlac', () => {
         conductor: ['Maestro'],
         remixer: ['Remixer'],
         producer: ['Producer'],
+        djmixer: ['DJ'],
         arranger: ['Arranger'],
         tracknumber: ['1/10'],
         discnumber: ['1/2'],
@@ -91,6 +92,7 @@ describe('id3TagsFromFlac', () => {
       { description: 'PUBLISHER', value: 'Source Publisher' },
       { description: 'CATALOGNUMBER', value: 'CAT-1' },
       { description: 'PRODUCER', value: 'Producer' },
+      { description: 'DJMIXER', value: 'DJ' },
       { description: 'ARRANGER', value: 'Arranger' },
       { description: 'RELEASETYPE', value: 'Album' }
     ])

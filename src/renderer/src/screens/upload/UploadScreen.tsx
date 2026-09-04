@@ -8,7 +8,8 @@ import type {
 } from '@shared/types'
 import {
   FIELD_ARTISTS,
-  DEFAULT_ARTIST_ROLE
+  DEFAULT_ARTIST_ROLE,
+  METADATA_PROVIDER_KEEP_EXISTING
 } from '@shared/types/upload'
 import {
   applyArtistRenamesToTracks,
@@ -84,6 +85,23 @@ export function UploadScreen(props: {
   const stepIndex = () => props.state.currentStep
   const stepId = () => UPLOAD_STEPS[stepIndex()]?.id
   const tagsStepIndex = UPLOAD_STEPS.findIndex((step) => step.id === 'tags')
+  const keepExistingTags = (): boolean =>
+    props.state.metadata.selected?.provider === METADATA_PROVIDER_KEEP_EXISTING
+  const noFileChangesSelected = (): boolean =>
+    keepExistingTags() &&
+    !props.state.files.apply.renameReleaseFolder &&
+    !props.state.files.apply.renameTrackFiles &&
+    !props.state.files.apply.stripEmbeddedCoverArt
+  const fileChangeAction = (): string => {
+    const changes = [
+      keepExistingTags() ? '' : 'write tags',
+      props.state.files.apply.renameReleaseFolder ? 'rename the release folder' : '',
+      props.state.files.apply.renameTrackFiles ? 'rename FLAC tracks' : '',
+      props.state.files.apply.stripEmbeddedCoverArt ? 'strip embedded cover art' : ''
+    ].filter(Boolean)
+    if (changes.length === 1) return changes[0]!
+    return `${changes.slice(0, -1).join(', ')} and ${changes.at(-1)}`
+  }
   const uploadSubmissions = () => props.state.upload.submissions ?? []
   const uploadedCount = () =>
     uploadSubmissions().filter((submission) => submission.status === 'done').length
@@ -171,7 +189,17 @@ export function UploadScreen(props: {
 
   const requestMetadataSelection = (selection: MetadataSelection): void => {
     if (sameMetadataSelection(props.state.metadata.selected, selection)) {
-      if (tagsStepIndex >= 0) navigateToStep(tagsStepIndex)
+      if (selection.provider === METADATA_PROVIDER_KEEP_EXISTING) {
+        void Promise.all([
+          window.gravlax.upload.setRenameReleaseFolder(false),
+          window.gravlax.upload.setRenameTrackFiles(false),
+          window.gravlax.upload.setStripEmbeddedCoverArt(false)
+        ]).then(() => {
+          if (tagsStepIndex >= 0) navigateToStep(tagsStepIndex)
+        })
+      } else if (tagsStepIndex >= 0) {
+        navigateToStep(tagsStepIndex)
+      }
       return
     }
     if (props.state.tags.proposedDirty) {
@@ -332,7 +360,9 @@ export function UploadScreen(props: {
           ? 'Applying…'
           : props.state.files.apply.phase === 'restoring'
             ? 'Restoring…'
-            : props.state.files.apply.phase === 'applied' ? 'Continue' : 'Apply & continue',
+            : props.state.files.apply.phase === 'applied' || noFileChangesSelected()
+              ? 'Continue'
+              : 'Apply & continue',
         midVariant: 'danger'
       }
     if (id === 'transcode') {
@@ -475,7 +505,7 @@ export function UploadScreen(props: {
             <strong>
               {props.state.files.apply.phase === 'restoring'
                 ? 'Restoring original files'
-                : 'Applying tags and filenames'}
+                : `Applying: ${fileChangeAction()}`}
             </strong>
             <Show when={props.state.files.apply.progressLabel}>
               {(label) => <span> — {label()}</span>}
@@ -489,7 +519,7 @@ export function UploadScreen(props: {
             value={props.state.files.apply.progressCurrent ?? 0}
             max={props.state.files.apply.progressTotal}
             tone="accent"
-            label="Tag and filename progress"
+            label="File change progress"
           />
         </div>
       </Show>
@@ -624,7 +654,7 @@ export function UploadScreen(props: {
 
       <Show when={pendingWriteStep() !== null}>
         <Modal
-          title="Apply tags and rename files on disk?"
+          title={`Apply on disk: ${fileChangeAction()}?`}
           options={['Apply & continue', 'Cancel']}
           defaultIndex={1}
           onChoose={(index) => {

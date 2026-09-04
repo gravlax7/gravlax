@@ -78,7 +78,8 @@ export function defaultConfig(): Config {
     workflow: {
       confirmBeforeWrites: true,
       useUpcAsCatNo: true,
-      autoRepairFlacIntegrity: false
+      autoRepairFlacIntegrity: false,
+      keepExistingTagsByDefault: false
     }
   }
 }

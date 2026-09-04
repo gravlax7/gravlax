@@ -11,6 +11,7 @@ import {
   FIELD_UPC,
   FIELD_URLS,
   FIELD_YEAR,
+  METADATA_PROVIDER_KEEP_EXISTING,
   METADATA_PROVIDER_MANUAL
 } from '@shared/types/upload'
 import {
@@ -124,7 +125,10 @@ export function setTagsProposed(s: State, proposed: Release): State {
 }
 
 export function resetTagsProposed(s: State): State {
-  if (s.metadata.selected?.provider === METADATA_PROVIDER_MANUAL) {
+  if (
+    s.metadata.selected?.provider === METADATA_PROVIDER_MANUAL ||
+    s.metadata.selected?.provider === METADATA_PROVIDER_KEEP_EXISTING
+  ) {
     return setTagsReleaseManual(s)
   }
   const selected = s.tags.selected

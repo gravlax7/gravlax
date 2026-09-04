@@ -174,6 +174,7 @@ export interface WorkflowConfig {
   confirmBeforeWrites: boolean
   useUpcAsCatNo: boolean
   autoRepairFlacIntegrity: boolean
+  keepExistingTagsByDefault: boolean
 }
 
 export interface ValidationIssue {

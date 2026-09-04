@@ -31,6 +31,7 @@ describe('tag and filename writes', () => {
       const applyProgress: Array<{ current: number; total: number; label: string }> = []
       const result = await applyTagsAndRenames({
         workspacePath: album,
+        writeTags: true,
         release: {
           title: 'New Album',
           editionTitle: 'Deluxe Edition',
@@ -85,6 +86,7 @@ describe('tag and filename writes', () => {
         '--set-tag=COMPOSER=Adele',
         '--set-tag=COMPOSER=Bach, Johann Sebastian',
         '--set-tag=CONDUCTOR=Maestro',
+        '--set-tag=DJMIXER=Old DJ',
         '--set-tag=ISRC=GB-ABC-12-34567',
         '--set-tag=REPLAYGAIN_TRACK_GAIN=-7.00 dB',
         '--set-tag=REPLAYGAIN_TRACK_PEAK=0.9876',
@@ -123,13 +125,15 @@ describe('tag and filename writes', () => {
             { name: 'Adele', role: 'main' },
             { name: 'Adele', role: 'composer' },
             { name: 'Bach, Johann Sebastian', role: 'composer' },
-            { name: 'Maestro', role: 'conductor' }
+            { name: 'Maestro', role: 'conductor' },
+            { name: 'Selector', role: 'dj/compiler' }
           ]
         }]
       }
 
       await applyTagsAndRenames({
         workspacePath: album,
+        writeTags: true,
         release,
         plan,
         stripEmbeddedCoverArt: false
@@ -140,6 +144,7 @@ describe('tag and filename writes', () => {
         'COMPOSER=Bach, Johann Sebastian'
       ])
       expect(await tagLines(source, 'CONDUCTOR')).toEqual(['CONDUCTOR=Maestro'])
+      expect(await tagLines(source, 'DJMIXER')).toEqual(['DJMIXER=Selector'])
       expect(await tagLines(source, 'ARTISTS')).toEqual(['ARTISTS=Adele'])
       expect(await tagLines(source, 'ISRC')).toEqual(['ISRC=GB-ABC-12-34567'])
       expect(await tagLines(source, 'REPLAYGAIN_TRACK_GAIN')).toEqual([
@@ -167,11 +172,13 @@ describe('tag and filename writes', () => {
         { name: 'Adele', role: 'main' },
         { name: 'Adele', role: 'composer' },
         { name: 'Bach, Johann Sebastian', role: 'composer' },
-        { name: 'Maestro', role: 'conductor' }
+        { name: 'Maestro', role: 'conductor' },
+        { name: 'Selector', role: 'dj/compiler' }
       ])
 
       await applyTagsAndRenames({
         workspacePath: album,
+        writeTags: true,
         release: {
           ...release,
           tracks: [{ ...release.tracks[0], artists: [{ name: 'Adele', role: 'main' }] }]
@@ -181,9 +188,11 @@ describe('tag and filename writes', () => {
       })
       expect(await tagLines(source, 'COMPOSER')).toEqual([])
       expect(await tagLines(source, 'CONDUCTOR')).toEqual([])
+      expect(await tagLines(source, 'DJMIXER')).toEqual([])
 
       await applyTagsAndRenames({
         workspacePath: album,
+        writeTags: true,
         release: {
           ...release,
           tracks: [{ ...release.tracks[0], artists: [{ name: 'Adele', role: 'composer' }] }]
@@ -215,6 +224,7 @@ describe('tag and filename writes', () => {
 
       const result = await applyTagsAndRenames({
         workspacePath: album,
+        writeTags: true,
         release: { title: 'Album', tracks: [{ title: 'Phe\u0301nix', trackNumber: '1' }] },
         plan: {
           folderName: 'Album',
@@ -256,6 +266,7 @@ describe('tag and filename writes', () => {
       await writeFile(join(root, '.gravlax-upload.json'), JSON.stringify({ sourcePath: album, stagedName: 'Album' }))
       await applyTagsAndRenames({
         workspacePath: album,
+        writeTags: true,
         release: { title: 'Album', tracks: [{ title: 'One', trackNumber: '1', discNumber: '1' }, { title: 'Two', trackNumber: '1', discNumber: '2' }] },
         plan: { folderName: 'Album', files: [
           { id: 'a', currentPath: 'CD1/a.flac', targetPath: 'Disc 01/01. One.flac', targetFilename: '01. One.flac', changed: true },
@@ -280,6 +291,97 @@ describe('tag and filename writes', () => {
       await rm(root, { recursive: true, force: true })
     }
   }, 30_000)
+
+  it('renames files without reading or writing FLAC tags', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'gravlax-rename-only-'))
+    try {
+      const album = join(root, 'Album')
+      const source = join(album, 'old.flac')
+      await mkdir(album)
+      await writeFile(source, 'not a FLAC; rename-only must not inspect it')
+
+      const result = await applyTagsAndRenames({
+        workspacePath: album,
+        writeTags: false,
+        release: {},
+        plan: {
+          folderName: 'Album',
+          files: [{
+            id: 'track-1',
+            currentPath: 'old.flac',
+            targetPath: 'new.flac',
+            targetFilename: 'new.flac',
+            changed: true
+          }],
+          errors: [],
+          warnings: [],
+          hash: 'rename-only'
+        },
+        stripEmbeddedCoverArt: false
+      })
+
+      expect(await readFile(join(result.workspacePath, 'new.flac'), 'utf8')).toBe(
+        'not a FLAC; rename-only must not inspect it'
+      )
+      await expect(access(source)).rejects.toMatchObject({ code: 'ENOENT' })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('removes covers without changing any other comments', async () => {
+    if (!(await binaryAvailable('metaflac')) || !(await binaryAvailable('flac'))) return
+    const root = await mkdtemp(join(tmpdir(), 'gravlax-cover-only-'))
+    try {
+      const album = join(root, 'Album')
+      const source = join(album, 'track.flac')
+      const image = join(root, 'cover.png')
+      await mkdir(album)
+      await writeSyntheticFlac(source)
+      await writeFile(image, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'))
+      await runCommand('metaflac', [
+        '--set-tag=X-FIRST=one',
+        '--set-tag=ARTIST=First Artist',
+        '--set-tag=X-MIDDLE=two',
+        '--set-tag=ARTIST=Second Artist',
+        '--set-tag=X-LAST=three',
+        '--set-tag=COVERART=LEGACYDATA',
+        '--set-tag=COVERARTMIME=image/png',
+        `--import-picture-from=${image}`,
+        source
+      ])
+      const before = await exportedNonCoverTags(source)
+
+      const result = await applyTagsAndRenames({
+        workspacePath: album,
+        writeTags: false,
+        release: { title: 'Must not be written' },
+        plan: {
+          folderName: 'Album',
+          files: [{
+            id: 'track-1',
+            currentPath: 'track.flac',
+            targetPath: 'track.flac',
+            targetFilename: 'track.flac',
+            changed: false
+          }],
+          errors: [],
+          warnings: [],
+          hash: 'cover-only'
+        },
+        stripEmbeddedCoverArt: true
+      })
+
+      expect(result.strippedPictureCount).toBe(2)
+      expect(await exportedNonCoverTags(source)).toEqual(before)
+      expect(await tagLines(source, 'TITLE')).toEqual(['TITLE=Tone'])
+      expect(await tagLines(source, 'COVERART')).toEqual([])
+      expect(await tagLines(source, 'COVERARTMIME')).toEqual([])
+      expect((await runCommand('metaflac', ['--list', source])).toString()).not.toContain('(PICTURE)')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }, 30_000)
 })
 
 async function tagLines(path: string, key: string): Promise<string[]> {
@@ -288,4 +390,12 @@ async function tagLines(path: string, key: string): Promise<string[]> {
     .trim()
     .split(/\r?\n/)
     .filter(Boolean)
+}
+
+async function exportedNonCoverTags(path: string): Promise<string[]> {
+  return (await runCommand('metaflac', ['--no-utf8-convert', '--export-tags-to=-', path]))
+    .toString('utf8')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .filter((line) => line !== '' && !/^COVERART(?:MIME)?=/i.test(line))
 }
