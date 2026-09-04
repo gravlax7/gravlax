@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { writeSyntheticFlac } from '../../__tests__/helpers/audioFixture'
 import { runCommand } from '../../runCommand'
 import { extractAlbumReleaseWithEmbeddedCoverArt } from '../../../tags/extract'
-import { applyTagsAndRenames, captureOriginalFiles, restoreOriginalFiles } from '../apply'
+import { applyTagsAndRenames } from '../apply'
 
 async function binaryAvailable(name: string): Promise<boolean> {
   for (const part of (process.env.PATH ?? '').split(delimiter)) {
@@ -15,7 +15,7 @@ async function binaryAvailable(name: string): Promise<boolean> {
 }
 
 describe('tag and filename writes', () => {
-  it('writes through metaflac, strips pictures, renames, and restores the original', async () => {
+  it('writes through metaflac, strips pictures, and renames', async () => {
     if (!(await binaryAvailable('metaflac')) || !(await binaryAvailable('flac'))) return
     const root = await mkdtemp(join(tmpdir(), 'gravlax-tags-'))
     try {
@@ -28,22 +28,6 @@ describe('tag and filename writes', () => {
       await writeFile(image, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'))
       await runCommand('metaflac', ['--remove-tag=TITLE', '--set-tag=TITLE=Old title', '--set-tag=ISRC=KEEP', '--set-tag=COVERART=LEGACYDATA', '--set-tag=COVERARTMIME=image/png', `--import-picture-from=${image}`, source])
 
-      const captureProgress: Array<{ current: number; total: number; label: string }> = []
-      const captured = await captureOriginalFiles(
-        album,
-        [{ id: 'track-1', currentPath: 'old.flac' }],
-        undefined,
-        undefined,
-        (current, total, label) => captureProgress.push({ current, total, label })
-      )
-      expect(captured.pictureCount).toBe(1)
-      expect(captureProgress.at(-1)).toEqual({
-        current: 1,
-        total: 1,
-        label: 'Saved original tags: old.flac'
-      })
-      expect(captured.originals[0]?.managedComments?.join('\n')).not.toContain('LEGACYDATA')
-      expect(captured.originals[0]?.legacyCoverBackups).toHaveLength(2)
       const applyProgress: Array<{ current: number; total: number; label: string }> = []
       const result = await applyTagsAndRenames({
         workspacePath: album,
@@ -58,13 +42,13 @@ describe('tag and filename writes', () => {
           tracks: [{ title: 'New title', trackNumber: '1', discNumber: '1', artists: [{ name: 'Artist', role: 'main' }] }]
         },
         plan: { folderName: 'Artist - New Album', files: [{ id: 'track-1', currentPath: 'old.flac', targetPath: '01. New title.flac', targetFilename: '01. New title.flac', changed: true }], errors: [], warnings: [], hash: 'test' },
-        originals: captured.originals,
         stripEmbeddedCoverArt: true,
         onProgress: (current, total, label) =>
           applyProgress.push({ current, total, label })
       })
       expect(applyProgress).toContainEqual({ current: 1, total: 2, label: 'Renaming files…' })
       expect(applyProgress.at(-1)).toEqual({ current: 2, total: 2, label: 'Finishing…' })
+      expect(result.strippedPictureCount).toBeGreaterThan(0)
       const changed = join(result.workspacePath, '01. New title.flac')
       expect((await runCommand('metaflac', ['--show-tag=TITLE', changed])).toString()).toContain('TITLE=New title')
       expect((await runCommand('metaflac', ['--show-tag=ALBUM', changed])).toString()).toContain('ALBUM=New Album')
@@ -79,18 +63,6 @@ describe('tag and filename writes', () => {
       expect((await runCommand('metaflac', ['--list', changed])).toString()).not.toContain('(PICTURE)')
       expect((await runCommand('metaflac', ['--show-tag=COVERART', changed])).toString()).toBe('')
       await runCommand('flac', ['-t', '--silent', changed])
-
-      const restoredPath = await restoreOriginalFiles({
-        workspacePath: result.workspacePath,
-        originals: captured.originals,
-        currentFiles: result.currentPaths,
-        originalFolderName: 'Old Album'
-      })
-      const restored = join(restoredPath, 'old.flac')
-      expect((await runCommand('metaflac', ['--show-tag=TITLE', restored])).toString()).toContain('TITLE=Old title')
-      expect((await runCommand('metaflac', ['--list', restored])).toString()).toContain('(PICTURE)')
-      expect((await runCommand('metaflac', ['--show-tag=COVERART', restored])).toString()).toContain('COVERART=LEGACYDATA')
-      expect((await readFile(join(root, '.gravlax-upload.json'), 'utf8'))).toContain('Old Album')
     } finally {
       await rm(root, { recursive: true, force: true })
     }
@@ -127,8 +99,6 @@ describe('tag and filename writes', () => {
         source
       ])
 
-      const current = [{ id: 'track-1', currentPath: 'track.flac' }]
-      const captured = await captureOriginalFiles(album, current)
       const plan = {
         folderName: 'Album',
         files: [{
@@ -162,7 +132,6 @@ describe('tag and filename writes', () => {
         workspacePath: album,
         release,
         plan,
-        originals: captured.originals,
         stripEmbeddedCoverArt: false
       })
 
@@ -208,7 +177,6 @@ describe('tag and filename writes', () => {
           tracks: [{ ...release.tracks[0], artists: [{ name: 'Adele', role: 'main' }] }]
         },
         plan,
-        originals: captured.originals,
         stripEmbeddedCoverArt: false
       })
       expect(await tagLines(source, 'COMPOSER')).toEqual([])
@@ -221,23 +189,9 @@ describe('tag and filename writes', () => {
           tracks: [{ ...release.tracks[0], artists: [{ name: 'Adele', role: 'composer' }] }]
         },
         plan,
-        originals: captured.originals,
         stripEmbeddedCoverArt: false
       })
       expect(await tagLines(source, 'ARTIST')).toEqual(['ARTIST=Adele'])
-
-      await restoreOriginalFiles({
-        workspacePath: album,
-        originals: captured.originals,
-        currentFiles: current,
-        originalFolderName: 'Album'
-      })
-      expect(await tagLines(source, 'COMPOSER')).toEqual([
-        'COMPOSER=Adele',
-        'COMPOSER=Bach, Johann Sebastian'
-      ])
-      expect(await tagLines(source, 'CONDUCTOR')).toEqual(['CONDUCTOR=Maestro'])
-      expect(await tagLines(source, 'X-GRAVLAX-TEST')).toEqual(['X-GRAVLAX-TEST=keep me'])
       expect(await tagLines(source, 'COVERART')).toEqual(['COVERART=LEGACYDATA'])
       expect((await runCommand('metaflac', ['--list', source])).toString()).toContain('(PICTURE)')
     } finally {
@@ -258,8 +212,6 @@ describe('tag and filename writes', () => {
         join(root, '.gravlax-upload.json'),
         JSON.stringify({ sourcePath: album, stagedName: 'Album' })
       )
-      const current = [{ id: 'track-1', currentPath: longFilename }]
-      const captured = await captureOriginalFiles(album, current)
 
       const result = await applyTagsAndRenames({
         workspacePath: album,
@@ -277,7 +229,6 @@ describe('tag and filename writes', () => {
           warnings: [],
           hash: 'long-name'
         },
-        originals: captured.originals,
         stripEmbeddedCoverArt: true
       })
 
@@ -291,7 +242,7 @@ describe('tag and filename writes', () => {
     }
   }, 30_000)
 
-  it('moves disc sidecars with their tracks and restores them', async () => {
+  it('moves disc sidecars with their tracks', async () => {
     if (!(await binaryAvailable('metaflac')) || !(await binaryAvailable('flac'))) return
     const root = await mkdtemp(join(tmpdir(), 'gravlax-sidecars-'))
     try {
@@ -303,9 +254,7 @@ describe('tag and filename writes', () => {
       await writeFile(join(album, 'CD1', 'rip.log'), 'one')
       await writeFile(join(album, 'CD2', 'rip.log'), 'two')
       await writeFile(join(root, '.gravlax-upload.json'), JSON.stringify({ sourcePath: album, stagedName: 'Album' }))
-      const current = [{ id: 'a', currentPath: 'CD1/a.flac' }, { id: 'b', currentPath: 'CD2/b.flac' }]
-      const captured = await captureOriginalFiles(album, current)
-      const result = await applyTagsAndRenames({
+      await applyTagsAndRenames({
         workspacePath: album,
         release: { title: 'Album', tracks: [{ title: 'One', trackNumber: '1', discNumber: '1' }, { title: 'Two', trackNumber: '1', discNumber: '2' }] },
         plan: { folderName: 'Album', files: [
@@ -317,7 +266,6 @@ describe('tag and filename writes', () => {
           { id: 'log-1', kind: 'file', currentPath: 'CD1/rip.log', targetPath: 'Disc 01/rip.log', targetName: 'rip.log', changed: true, track: false },
           { id: 'log-2', kind: 'file', currentPath: 'CD2/rip.log', targetPath: 'Disc 02/rip.log', targetName: 'rip.log', changed: true, track: false }
         ], folders: [], errors: [], warnings: [], hash: 'sidecars' },
-        originals: captured.originals,
         stripEmbeddedCoverArt: true
       })
       expect(await readFile(join(album, 'Disc 01', 'rip.log'), 'utf8')).toBe('one')
@@ -328,20 +276,6 @@ describe('tag and filename writes', () => {
       expect(await tagLines(join(album, 'Disc 01', '01. One.flac'), 'DISCTOTAL')).toEqual([
         'DISCTOTAL=2'
       ])
-      await restoreOriginalFiles({
-        workspacePath: result.workspacePath,
-        originals: captured.originals,
-        currentFiles: result.currentPaths,
-        currentPayload: [
-          { id: 'a', kind: 'file', currentPath: 'Disc 01/01. One.flac', originalPath: 'CD1/a.flac' },
-          { id: 'b', kind: 'file', currentPath: 'Disc 02/01. Two.flac', originalPath: 'CD2/b.flac' },
-          { id: 'log-1', kind: 'file', currentPath: 'Disc 01/rip.log', originalPath: 'CD1/rip.log' },
-          { id: 'log-2', kind: 'file', currentPath: 'Disc 02/rip.log', originalPath: 'CD2/rip.log' }
-        ],
-        originalFolderName: 'Album'
-      })
-      expect(await readFile(join(album, 'CD1', 'rip.log'), 'utf8')).toBe('one')
-      expect(await readFile(join(album, 'CD2', 'rip.log'), 'utf8')).toBe('two')
     } finally {
       await rm(root, { recursive: true, force: true })
     }

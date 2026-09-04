@@ -80,6 +80,8 @@ import {
   initializeFiles,
   reconcilePayloadPaths,
   setEmbeddedCoverArtCount,
+  setSourceRestoreStatus,
+  emptyFileChecks
 } from '@main/core/uploadflow'
 import { runSeed, seedFormatsFromUpload } from '@main/services/seedService'
 import { planSubmissions, runSubmissions } from '@main/services/uploadSubmit'
@@ -109,7 +111,8 @@ import {
   uploadWorkspaceBelongsToUserData,
   uploadWorkspaceRootForPath,
   clearWorkspace,
-  workspaceSize
+  workspaceSize,
+  sourceRestoreStatus
 } from '@main/core/appdata/workspace'
 import { expandPath } from '@main/core/config/paths'
 import { saveUploadedRelease } from '@main/core/appdata/uploadHistory'
@@ -190,6 +193,12 @@ export class UploadSession {
           this.groupSearch.cancel()
         },
         startTranscodeInspection: () => this.startTranscodeInspectIfReady(),
+        runFileChecksAndWait: () => this.runFileChecksAndWait(),
+        fileChecksNeedAttention: () => this.fileChecksNeedAttention(),
+        goToFileChecks: () => {
+          this.apply(setCurrentStep(this.state, FILE_CHECKS_STEP))
+        },
+        refreshSourceRestoreStatus: () => this.refreshSourceRestoreStatus(),
         notify: (level, message) => this.notify(level, message)
       },
       this.fileChanges
@@ -252,6 +261,10 @@ export class UploadSession {
   }
 
   async setCurrentStep(index: number, confirmedWrites = false): Promise<{ ok: true } | { ok: false; error: string; needsConfirmation?: boolean }> {
+    const phase = this.state.files.apply.phase
+    if (phase === 'applying' || phase === 'restoring') {
+      return { ok: false, error: 'Wait for file changes to finish.' }
+    }
     const navigation = evaluateStepNavigation(this.state, index)
     if (!navigation.ok) return navigation
     index = navigation.index
@@ -881,6 +894,8 @@ export class UploadSession {
     if (!stillOnWorkspace()) return
     await this.recoverInterruptedFileChanges(stillOnWorkspace)
     if (!stillOnWorkspace()) return
+    await this.refreshSourceRestoreStatus()
+    if (!stillOnWorkspace()) return
     await this.maybeAutoDetectSourceMedia(workspacePath, stillOnWorkspace)
     if (!stillOnWorkspace()) return
     this.scheduleReadyTasks()
@@ -929,6 +944,7 @@ export class UploadSession {
     if (!stillOnWorkspace()) {
       return
     }
+    await this.refreshSourceRestoreStatus()
     this.scheduleReadyTasks()
   }
 
@@ -988,50 +1004,36 @@ export class UploadSession {
   ): Promise<void> {
     const phase = this.state.files.apply.phase
     if (phase !== 'applying' && phase !== 'restoring') return
-    const workspacePath = this.state.draft.workspacePath
-    if (!workspacePath || !stillCurrent()) return
-    const release = this.state.tags.proposed ?? this.state.tags.current ?? {}
-    const plan = buildFilesRenamePlan({
-      release,
-      files: this.state.files,
-      naming: this.deps.getConfig().naming,
-      sourceMedia: this.state.draft.sourceMedia,
-      encoding: this.state.transcode.inspection?.encoding
-    })
-    const reconciled = []
-    for (const file of this.state.files.apply.files) {
-      if (!stillCurrent() || this.state.draft.workspacePath !== workspacePath) return
-      let currentPath = file.currentPath
-      if (!(await pathExists(join(workspacePath, currentPath)))) {
-        if (!stillCurrent() || this.state.draft.workspacePath !== workspacePath) return
-        const target = phase === 'applying'
-          ? plan.files.find((item) => item.id === file.id)?.targetPath
-          : this.state.files.original.files.find((item) => item.id === file.id)?.relativePath
-        if (target && await pathExists(join(workspacePath, target))) {
-          if (!stillCurrent() || this.state.draft.workspacePath !== workspacePath) return
-          currentPath = target
-        }
-      }
-      reconciled.push({ ...file, currentPath })
+    const result = await this.revertFiles()
+    if (!stillCurrent()) return
+    if (!result.ok) {
+      this.notify('error', `Could not recover interrupted file changes: ${result.error}`)
+      return
     }
-    if (!stillCurrent() || this.state.draft.workspacePath !== workspacePath) return
-    this.apply({
-      ...this.state,
-      files: {
-        ...this.state.files,
-        apply: {
-          ...this.state.files.apply,
-          phase: phase === 'applying' ? 'idle' : phase,
-          currentFolderName: basename(workspacePath),
-          files: reconciled
-        }
-      }
-    })
-    const result = phase === 'applying'
-      ? await this.applyTagsAndNames(true)
-      : await this.revertFiles()
-    if (!stillCurrent() || this.state.draft.workspacePath !== workspacePath) return
-    if (!result.ok) this.notify('error', `Could not recover interrupted file changes: ${result.error}`)
+    if (phase !== 'applying' || !stillCurrent() || this.fileChecksNeedAttention()) return
+    const applied = await this.applyTagsAndNames(true)
+    if (!stillCurrent()) return
+    if (!applied.ok) this.notify('error', `Could not recover interrupted file changes: ${applied.error}`)
+  }
+
+  private async refreshSourceRestoreStatus(): Promise<void> {
+    const workspacePath = this.state.draft.workspacePath
+    if (!workspacePath) return
+    const status = await sourceRestoreStatus(uploadWorkspaceRootForPath(workspacePath))
+    if (this.state.draft.workspacePath !== workspacePath) return
+    this.apply(setSourceRestoreStatus(this.state, status))
+  }
+
+  private fileChecksNeedAttention(): boolean {
+    return !this.state.fileChecks.structure.ready ||
+      this.state.fileChecks.integrity.status === 'failed' ||
+      getTask(this.state.background, 'file-checks')?.status === 'failed'
+  }
+
+  private async runFileChecksAndWait(): Promise<void> {
+    this.fileChecks.cancel()
+    this.apply(resetBackgroundTask(setFileChecks(this.state, emptyFileChecks()), 'file-checks'))
+    await this.runFileChecksIfReady()
   }
 
   selectSourceMedia(media: SourceMedia): void {
@@ -1567,6 +1569,10 @@ export class UploadSession {
   }
 
   private startFileChecksIfReady(repairRequested = false): void {
+    void this.runFileChecksIfReady(repairRequested)
+  }
+
+  private async runFileChecksIfReady(repairRequested = false): Promise<void> {
     if (!this.state.draft.workspacePath || !this.state.draft.sourceMedia) return
     const t = getTask(this.state.background, 'file-checks')
     if (!t || t.status !== 'queued') return
@@ -1575,7 +1581,7 @@ export class UploadSession {
     const sourceMedia = this.state.draft.sourceMedia
     this.apply(markBackgroundTaskRunning(setFileChecksRunning(this.state), 'file-checks'))
 
-    void this.fileChecks.run(
+    await this.fileChecks.run(
       async (task) => {
         const canRepair = this.integrityRepairAllowed()
         const result = await runFileChecks({
@@ -1818,13 +1824,4 @@ function summarizeMetadataSearch(
   if (candidates === 1) return 'Found 1 metadata match.'
   if (matchedProviders <= 1) return `Found ${candidates} metadata matches.`
   return `Found ${candidates} metadata matches across ${matchedProviders} providers.`
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path)
-    return true
-  } catch {
-    return false
-  }
 }

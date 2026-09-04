@@ -1,21 +1,21 @@
-import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
-import { basename, dirname, extname, join, relative, sep } from 'node:path'
+import { chmod, mkdir, mkdtemp, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import { basename, dirname, extname, join, sep } from 'node:path'
 import type { FilesRenamePlan, PlannedFileName, PlannedPayloadPath } from '@shared/upload/naming'
-import type { OriginalFileSnapshot, PayloadPathState, Release } from '@shared/types'
+import type { Release } from '@shared/types'
 import { automaticToolResolver, type ToolResolver } from '../binaries'
 import { removeEmptyDirectories } from '../directories'
 import { runCommand } from '../runCommand'
 import { finishStagedFolderRename, prepareStagedFolderRename, uploadWorkspaceRootForPath } from '../../appdata/workspace'
 import { managedRemovalKeys, managedTagProjection } from '@shared/tags/projection'
 
-const MANAGED_KEYS = [...managedRemovalKeys(), 'COVERART', 'COVERARTMIME']
+const MANAGED_TAG_KEYS = managedRemovalKeys()
+const COVER_KEYS = ['COVERART', 'COVERARTMIME']
 
 export interface ApplyFilesResult {
   workspacePath: string
   folderName: string
   currentPaths: Array<{ id: string; currentPath: string }>
   payloadPaths: Array<{ id: string; currentPath: string }>
-  originals: OriginalFileSnapshot[]
   changedFileCount: number
   strippedPictureCount: number
 }
@@ -26,57 +26,17 @@ export type FilesProgressCallback = (
   label: string
 ) => void
 
-export async function captureOriginalFiles(
-  workspacePath: string,
-  files: Array<{ id: string; currentPath: string }>,
-  signal?: AbortSignal,
-  tools: ToolResolver = automaticToolResolver,
-  onProgress?: FilesProgressCallback
-): Promise<{ originals: OriginalFileSnapshot[]; pictureCount: number }> {
-  const backupRoot = join(uploadWorkspaceRootForPath(workspacePath), '.gravlax-original-metadata')
-  await mkdir(backupRoot, { recursive: true, mode: 0o700 })
-  const originals: OriginalFileSnapshot[] = []
-  let pictureCount = 0
-  onProgress?.(0, files.length, 'Saving original tags…')
-  for (const [index, file] of files.entries()) {
-    onProgress?.(index, files.length, `Saving original tags: ${file.currentPath}`)
-    const absolutePath = join(workspacePath, fromPosix(file.currentPath))
-    const comments = await readManagedComments(absolutePath, signal, tools)
-    const managedComments = comments.filter((comment) => !/^COVERART(?:MIME)?=/i.test(comment))
-    const legacyCoverBackups: NonNullable<OriginalFileSnapshot['legacyCoverBackups']> = []
-    for (const [legacyIndex, comment] of comments.filter((item) => /^COVERART(?:MIME)?=/i.test(item)).entries()) {
-      const split = comment.indexOf('=')
-      const key = comment.slice(0, split).toUpperCase() as 'COVERART' | 'COVERARTMIME'
-      const relativePath = `${String(index + 1).padStart(3, '0')}-legacy-cover-${legacyIndex}.value`
-      await writeFile(join(backupRoot, relativePath), comment.slice(split + 1), { encoding: 'utf8', mode: 0o600 })
-      legacyCoverBackups.push({ key, relativePath })
-    }
-    const blocks = await pictureBlockNumbers(absolutePath, signal, tools)
-    const pictureBackups: NonNullable<OriginalFileSnapshot['pictureBackups']> = []
-    for (const blockNumber of blocks) {
-      const relativePath = `${String(index + 1).padStart(3, '0')}-picture-${blockNumber}.block`
-      const bytes = await runCommand('metaflac', ['--list', '--data-format=binary', `--block-number=${blockNumber}`, absolutePath], signal, undefined, tools)
-      await writeFile(join(backupRoot, relativePath), bytes, { mode: 0o600 })
-      pictureBackups.push({ blockNumber, relativePath })
-      pictureCount += 1
-    }
-    originals.push({ id: file.id, relativePath: file.currentPath, managedComments, pictureBackups, legacyCoverBackups })
-    onProgress?.(index + 1, files.length, `Saved original tags: ${file.currentPath}`)
-  }
-  return { originals, pictureCount }
-}
-
 export async function applyTagsAndRenames(input: {
   workspacePath: string
   release: Release
   plan: FilesRenamePlan
-  originals: OriginalFileSnapshot[]
   stripEmbeddedCoverArt: boolean
   signal?: AbortSignal
   tools?: ToolResolver
   onProgress?: FilesProgressCallback
 }): Promise<ApplyFilesResult> {
-  const { release, plan, originals, signal } = input
+  const { release, plan, signal } = input
+  const tools = input.tools ?? automaticToolResolver
   if (plan.errors.length > 0) throw new Error(plan.errors[0])
   if ((release.tracks?.length ?? 0) !== plan.files.length) {
     throw new Error('Track count changed before the files could be written.')
@@ -91,18 +51,12 @@ export async function applyTagsAndRenames(input: {
   let strippedPictureCount = 0
   for (const [index, file] of plan.files.entries()) {
     input.onProgress?.(index, progressTotal, `Applying tags: ${file.currentPath}`)
-    const original = originals.find((item) => item.id === file.id)
-    if (!original) throw new Error(`Missing original-state backup for ${file.currentPath}.`)
-    const values = tagValues(release, index, original.managedComments ?? [])
-    if (!input.stripEmbeddedCoverArt) {
-      await addLegacyCoverValues(values, original, uploadWorkspaceRootForPath(input.workspacePath))
-    }
-    const restorePictures = input.stripEmbeddedCoverArt ? [] : (original.pictureBackups ?? [])
-    await rewriteFlac(join(input.workspacePath, fromPosix(file.currentPath)), values, restorePictures, uploadWorkspaceRootForPath(input.workspacePath), signal, input.tools ?? automaticToolResolver)
+    const absolutePath = join(input.workspacePath, fromPosix(file.currentPath))
+    const values = await tagValues(release, index, absolutePath, signal, tools)
     if (input.stripEmbeddedCoverArt) {
-      strippedPictureCount += original.pictureBackups?.length ?? 0
-      strippedPictureCount += (original.legacyCoverBackups ?? []).filter((item) => item.key === 'COVERART').length
+      strippedPictureCount += await countEmbeddedCoverArt(absolutePath, signal, tools)
     }
+    await rewriteFlac(absolutePath, values, input.stripEmbeddedCoverArt, signal, tools)
     input.onProgress?.(index + 1, progressTotal, `Applied tags: ${file.currentPath}`)
   }
 
@@ -130,64 +84,15 @@ export async function applyTagsAndRenames(input: {
     folderName: basename(workspacePath),
     currentPaths: plan.files.map((file) => ({ id: file.id, currentPath: file.targetPath })),
     payloadPaths: payloadFiles.map((file) => ({ id: file.id, currentPath: file.targetPath })),
-    originals,
     changedFileCount: payloadFiles.filter((file) => file.changed).length,
     strippedPictureCount
   }
 }
 
-export async function restoreOriginalFiles(input: {
-  workspacePath: string
-  originals: OriginalFileSnapshot[]
-  currentFiles: Array<{ id: string; currentPath: string }>
-  currentPayload?: PayloadPathState[]
-  originalFolderName: string
-  signal?: AbortSignal
-  tools?: ToolResolver
-}): Promise<string> {
-  const plans: PlannedFileName[] = input.currentFiles.map((current) => {
-    const original = input.originals.find((item) => item.id === current.id)
-    if (!original) throw new Error(`Missing original-state backup for ${current.currentPath}.`)
-    return { id: current.id, currentPath: current.currentPath, targetPath: original.relativePath, targetFilename: basename(original.relativePath), changed: current.currentPath !== original.relativePath }
-  })
-  const payloadPlans: PlannedPayloadPath[] = (input.currentPayload ?? []).filter(
-    (item) => item.kind === 'file'
-  ).map((item) => ({
-    id: item.id,
-    kind: 'file',
-    currentPath: item.currentPath,
-    targetPath: item.originalPath,
-    targetName: basename(item.originalPath),
-    changed: item.currentPath !== item.originalPath,
-    track: plans.some((plan) => plan.id === item.id)
-  }))
-  await renameFiles(input.workspacePath, payloadPlans.length > 0 ? payloadPlans : plans)
-  for (const original of input.originals) {
-    const values = commentsToValues(original.managedComments ?? [])
-    await addLegacyCoverValues(values, original, uploadWorkspaceRootForPath(input.workspacePath))
-    await rewriteFlac(join(input.workspacePath, fromPosix(original.relativePath)), values, original.pictureBackups ?? [], uploadWorkspaceRootForPath(input.workspacePath), input.signal, input.tools ?? automaticToolResolver)
-  }
-  if (basename(input.workspacePath) === input.originalFolderName) return input.workspacePath
-  const root = uploadWorkspaceRootForPath(input.workspacePath)
-  const target = join(root, input.originalFolderName)
-  await assertMissingOrSame(target, input.workspacePath)
-  await prepareStagedFolderRename(root, basename(input.workspacePath), input.originalFolderName)
-  await renameCaseSafe(input.workspacePath, target)
-  try {
-    await finishStagedFolderRename(root, input.originalFolderName)
-  } catch (err) {
-    await renameCaseSafe(target, input.workspacePath)
-    await finishStagedFolderRename(root, basename(input.workspacePath))
-    throw err
-  }
-  return target
-}
-
 async function rewriteFlac(
   sourcePath: string,
   values: Map<string, string[]>,
-  pictureBackups: Array<{ blockNumber: number; relativePath: string }>,
-  workspaceRoot: string,
+  stripCover: boolean,
   signal: AbortSignal | undefined,
   tools: ToolResolver
 ): Promise<void> {
@@ -195,7 +100,8 @@ async function rewriteFlac(
   const workDir = await mkdtemp(join(dirname(sourcePath), '.gravlax-tags-'))
   const temporary = join(workDir, 'output.flac')
   try {
-    const args = ['--no-utf8-convert', `--output-name=${temporary}`, ...MANAGED_KEYS.map((key) => `--remove-tag=${key}`)]
+    const removeKeys = stripCover ? [...MANAGED_TAG_KEYS, ...COVER_KEYS] : MANAGED_TAG_KEYS
+    const args = ['--no-utf8-convert', `--output-name=${temporary}`, ...removeKeys.map((key) => `--remove-tag=${key}`)]
     let valueIndex = 0
     for (const [key, items] of values) {
       for (const value of items) {
@@ -206,11 +112,8 @@ async function rewriteFlac(
     }
     args.push(sourcePath)
     await runCommand('metaflac', args, signal, undefined, tools)
-    await runCommand('metaflac', ['--dont-use-padding', '--remove', '--block-type=PICTURE', temporary], signal, undefined, tools)
-    const backupRoot = join(workspaceRoot, '.gravlax-original-metadata')
-    for (const picture of [...pictureBackups].sort((a, b) => a.blockNumber - b.blockNumber)) {
-      const bytes = await readFile(join(backupRoot, picture.relativePath))
-      await runCommand('metaflac', ['--append', temporary], signal, bytes, tools)
+    if (stripCover) {
+      await runCommand('metaflac', ['--dont-use-padding', '--remove', '--block-type=PICTURE', temporary], signal, undefined, tools)
     }
     await runCommand('flac', ['-t', '--silent', temporary], signal, undefined, tools)
     const actual = await readManagedComments(temporary, signal, tools)
@@ -229,7 +132,7 @@ async function readManagedComments(
   signal?: AbortSignal,
   tools: ToolResolver = automaticToolResolver
 ): Promise<string[]> {
-  const args = ['--no-utf8-convert', ...MANAGED_KEYS.map((key) => `--show-tag=${key}`), path]
+  const args = ['--no-utf8-convert', ...MANAGED_TAG_KEYS.map((key) => `--show-tag=${key}`), path]
   const output = (await runCommand('metaflac', args, signal, undefined, tools)).toString('utf8')
   const comments: string[] = []
   for (const line of output.replace(/\r\n/g, '\n').split('\n')) {
@@ -255,12 +158,35 @@ async function pictureBlockNumbers(
   return numbers
 }
 
-function tagValues(release: Release, index: number, originalComments: string[]): Map<string, string[]> {
+async function countEmbeddedCoverArt(
+  path: string,
+  signal: AbortSignal | undefined,
+  tools: ToolResolver
+): Promise<number> {
+  const pictures = await pictureBlockNumbers(path, signal, tools)
+  const output = (await runCommand(
+    'metaflac',
+    ['--no-utf8-convert', '--show-tag=COVERART', path],
+    signal,
+    undefined,
+    tools
+  )).toString('utf8')
+  const covers = output.replace(/\r\n/g, '\n').split('\n').filter((line) => /^COVERART=/i.test(line)).length
+  return pictures.length + covers
+}
+
+async function tagValues(
+  release: Release,
+  index: number,
+  path: string,
+  signal: AbortSignal | undefined,
+  tools: ToolResolver
+): Promise<Map<string, string[]>> {
   const values = managedTagProjection(release, index)
-  if (!values.has('ARTIST')) {
-    const artist = originalCommentValues(originalComments, 'ARTIST')
-    if (artist.length > 0) values.set('ARTIST', artist)
-  }
+  if (values.has('ARTIST')) return values
+  const comments = await readManagedComments(path, signal, tools)
+  const artist = originalCommentValues(comments, 'ARTIST')
+  if (artist.length > 0) values.set('ARTIST', artist)
   return values
 }
 
@@ -273,28 +199,8 @@ function originalCommentValues(comments: string[], key: string): string[] {
   })
 }
 
-function commentsToValues(comments: string[]): Map<string, string[]> {
-  const result = new Map<string, string[]>()
-  for (const comment of comments) {
-    const split = comment.indexOf('=')
-    if (split < 1) continue
-    const key = comment.slice(0, split).toUpperCase()
-    const value = comment.slice(split + 1)
-    result.set(key, [...(result.get(key) ?? []), value])
-  }
-  return result
-}
-
 function valuesToComments(values: Map<string, string[]>): string[] {
   return [...values].flatMap(([key, items]) => items.map((value) => `${key}=${value}`))
-}
-
-async function addLegacyCoverValues(values: Map<string, string[]>, original: OriginalFileSnapshot, workspaceRoot: string): Promise<void> {
-  const backupRoot = join(workspaceRoot, '.gravlax-original-metadata')
-  for (const backup of original.legacyCoverBackups ?? []) {
-    const value = await readFile(join(backupRoot, backup.relativePath), 'utf8')
-    values.set(backup.key, [...(values.get(backup.key) ?? []), value])
-  }
 }
 
 function sameComments(a: string[], b: string[]): boolean {

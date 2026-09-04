@@ -214,25 +214,31 @@ export interface TagsSnapshot {
 
 export type FilesApplyPhase = 'idle' | 'applying' | 'applied' | 'restoring' | 'failed'
 
+export type SourceRestoreUnavailableReason = 'moved' | 'changed' | 'unknown'
+
+export interface SourceFingerprintFile {
+  relativePath: string
+  size: number
+  mtimeMs: number
+  symlink?: string
+}
+
+export interface SourceFingerprint {
+  path: string
+  files: SourceFingerprintFile[]
+}
+
 export interface OriginalFileSnapshot {
-  /** Stable id which does not change when the path does. */
   id: string
   relativePath: string
-  /** Original comments for keys Gravlax owns, kept byte-for-byte as strings. */
-  managedComments?: string[]
-  /** Paths below .gravlax-original-metadata, in original block order. */
-  pictureBackups?: Array<{ blockNumber: number; relativePath: string }>
-  /** Large legacy COVERART values also stay out of the JSON snapshot. */
-  legacyCoverBackups?: Array<{ key: 'COVERART' | 'COVERARTMIME'; relativePath: string }>
 }
 
 export interface FilesOriginalSnapshot {
-  captured: boolean
-  coverCaptured: boolean
-  /** Embedded PICTURE blocks and legacy COVERART values found in the source files. */
-  embeddedCoverArtCount?: number
   folderName: string
   files: OriginalFileSnapshot[]
+  embeddedCoverArtCount?: number
+  restoreAvailable?: boolean
+  restoreUnavailableReason?: SourceRestoreUnavailableReason
 }
 
 export interface FileNameState {

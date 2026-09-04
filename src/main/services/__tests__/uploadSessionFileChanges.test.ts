@@ -5,24 +5,37 @@ import type { FilesProgressCallback } from '@main/core/tools/files/apply'
 
 const mocks = vi.hoisted(() => ({
   applyTagsAndRenames: vi.fn(),
-  captureOriginalFiles: vi.fn(),
-  restoreOriginalFiles: vi.fn(),
   extractAlbumRelease: vi.fn(),
-  buildFilesRenamePlan: vi.fn()
+  extractAlbumReleaseWithEmbeddedCoverArt: vi.fn(),
+  buildFilesRenamePlan: vi.fn(),
+  replaceWorkingCopyFromSource: vi.fn(),
+  discoverFLACFiles: vi.fn(),
+  enumerateReleasePaths: vi.fn()
 }))
 
 vi.mock('@main/core/tools/files/apply', () => ({
-  applyTagsAndRenames: mocks.applyTagsAndRenames,
-  captureOriginalFiles: mocks.captureOriginalFiles,
-  restoreOriginalFiles: mocks.restoreOriginalFiles
+  applyTagsAndRenames: mocks.applyTagsAndRenames
 }))
 
 vi.mock('@main/core/tags/extract', () => ({
-  extractAlbumRelease: mocks.extractAlbumRelease
+  extractAlbumRelease: mocks.extractAlbumRelease,
+  extractAlbumReleaseWithEmbeddedCoverArt: mocks.extractAlbumReleaseWithEmbeddedCoverArt
 }))
 
 vi.mock('@shared/upload/naming', () => ({
   buildFilesRenamePlan: mocks.buildFilesRenamePlan
+}))
+
+vi.mock('@main/core/appdata/workspace', () => ({
+  replaceWorkingCopyFromSource: mocks.replaceWorkingCopyFromSource
+}))
+
+vi.mock('@main/core/tools/flacFiles', () => ({
+  discoverFLACFiles: mocks.discoverFLACFiles
+}))
+
+vi.mock('@main/core/tools/releaseFiles', () => ({
+  enumerateReleasePaths: mocks.enumerateReleasePaths
 }))
 
 import { newState, type State } from '@main/core/uploadflow'
@@ -32,8 +45,7 @@ import { automaticToolResolver } from '@main/core/tools/binaries'
 
 const originalFile: OriginalFileSnapshot = {
   id: 'track-1',
-  relativePath: 'old.flac',
-  managedComments: []
+  relativePath: 'old.flac'
 }
 
 function setup() {
@@ -51,10 +63,9 @@ function setup() {
     },
     files: {
       original: {
-        captured: true,
-        coverCaptured: true,
         folderName: 'Old Album',
-        files: [originalFile]
+        files: [originalFile],
+        restoreAvailable: true
       },
       apply: {
         phase: 'idle',
@@ -67,6 +78,10 @@ function setup() {
     }
   }
   const startTranscodeInspection = vi.fn()
+  const runFileChecksAndWait = vi.fn(async () => {})
+  const fileChecksNeedAttention = vi.fn(() => false)
+  const goToFileChecks = vi.fn()
+  const refreshSourceRestoreStatus = vi.fn(async () => {})
   const notify = vi.fn()
   const scope = new TaskScope()
   const service = new UploadSessionFileChanges(
@@ -81,11 +96,23 @@ function setup() {
       createWorkspaceGuard: (workspacePath) => () => state.draft.workspacePath === workspacePath,
       cancelGeneratedWork: vi.fn(),
       startTranscodeInspection,
+      runFileChecksAndWait,
+      fileChecksNeedAttention,
+      goToFileChecks,
+      refreshSourceRestoreStatus,
       notify
     },
     scope.slot('file-changes')
   )
-  return { service, getState: () => state, startTranscodeInspection, notify }
+  return {
+    service,
+    getState: () => state,
+    startTranscodeInspection,
+    runFileChecksAndWait,
+    fileChecksNeedAttention,
+    goToFileChecks,
+    notify
+  }
 }
 
 describe('UploadSessionFileChanges folder renames', () => {
@@ -106,7 +133,6 @@ describe('UploadSessionFileChanges folder renames', () => {
       warnings: [],
       hash: 'plan'
     })
-    mocks.captureOriginalFiles.mockResolvedValue({ originals: [originalFile], pictureCount: 0 })
     mocks.applyTagsAndRenames.mockResolvedValue({
       workspacePath: '/workspace/New Album',
       folderName: 'New Album',
@@ -115,6 +141,13 @@ describe('UploadSessionFileChanges folder renames', () => {
       strippedPictureCount: 0
     })
     mocks.extractAlbumRelease.mockResolvedValue({ title: 'New Album' })
+    mocks.replaceWorkingCopyFromSource.mockResolvedValue('/workspace/Old Album')
+    mocks.discoverFLACFiles.mockResolvedValue([{ relativePath: 'old.flac' }])
+    mocks.enumerateReleasePaths.mockResolvedValue({ files: ['old.flac'], directories: [] })
+    mocks.extractAlbumReleaseWithEmbeddedCoverArt.mockResolvedValue({
+      release: { title: 'Old Album' },
+      embeddedCoverArtCount: 0
+    })
   })
 
   it('keeps a successful apply current after it renames the release folder', async () => {
@@ -125,43 +158,32 @@ describe('UploadSessionFileChanges folder renames', () => {
     expect(startTranscodeInspection).toHaveBeenCalledOnce()
   })
 
-  it('shows the applying phase while it captures original tags', async () => {
+  it('shows the applying phase while tags are written', async () => {
     const { service, getState } = setup()
-    getState().files.original.captured = false
-    let finishCapture: ((value: { originals: OriginalFileSnapshot[]; pictureCount: number }) => void) | undefined
-    mocks.captureOriginalFiles.mockReturnValueOnce(new Promise((resolve) => {
-      finishCapture = resolve
+    let finishApply: ((value: unknown) => void) | undefined
+    mocks.applyTagsAndRenames.mockReturnValueOnce(new Promise((resolve) => {
+      finishApply = resolve
     }))
 
     const applying = service.applyTagsAndNames(true)
 
     expect(getState().files.apply.phase).toBe('applying')
     expect(getState().files.apply.progressCurrent).toBe(0)
-    expect(getState().files.apply.progressTotal).toBe(3)
-    expect(getState().files.apply.progressLabel).toBe('Saving original tags…')
-    finishCapture?.({ originals: [originalFile], pictureCount: 0 })
+    expect(getState().files.apply.progressTotal).toBe(2)
+    expect(getState().files.apply.progressLabel).toBe('Applying tags…')
+    finishApply?.({
+      workspacePath: '/workspace/New Album',
+      folderName: 'New Album',
+      currentPaths: [{ id: 'track-1', currentPath: '01. Track.flac' }],
+      changedFileCount: 1,
+      strippedPictureCount: 0
+    })
     await expect(applying).resolves.toEqual({ ok: true })
   })
 
-  it('combines backup and write progress into one file-change total', async () => {
+  it('reports write progress as the file-change total', async () => {
     const { service, getState } = setup()
-    getState().files.original.captured = false
     const progress: Array<{ current?: number; total?: number; label?: string }> = []
-    mocks.captureOriginalFiles.mockImplementationOnce(async (
-      _workspacePath: string,
-      _files: Array<{ id: string; currentPath: string }>,
-      _signal: AbortSignal | undefined,
-      _tools: unknown,
-      onProgress?: FilesProgressCallback
-    ) => {
-      onProgress?.(1, 1, 'Saved original tags: old.flac')
-      progress.push({
-        current: getState().files.apply.progressCurrent,
-        total: getState().files.apply.progressTotal,
-        label: getState().files.apply.progressLabel
-      })
-      return { originals: [originalFile], pictureCount: 0 }
-    })
     mocks.applyTagsAndRenames.mockImplementationOnce(async (input: {
       onProgress?: FilesProgressCallback
     }) => {
@@ -189,9 +211,8 @@ describe('UploadSessionFileChanges folder renames', () => {
     await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
 
     expect(progress).toEqual([
-      { current: 1, total: 3, label: 'Saved original tags: old.flac' },
-      { current: 2, total: 3, label: 'Applied tags: old.flac' },
-      { current: 3, total: 3, label: 'Finishing…' }
+      { current: 1, total: 2, label: 'Applied tags: old.flac' },
+      { current: 2, total: 2, label: 'Finishing…' }
     ])
     expect(getState().files.apply.progressTotal).toBeUndefined()
   })
@@ -301,11 +322,26 @@ describe('UploadSessionFileChanges folder renames', () => {
   it('keeps a successful restore current after it restores the folder name', async () => {
     const test = setup()
     await test.service.applyTagsAndNames(true)
-    mocks.restoreOriginalFiles.mockResolvedValue('/workspace/Old Album')
-    mocks.extractAlbumRelease.mockResolvedValue({ title: 'Old Album' })
+    test.getState().tags.proposed = { title: 'New Album', tracks: [{ title: 'Track' }] }
 
     await expect(test.service.revertFiles()).resolves.toEqual({ ok: true })
     expect(test.getState().draft.workspacePath).toBe('/workspace/Old Album')
+    expect(test.getState().tags.proposed?.title).toBe('New Album')
+    expect(test.getState().tags.current?.title).toBe('Old Album')
     expect(test.startTranscodeInspection).toHaveBeenCalledTimes(2)
+    expect(test.goToFileChecks).not.toHaveBeenCalled()
+  })
+
+  it('jumps to file checks when restore brings back problems', async () => {
+    const test = setup()
+    await test.service.applyTagsAndNames(true)
+    test.fileChecksNeedAttention.mockReturnValue(true)
+
+    await expect(test.service.revertFiles()).resolves.toEqual({ ok: true })
+    expect(test.goToFileChecks).toHaveBeenCalledOnce()
+    expect(test.notify).toHaveBeenCalledWith(
+      'warning',
+      'The working copy was restored from the source folder. File checks need attention.'
+    )
   })
 })

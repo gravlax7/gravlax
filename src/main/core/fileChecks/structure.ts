@@ -36,7 +36,7 @@ export interface CheckReleaseStructureOptions {
   quarantined?: readonly QuarantinedReleaseEntry[]
 }
 
-const QUARANTINE_DIRECTORY = '.gravlax-quarantine'
+export const QUARANTINE_DIRECTORY = '.gravlax-quarantine'
 
 export async function quarantineReleaseEntry(
   workspacePath: string,

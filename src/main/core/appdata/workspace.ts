@@ -5,6 +5,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  lstat,
   readlink,
   rename,
   rm,
@@ -13,17 +14,25 @@ import {
   writeFile
 } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import type { UploadFlowSnapshot } from '@shared/types'
+import type { SourceFingerprint, SourceFingerprintFile, UploadFlowSnapshot } from '@shared/types'
 import { pathKey } from '@main/core/config/paths'
+import { QUARANTINE_DIRECTORY } from '@main/core/fileChecks/structure'
 
 const WORKSPACE_DIR_NAME = 'workspace'
 const UPLOAD_WORKSPACE_METADATA_FILE = '.gravlax-upload.json'
 const UPLOAD_FLOW_STATE_FILE = 'upload-flow.json'
 
+export type SourceRestoreStatus =
+  | { available: true }
+  | { available: false; reason: 'moved' | 'changed' | 'unknown' }
+
+export type CopyProgressCallback = (current: number, total: number, label: string) => void
+
 interface UploadWorkspaceMetadata {
   sourcePath: string
   stagedName?: string
   previousStagedName?: string
+  fingerprint?: SourceFingerprint
 }
 
 export interface UploadWorkspaceEntry {
@@ -90,12 +99,54 @@ export async function copyFolderToUploadWorkspace(
   }
   const workspace = await createUploadWorkspace(userDataPath)
   try {
-    await writeUploadWorkspaceMetadata(workspace, sourcePath)
     const destination = join(workspace, basename(sourcePath))
-    await copyDirectory(sourcePath, destination)
+    const files = await copyDirectory(sourcePath, destination)
+    await writeWorkspaceMetadata(workspace, {
+      sourcePath,
+      stagedName: basename(sourcePath),
+      fingerprint: { path: resolve(sourcePath), files }
+    })
     return destination
   } catch (err) {
     await removeUploadWorkspace(workspace)
+    throw err
+  }
+}
+
+export async function sourceRestoreStatus(workspaceRootPath: string): Promise<SourceRestoreStatus> {
+  const metadata = await readUploadWorkspaceMetadata(workspaceRootPath).catch(() => undefined)
+  const fingerprint = metadata?.fingerprint
+  if (!fingerprint) return { available: false, reason: 'unknown' }
+  return verifySourceFingerprint(fingerprint)
+}
+
+export async function replaceWorkingCopyFromSource(
+  workspacePath: string,
+  sourcePath: string,
+  onProgress?: CopyProgressCallback
+): Promise<string> {
+  const root = uploadWorkspaceRootForPath(workspacePath)
+  const status = await sourceRestoreStatus(root)
+  if (!status.available) {
+    throw new Error(
+      status.reason === 'moved'
+        ? 'The source folder was moved or deleted.'
+        : status.reason === 'changed'
+          ? 'The source folder has changed.'
+          : 'This workspace cannot be restored.'
+    )
+  }
+  const destination = join(root, basename(sourcePath))
+  const temp = join(root, `.gravlax-restore-${Date.now()}`)
+  try {
+    await copyDirectory(sourcePath, temp, onProgress)
+    await rm(workspacePath, { recursive: true, force: true })
+    await rename(temp, destination)
+    await finishStagedFolderRename(root, basename(sourcePath))
+    await rm(join(root, QUARANTINE_DIRECTORY), { recursive: true, force: true })
+    return destination
+  } catch (err) {
+    await rm(temp, { recursive: true, force: true }).catch(() => undefined)
     throw err
   }
 }
@@ -253,9 +304,61 @@ export async function clearWorkspace(userDataPath: string): Promise<void> {
   await rm(root, { recursive: true, force: true })
 }
 
-async function writeUploadWorkspaceMetadata(workspacePath: string, sourcePath: string): Promise<void> {
-  const metadataPath = join(workspacePath, UPLOAD_WORKSPACE_METADATA_FILE)
-  await writeFile(metadataPath, JSON.stringify({ sourcePath, stagedName: basename(sourcePath) } satisfies UploadWorkspaceMetadata))
+async function verifySourceFingerprint(fingerprint: SourceFingerprint): Promise<SourceRestoreStatus> {
+  try {
+    const info = await stat(fingerprint.path)
+    if (!info.isDirectory()) return { available: false, reason: 'moved' }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { available: false, reason: 'moved' }
+    throw err
+  }
+  const current = await collectSourceFingerprint(fingerprint.path)
+  if (!sameFingerprintFiles(fingerprint.files, current)) return { available: false, reason: 'changed' }
+  return { available: true }
+}
+
+function sameFingerprintFiles(a: SourceFingerprintFile[], b: SourceFingerprintFile[]): boolean {
+  if (a.length !== b.length) return false
+  for (let index = 0; index < a.length; index += 1) {
+    const left = a[index]!
+    const right = b[index]!
+    if (left.relativePath !== right.relativePath) return false
+    if (left.size !== right.size) return false
+    if (left.mtimeMs !== right.mtimeMs) return false
+    if ((left.symlink ?? '') !== (right.symlink ?? '')) return false
+  }
+  return true
+}
+
+async function collectSourceFingerprint(sourcePath: string): Promise<SourceFingerprintFile[]> {
+  const files: SourceFingerprintFile[] = []
+  async function walk(dir: string): Promise<void> {
+    const entries = await readdir(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      const path = join(dir, entry.name)
+      const relativePath = relative(sourcePath, path).split(sep).join('/')
+      if (entry.isDirectory()) {
+        await walk(path)
+        continue
+      }
+      if (entry.isSymbolicLink()) {
+        const info = await lstat(path)
+        files.push({
+          relativePath,
+          size: info.size,
+          mtimeMs: Math.round(info.mtimeMs),
+          symlink: await readlink(path)
+        })
+        continue
+      }
+      if (entry.isFile()) {
+        const info = await stat(path)
+        files.push({ relativePath, size: info.size, mtimeMs: Math.round(info.mtimeMs) })
+      }
+    }
+  }
+  await walk(sourcePath)
+  return files.sort((left, right) => left.relativePath.localeCompare(right.relativePath))
 }
 
 export async function prepareStagedFolderRename(workspacePath: string, currentName: string, targetName: string): Promise<void> {
@@ -298,34 +401,51 @@ export async function writeUploadFlow(
   await rename(temporary, target)
 }
 
-async function copyDirectory(sourcePath: string, destinationPath: string): Promise<void> {
-  await copyDirectoryContents(sourcePath, destinationPath)
+async function copyDirectory(
+  sourcePath: string,
+  destinationPath: string,
+  onProgress?: CopyProgressCallback
+): Promise<SourceFingerprintFile[]> {
+  const total = onProgress ? (await collectSourceFingerprint(sourcePath)).length : 0
+  const progress = { current: 0, total }
+  const files = await copyDirectoryContents(sourcePath, destinationPath, sourcePath, progress, onProgress)
   await mkdir(destinationPath, { recursive: true })
+  return files.sort((left, right) => left.relativePath.localeCompare(right.relativePath))
 }
 
 async function copyDirectoryContents(
   sourcePath: string,
-  destinationPath: string
-): Promise<boolean> {
+  destinationPath: string,
+  rootPath: string,
+  progress: { current: number; total: number },
+  onProgress?: CopyProgressCallback
+): Promise<SourceFingerprintFile[]> {
   const entries = await readdir(sourcePath, { withFileTypes: true })
-  let copied = false
+  const files: SourceFingerprintFile[] = []
   for (const entry of entries) {
     const path = join(sourcePath, entry.name)
     const targetPath = join(destinationPath, entry.name)
+    const relativePath = relative(rootPath, path).split(sep).join('/')
     if (entry.isDirectory()) {
-      if (await copyDirectoryContents(path, targetPath)) copied = true
+      files.push(...await copyDirectoryContents(path, targetPath, rootPath, progress, onProgress))
     } else if (entry.isSymbolicLink()) {
       await mkdir(destinationPath, { recursive: true })
       const linkTarget = await readlink(path)
+      const info = await lstat(path)
       await symlink(linkTarget, targetPath)
-      copied = true
+      files.push({ relativePath, size: info.size, mtimeMs: Math.round(info.mtimeMs), symlink: linkTarget })
+      progress.current += 1
+      onProgress?.(progress.current, progress.total, `Restoring ${relativePath}`)
     } else if (entry.isFile()) {
       await mkdir(destinationPath, { recursive: true })
+      const info = await stat(path)
       await copyFile(path, targetPath)
-      copied = true
+      files.push({ relativePath, size: info.size, mtimeMs: Math.round(info.mtimeMs) })
+      progress.current += 1
+      onProgress?.(progress.current, progress.total, `Restoring ${relativePath}`)
     } else {
       throw new Error(`copy "${path}": unsupported file mode`)
     }
   }
-  return copied
+  return files
 }

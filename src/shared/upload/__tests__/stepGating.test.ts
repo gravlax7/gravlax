@@ -26,7 +26,7 @@ function baseState(overrides: Partial<UploadFlowStateJSON> = {}): UploadFlowStat
     metadata: {},
     tags: {},
     files: {
-      original: { captured: false, coverCaptured: false, folderName: '', files: [] },
+      original: { folderName: '', files: [] },
       apply: { phase: 'idle', onDiskModified: false, stripEmbeddedCoverArt: true, renameReleaseFolder: true, currentFolderName: '', files: [] }
     },
     transcode: {},

@@ -330,7 +330,9 @@ export function UploadScreen(props: {
         mid: 'Discard edits & reload',
         continue: props.state.files.apply.phase === 'applying'
           ? 'Applying…'
-          : props.state.files.apply.phase === 'applied' ? 'Continue' : 'Apply & continue',
+          : props.state.files.apply.phase === 'restoring'
+            ? 'Restoring…'
+            : props.state.files.apply.phase === 'applied' ? 'Continue' : 'Apply & continue',
         midVariant: 'danger'
       }
     if (id === 'transcode') {
@@ -465,12 +467,16 @@ export function UploadScreen(props: {
 
       <Show when={
         stepId() === 'tags' &&
-        props.state.files.apply.phase === 'applying' &&
+        (props.state.files.apply.phase === 'applying' || props.state.files.apply.phase === 'restoring') &&
         (props.state.files.apply.progressTotal ?? 0) > 0
       }>
         <div class="upload-file-progress" role="status" aria-live="polite">
           <div class="upload-file-progress-label">
-            <strong>Applying tags and filenames</strong>
+            <strong>
+              {props.state.files.apply.phase === 'restoring'
+                ? 'Restoring original files'
+                : 'Applying tags and filenames'}
+            </strong>
             <Show when={props.state.files.apply.progressLabel}>
               {(label) => <span> — {label()}</span>}
             </Show>
@@ -515,6 +521,10 @@ export function UploadScreen(props: {
       <footer class="upload-footer">
         <Button
           variant="ghost"
+          disabled={
+            props.state.files.apply.phase === 'applying' ||
+            props.state.files.apply.phase === 'restoring'
+          }
           onClick={() => {
             if (stepIndex() === 0) props.onExit()
             else navigateToStep(stepIndex() - 1)
@@ -527,11 +537,13 @@ export function UploadScreen(props: {
           <Button
             variant={actionLabel().midVariant}
             disabled={
-              (stepId() === 'file-checks' && fileChecksBusy()) ||
-              (stepId() === 'transcode' &&
-                (isTranscodeBusy(props.state.transcode) ||
-                  (actionLabel().mid === 'Generate' && transcodeHardBlocked())))
-            }
+            props.state.files.apply.phase === 'applying' ||
+            props.state.files.apply.phase === 'restoring' ||
+            (stepId() === 'file-checks' && fileChecksBusy()) ||
+            (stepId() === 'transcode' &&
+              (isTranscodeBusy(props.state.transcode) ||
+                (actionLabel().mid === 'Generate' && transcodeHardBlocked())))
+          }
             onClick={runMidAction}
           >
             <Show when={stepId() === 'spectrals'}>
@@ -545,7 +557,7 @@ export function UploadScreen(props: {
           fallback={
             <Button
               variant="primary"
-              loading={stepId() === 'tags' && props.state.files.apply.phase === 'applying'}
+              loading={stepId() === 'tags' && (props.state.files.apply.phase === 'applying' || props.state.files.apply.phase === 'restoring')}
               disabled={
                 (stepId() === 'seed' && props.state.seed.phase !== 'done') ||
                 (stepId() === 'metadata' && !props.state.metadata.selected) ||

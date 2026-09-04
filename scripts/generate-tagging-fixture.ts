@@ -354,7 +354,7 @@ Focused current-change checks
    should become separate repeatable comments, while cover and unmanaged tags stay.
 7. On track 6, remove Legacy Lead [main] in the editor but keep No Lead Writer
    [composer], then apply. Its old ARTIST=Legacy Lead must remain on disk.
-8. Restore the original tags and names. All odd source tags and cover data should return.
+8. Restore original files. All odd source tags and cover data should return.
 
 Expected deliberate rough edges
 - The source year, label, genres, and URLs are mixed, so the current column says mixed.

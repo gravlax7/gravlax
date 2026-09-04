@@ -30,6 +30,7 @@ import { Select } from '../../../components/Select'
 import { ArtistsEditor, type ArtistEditAction } from '../ArtistsEditor'
 import { SeparatorArtistBanner } from '../SeparatorArtistBanner'
 import { invalidReleaseDateFields } from '@shared/tags/dates'
+import { sourceRestoreUnavailableMessage } from '@shared/upload/sourceRestore'
 
 export function TagsStep(props: {
   state: UploadFlowStateJSON
@@ -105,7 +106,7 @@ export function TagsStep(props: {
             {props.state.files.apply.phase === 'applying'
               ? 'applying tags and filenames…'
               : props.state.files.apply.phase === 'restoring'
-                ? 'restoring original tags and filenames…'
+                ? 'restoring original files…'
                 : props.state.files.apply.phase === 'applied'
                   ? `tags applied, ${props.state.files.apply.changedFileCount ?? 0} renamed, ${props.state.files.apply.strippedPictureCount ?? 0} cover images stripped`
                   : props.state.files.apply.phase === 'failed'
@@ -113,19 +114,22 @@ export function TagsStep(props: {
                     : props.state.files.apply.onDiskModified ? 'modified (new changes pending)' : 'original'}
           </div>
         </div>
-        <Show when={props.state.files.original.captured}>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={
-              busy() || locked() ||
-              (!props.state.files.apply.onDiskModified && props.state.files.apply.phase !== 'failed')
-            }
-            onClick={() => void window.gravlax.upload.revertFiles()}
-          >
-            Restore original tags
-          </Button>
-        </Show>
+        <Button
+          variant="secondary"
+          size="sm"
+          title={
+            props.state.files.original.restoreAvailable === false
+              ? sourceRestoreUnavailableMessage(props.state.files.original.restoreUnavailableReason ?? 'unknown')
+              : undefined
+          }
+          disabled={
+            busy() || locked() ||
+            (!props.state.files.apply.onDiskModified && props.state.files.apply.phase !== 'failed')
+          }
+          onClick={() => void window.gravlax.upload.revertFiles()}
+        >
+          Restore original files
+        </Button>
       </div>
 
       <Show when={props.state.tags.releaseStatus === 'loading'}>

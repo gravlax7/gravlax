@@ -1,4 +1,5 @@
 import { rm } from 'node:fs/promises'
+import { basename } from 'node:path'
 import type { Config } from '@shared/types/config'
 import type { NotifyPayload, Release } from '@shared/types'
 import {
@@ -17,19 +18,21 @@ import {
   setFolderNameOverride,
   setRenameReleaseFolder,
   setFilesApplyProgress,
+  setEmbeddedCoverArtCount,
   setStripEmbeddedCoverArt,
+  setTagsCurrent,
   setTagsProposed,
   type State
 } from '@main/core/uploadflow'
 import { pendingSeparatorArtists } from '@shared/tags/editor'
 import { invalidReleaseDateFields } from '@shared/tags/dates'
 import { buildFilesRenamePlan } from '@shared/upload/naming'
-import {
-  applyTagsAndRenames as writeTagsAndRenames,
-  captureOriginalFiles,
-  restoreOriginalFiles
-} from '@main/core/tools/files/apply'
-import { extractAlbumRelease } from '@main/core/tags/extract'
+import { sourceRestoreUnavailableMessage } from '@shared/upload/sourceRestore'
+import { applyTagsAndRenames as writeTagsAndRenames } from '@main/core/tools/files/apply'
+import { extractAlbumRelease, extractAlbumReleaseWithEmbeddedCoverArt } from '@main/core/tags/extract'
+import { replaceWorkingCopyFromSource } from '@main/core/appdata/workspace'
+import { discoverFLACFiles } from '@main/core/tools/flacFiles'
+import { enumerateReleasePaths } from '@main/core/tools/releaseFiles'
 import type { TaskSlot } from './taskSlot'
 import type { ToolResolver } from '@main/core/tools/binaries'
 
@@ -46,6 +49,10 @@ export interface UploadSessionFileChangesContext {
   createWorkspaceGuard: (workspacePath: string) => () => boolean
   cancelGeneratedWork: () => void
   startTranscodeInspection: () => void
+  runFileChecksAndWait: () => Promise<void>
+  fileChecksNeedAttention: () => boolean
+  goToFileChecks: () => void
+  refreshSourceRestoreStatus: () => Promise<void>
   notify: (level: NotifyPayload['level'], message: string) => void
 }
 
@@ -134,8 +141,7 @@ export class UploadSessionFileChanges {
       }
 
       this.context.cancelGeneratedWork()
-      const captureSteps = state.files.original.captured ? 0 : plan.files.length
-      const progressTotal = captureSteps + plan.files.length + 1
+      const progressTotal = plan.files.length + 1
       const reportProgress = (current: number, label: string): void => {
         if (!stillCurrent()) return
         this.context.apply(
@@ -144,27 +150,9 @@ export class UploadSessionFileChanges {
         )
       }
       this.context.apply(
-        setFilesApplyProgress(
-          beginFilesApply(state),
-          0,
-          progressTotal,
-          captureSteps > 0 ? 'Saving original tags…' : 'Applying tags…'
-        ),
+        setFilesApplyProgress(beginFilesApply(state), 0, progressTotal, 'Applying tags…'),
         { persist: false }
       )
-      let originals = state.files.original.files
-      if (!state.files.original.captured) {
-        const captured = await captureOriginalFiles(
-          workspacePath,
-          state.files.apply.files,
-          undefined,
-          this.context.tools,
-          (current, _total, label) => reportProgress(current, label)
-        )
-        if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
-        originals = captured.originals
-        this.context.apply(beginFilesApply(this.context.getState(), originals), { persist: false })
-      }
       await this.context.persistNow()
       if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
 
@@ -176,12 +164,10 @@ export class UploadSessionFileChanges {
             workspacePath,
             release,
             plan,
-            originals,
             stripEmbeddedCoverArt: this.context.getState().files.apply.stripEmbeddedCoverArt,
             signal: handle.signal,
             tools: this.context.tools,
-            onProgress: (current, _total, label) =>
-              reportProgress(captureSteps + current, label)
+            onProgress: (current, _total, label) => reportProgress(current, label)
           })
         },
         { guard: stillCurrent, onError: (error) => { operationError = error } }
@@ -244,12 +230,27 @@ export class UploadSessionFileChanges {
     try {
       this.assertUnlocked()
       const state = this.context.getState()
-      if (!state.files.original.captured) return { ok: true }
+      const phase = state.files.apply.phase
+      if (
+        !state.files.apply.onDiskModified &&
+        phase !== 'failed' &&
+        phase !== 'applying' &&
+        phase !== 'restoring'
+      ) return { ok: true }
       const workspacePath = state.draft.workspacePath
-      if (!workspacePath) return { ok: false, error: 'Workspace is not ready.' }
+      const sourcePath = state.draft.sourcePath
+      if (!workspacePath || !sourcePath) return { ok: false, error: 'Workspace is not ready.' }
+      await this.context.refreshSourceRestoreStatus()
+      const restore = this.context.getState().files.original
+      if (!restore.restoreAvailable) {
+        const message = sourceRestoreUnavailableMessage(restore.restoreUnavailableReason ?? 'unknown')
+        this.context.apply(failFilesApply(this.context.getState(), message))
+        this.context.notify('error', message)
+        return { ok: false, error: message }
+      }
       stillCurrent = this.context.createWorkspaceGuard(workspacePath)
       this.context.cancelGeneratedWork()
-      this.context.apply(beginFilesRestore(state))
+      this.context.apply(beginFilesRestore(this.context.getState()))
       await this.context.persistNow()
       if (!stillCurrent()) return { ok: false, error: 'Restore was cancelled.' }
 
@@ -257,15 +258,17 @@ export class UploadSessionFileChanges {
       let operationError: unknown
       await this.task.run(
         async (handle) => {
-          restoredPath = await restoreOriginalFiles({
+          restoredPath = await replaceWorkingCopyFromSource(
             workspacePath,
-            originals: state.files.original.files,
-            currentFiles: state.files.apply.files,
-            currentPayload: state.files.apply.payloadPaths,
-            originalFolderName: state.files.original.folderName,
-            signal: handle.signal,
-            tools: this.context.tools
-          })
+            sourcePath,
+            (current, total, label) => {
+              if (!stillCurrent() || handle.signal.aborted) return
+              this.context.apply(
+                setFilesApplyProgress(this.context.getState(), current, total, label),
+                { persist: false }
+              )
+            }
+          )
         },
         { guard: stillCurrent, onError: (error) => { operationError = error } }
       )
@@ -274,15 +277,54 @@ export class UploadSessionFileChanges {
 
       await this.invalidateGeneratedFiles()
       if (!stillCurrent()) return { ok: false, error: 'Restore was cancelled.' }
-      const release = await extractAlbumRelease(restoredPath)
+      const [files, payload, extracted] = await Promise.all([
+        discoverFLACFiles(restoredPath),
+        enumerateReleasePaths(restoredPath),
+        extractAlbumReleaseWithEmbeddedCoverArt(restoredPath)
+      ])
       if (!stillCurrent()) return { ok: false, error: 'Restore was cancelled.' }
-      this.context.apply(acceptAppliedTags(finishFilesRestore(this.context.getState(), restoredPath), release))
-      // Restoring the original folder name also changes workspacePath.
+      this.context.apply(
+        setTagsCurrent(
+          finishFilesRestore(
+            this.context.getState(),
+            restoredPath,
+            basename(restoredPath),
+            files.map((file) => file.relativePath),
+            payload
+          ),
+          extracted.release
+        )
+      )
+      this.context.apply(setEmbeddedCoverArtCount(this.context.getState(), extracted.embeddedCoverArtCount))
       stillCurrent = this.context.createWorkspaceGuard(restoredPath)
       await this.context.persistNow()
       if (!stillCurrent()) return { ok: false, error: 'Restore was cancelled.' }
+
+      await this.context.runFileChecksAndWait()
+      if (!stillCurrent()) return { ok: false, error: 'Restore was cancelled.' }
+      this.context.apply({
+        ...this.context.getState(),
+        files: {
+          ...this.context.getState().files,
+          apply: {
+            ...this.context.getState().files.apply,
+            phase: 'idle',
+            progressCurrent: undefined,
+            progressTotal: undefined,
+            progressLabel: undefined
+          }
+        }
+      })
+      if (this.context.fileChecksNeedAttention()) {
+        this.context.goToFileChecks()
+        this.context.notify(
+          'warning',
+          'The working copy was restored from the source folder. File checks need attention.'
+        )
+        return { ok: true }
+      }
       this.context.startTranscodeInspection()
-      this.context.notify('success', 'Original tags and filenames were restored.')
+      this.context.notify('success', 'The working copy was restored from the source folder.')
       return { ok: true }
     } catch (error) {
       if (!stillCurrent()) return { ok: false, error: 'Restore was cancelled.' }
