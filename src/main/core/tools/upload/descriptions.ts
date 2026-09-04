@@ -1,5 +1,5 @@
 import type { Artist, Release } from '@shared/types/upload'
-import { normalizeArtistRole } from '@shared/tags/editor'
+import { albumArtistDisplayNames, normalizeArtistRole } from '@shared/tags/editor'
 import { dateYear } from '@shared/tags/dates'
 import { isMultiDisc as discNumbersAreMultiDisc } from '@shared/upload/naming'
 import { getDescriptionTemplate } from '@shared/upload/templates'
@@ -161,20 +161,6 @@ export function wrapTranscodeLossyComment(sourceUrl: string, comment: string): s
   return `Transcode of ${sourceUrl}\n[hide=Lossy comment of original torrent]${body}[/hide]\n`
 }
 
-function artistNames(artists: Artist[] | undefined): string[] {
-  return (artists ?? []).map((a) => (a.name ?? '').trim()).filter(Boolean)
-}
-
-function formatArtistList(artists: Artist[] | undefined): string {
-  return artistNames(artists).join(', ')
-}
-
-function formatArtistBbcode(artists: Artist[] | undefined): string {
-  return artistNames(artists)
-    .map((name) => `[artist]${name}[/artist]`)
-    .join(' & ')
-}
-
 function trackNumberLabel(track: TrackDescInput, multiDisc: boolean): string {
   if (multiDisc) {
     return `${padTrackNumber(track.discNumber)}-${padTrackNumber(track.trackNumber)}`
@@ -232,9 +218,7 @@ export function buildAlbumDescriptionContext(
   metadata: AlbumDescMetadata
 ): TemplateContext {
   const rows = buildTrackRows(tracks)
-  const mainArtists = (metadata.artists ?? []).filter(
-    (artist) => normalizeArtistRole(artist.role ?? '') === 'main'
-  )
+  const mainArtists = albumArtistDisplayNames(metadata.artists ?? []).map((name) => name.trim())
   const sourceUrl =
     (metadata.sourceUrl ?? '').trim() ||
     (metadata.urls ?? []).map((u) => u.trim()).find(Boolean) ||
@@ -242,8 +226,10 @@ export function buildAlbumDescriptionContext(
   const year = dateYear(metadata.year)
   const genres = (metadata.genres ?? []).map((g) => g.trim()).filter(Boolean).join(', ')
   return {
-    artist: formatArtistList(mainArtists),
-    artist_bbcode: formatArtistBbcode(mainArtists),
+    artist: mainArtists.join(', '),
+    artist_bbcode: mainArtists
+      .map((name) => name.toLowerCase() === 'various artists' ? name : `[artist]${name}[/artist]`)
+      .join(' & '),
     album: (metadata.title ?? '').trim(),
     year,
     label: (metadata.label ?? '').trim(),

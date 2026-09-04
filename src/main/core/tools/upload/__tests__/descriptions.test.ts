@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { listDescriptionTemplateIds } from '@shared/upload/templates'
 import {
   SPECTRAL_PLACEHOLDER,
   SOURCE_TORRENT_PLACEHOLDER,
   buildLossyMasterComment,
+  buildAlbumDescriptionContext,
   formatDuration,
   generateAlbumDescription,
   generateReleaseDescription,
@@ -41,6 +43,45 @@ describe('description helpers', () => {
 })
 
 describe('generateAlbumDescription', () => {
+  it.each(listDescriptionTemplateIds())('applies the four-artist cutoff in %s', (templateId) => {
+    const artists = ['Alpha', 'Beta', 'Gamma', 'Delta'].map((name) => ({ name, role: 'main' }))
+    const original = structuredClone(artists)
+    const belowCutoff = generateAlbumDescription([], {
+      artists: artists.slice(0, 3), title: 'Compilation', templateId
+    })
+    for (const artist of artists.slice(0, 3)) expect(belowCutoff).toContain(artist.name)
+    expect(belowCutoff).not.toContain('Various Artists')
+
+    const atCutoff = generateAlbumDescription([], { artists, title: 'Compilation', templateId })
+    expect(atCutoff).toContain('Various Artists')
+    expect(atCutoff).not.toContain('[artist]Various Artists[/artist]')
+    for (const artist of artists) expect(atCutoff).not.toContain(artist.name)
+    expect(artists).toEqual(original)
+  })
+
+  it('counts distinct non-empty main names and keeps guest credits in the tracklist', () => {
+    const artists = [
+      { name: 'Café', role: 'main' },
+      { name: ' CAFE\u0301 ', role: 'MAIN' },
+      { name: 'Beta', role: 'main' },
+      { name: 'Gamma', role: 'main' },
+      { name: ' ', role: 'main' },
+      { name: 'Guest', role: 'guest' },
+      { name: 'Producer', role: 'producer' }
+    ]
+    const tracks = [{ title: 'Song', artists, durationSeconds: 60 }]
+    const belowCutoff = buildAlbumDescriptionContext(tracks, { artists })
+    expect(belowCutoff.artist).toBe('Café, Beta, Gamma')
+    expect(belowCutoff.artist_bbcode).toBe('[artist]Café[/artist] & [artist]Beta[/artist] & [artist]Gamma[/artist]')
+
+    const atCutoff = buildAlbumDescriptionContext(tracks, {
+      artists: [...artists, { name: 'Delta', role: 'main' }]
+    })
+    expect(atCutoff.artist).toBe('Various Artists')
+    expect(atCutoff.artist_bbcode).toBe('Various Artists')
+    expect(atCutoff.tracklist).toContain('Song (feat. [artist]Guest[/artist])')
+  })
+
   it('only lists main artists in the album heading', () => {
     const artists = [
       { name: 'Disiz', role: 'main' },

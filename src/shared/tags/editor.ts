@@ -434,7 +434,7 @@ function artistCreditKey(artist: Artist): string {
   return `${artistNameKey(artist.name ?? '')}\0${normalizeArtistRole(artist.role ?? '')}`
 }
 
-export function deriveAlbumArtist(artists: Artist[]): string {
+export function albumArtistDisplayNames(artists: Artist[]): string[] {
   const main: string[] = []
   const seen = new Set<string>()
   for (const artist of artists) {
@@ -450,6 +450,11 @@ export function deriveAlbumArtist(artists: Artist[]): string {
     seen.add(key)
     main.push(name)
   }
+  return main.length >= 4 ? ['Various Artists'] : main
+}
+
+export function deriveAlbumArtist(artists: Artist[]): string {
+  const main = albumArtistDisplayNames(artists)
   switch (main.length) {
     case 0:
       return ''
@@ -458,9 +463,6 @@ export function deriveAlbumArtist(artists: Artist[]): string {
     case 2:
       return `${main[0]} & ${main[1]}`
     default:
-      if (main.length >= 4) {
-        return 'Various Artists'
-      }
       return main.join(', ')
   }
 }
