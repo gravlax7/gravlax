@@ -257,6 +257,29 @@ describe('tags editor', () => {
     ])
   })
 
+  it.each(['Soft Collusion', 'Daft Punk', 'Left Lane', 'Defeat Together', 'éft Collusion'])(
+    'keeps feature-marker text inside the artist name %s',
+    (name) => {
+      expect(parseArtistCreditValues([name])).toEqual([{ name, role: 'main' }])
+    }
+  )
+
+  it.each([
+    'Soft Collusion ft Daft Punk',
+    'Soft Collusion FT. Daft Punk',
+    'Soft Collusion feat Daft Punk',
+    'Soft Collusion feat. Daft Punk',
+    'Soft Collusion featuring Daft Punk',
+    'Soft Collusion(feat. Daft Punk)',
+    'Soft Collusion [ ft. Daft Punk]',
+    'Soft Collusion{featuring Daft Punk}'
+  ])('splits a standalone feature marker in %s', (credit) => {
+    expect(parseArtistCreditValues([credit])).toEqual([
+      { name: 'Soft Collusion', role: 'main' },
+      { name: 'Daft Punk', role: 'guest' }
+    ])
+  })
+
   it('adds featured artists from track titles as guests', () => {
     expect(featuredArtistsFromTitle('PARACHUTE CHANEL (feat. Sneazzy)')).toEqual([
       { name: 'Sneazzy', role: 'guest' }

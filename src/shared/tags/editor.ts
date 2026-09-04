@@ -490,7 +490,7 @@ export function parseArtists(lines: string[]): Artist[] {
   return artists
 }
 
-const artistFeatPattern = /\s*[([{]?\s*(?:feat(?:\.|uring)?|ft\.?)\s+/i
+const artistFeatPattern = /(?:^|\s+|[([{])\s*(?:feat(?:\.|uring)?|ft\.?)\s+/i
 const listSeparatorTest = /[,;/&]|\band\b|\bvs\.?\b/i
 const otherListSeparatorTest = /[;/&]|\band\b|\bvs\.?\b/i
 

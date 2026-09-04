@@ -68,6 +68,22 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
     expect(result.release.artists).toContainEqual({ name: 'Maestro', role: 'conductor' })
   })
 
+  it.each(['ARTIST', 'ALBUMARTIST'])(
+    'preserves names containing ft while reading %s feature credits',
+    async (tag) => {
+      const path = await writeTestFlac([`${tag}=Soft Collusion ft. Daft Punk`], 0)
+
+      const result = await extractAlbumReleaseWithEmbeddedCoverArt(path)
+
+      const artists = [
+        { name: 'Soft Collusion', role: 'main' },
+        { name: 'Daft Punk', role: 'guest' }
+      ]
+      expect(result.release.tracks?.[0]?.artists).toEqual(artists)
+      expect(result.release.artists).toEqual(artists)
+    }
+  )
+
   it('drops a conductor main duplicate when another main remains', async () => {
     const path = await writeTestFlac([
       'ARTIST=Orchestra',
