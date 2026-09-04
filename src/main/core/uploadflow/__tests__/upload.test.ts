@@ -8,6 +8,7 @@ import {
   ensureUploadReport,
   failUploadReport,
   finishSubmit,
+  mergeConcurrentUploadReport,
   patchSubmission,
   restoreUpload,
   resumeGroupSearch,
@@ -294,6 +295,75 @@ describe('resumeSubmit', () => {
     expect(next.upload.selectedTrackerIds).toEqual(['redacted', 'orpheus'])
     expect(next.upload.scene).toBe(true)
     expect(next.upload.orpheusSplit).toBe(true)
+  })
+
+  it('keeps a title override when only the transcode fingerprint changes', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-title-keep-'))
+    let state = newState()
+    state.draft.workspacePath = dir
+    state.draft.sourceMedia = 'WEB'
+    state.tags.proposed = {
+      title: 'Album',
+      artists: [{ name: 'A', role: 'main' }],
+      groupYear: '2020',
+      genres: ['electronic']
+    }
+    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
+    state = updateUploadReport(state, { title: 'Override' })
+    state.draft.lossyMaster = true
+
+    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
+    expect(next.upload.title).toBe('Override')
+    expect(next.upload.derivedFromTags?.title).toBe('Album')
+  })
+
+  it('adopts a new tag title even if the upload title was overridden', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-title-adopt-'))
+    let state = newState()
+    state.draft.workspacePath = dir
+    state.draft.sourceMedia = 'WEB'
+    state.tags.proposed = {
+      title: 'Album',
+      artists: [{ name: 'A', role: 'main' }],
+      groupYear: '2020',
+      genres: ['electronic']
+    }
+    state = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
+    state = updateUploadReport(state, { title: 'Override' })
+    state.tags.proposed = { ...state.tags.proposed, title: 'Album II' }
+
+    const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
+    expect(next.upload.title).toBe('Album II')
+    expect(next.upload.derivedFromTags?.title).toBe('Album II')
+  })
+
+  it('keeps a title typed while a report build is in flight', () => {
+    const before = restoreUpload({
+      ...emptyUpload(),
+      phase: 'ready',
+      title: 'Album',
+      derivedFromTags: {
+        artists: [],
+        title: 'Album',
+        releaseType: '',
+        remasterTitle: '',
+        remasterRecordLabel: '',
+        remasterCatalogueNumber: ''
+      }
+    })
+    const built = restoreUpload({
+      ...before,
+      title: 'Album',
+      albumDesc: 'generated'
+    })
+    const latest = restoreUpload({
+      ...before,
+      title: 'Typed'
+    })
+
+    const merged = mergeConcurrentUploadReport(before, built, latest)
+    expect(merged.title).toBe('Typed')
+    expect(merged.albumDesc).toBe('generated')
   })
 
   it('keeps an empty tracker selection when the report rebuilds', async () => {

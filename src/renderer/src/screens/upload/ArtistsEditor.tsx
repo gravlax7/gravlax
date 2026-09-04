@@ -22,8 +22,9 @@ export type ArtistEditAction =
 export function ArtistsEditor(props: {
   artists: Artist[]
   onEdit: (action: ArtistEditAction) => void
-  onCommit: () => void
-  onFieldBlur: () => void
+  onCommit?: () => void
+  onFieldBlur?: () => void
+  autoFocus?: boolean
 }) {
   const updateRole = (index: number, role: string): void => {
     const nextRole = normalizeArtistRole(role)
@@ -64,7 +65,7 @@ export function ArtistsEditor(props: {
       style={{ display: 'flex', 'flex-direction': 'column', gap: '6px' }}
       onFocusOut={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          props.onFieldBlur()
+          props.onFieldBlur?.()
         }
       }}
     >
@@ -74,7 +75,7 @@ export function ArtistsEditor(props: {
             <input
               class="mono"
               ref={(el) => {
-                if (index === 0) {
+                if ((props.autoFocus ?? true) && index === 0) {
                   queueMicrotask(() => {
                     el.focus()
                     el.select()
@@ -91,7 +92,7 @@ export function ArtistsEditor(props: {
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault()
-                  props.onCommit()
+                  props.onCommit?.()
                 }
               }}
               style={{

@@ -9,6 +9,11 @@ import type {
   UploadTrackerId
 } from '@shared/types'
 import { substituteSpectralBbcode } from '@main/core/tools/upload/descriptions'
+import {
+  copyDerivedUploadFields,
+  derivedUploadFieldsFromSnapshot,
+  rebaseDerivedUploadFields
+} from '@shared/upload/derivedFields'
 import { emptyGroupIds } from '@shared/upload/groupIds'
 import type { State } from './state'
 import { emptyGroupSearch } from './groupSearch'
@@ -92,6 +97,9 @@ export function restoreUpload(snapshot: UploadSnapshot | undefined): UploadSnaps
     ...emptyUpload(),
     ...cloned,
     artists: (cloned.artists ?? []).map((artist) => ({ ...artist })),
+    derivedFromTags: cloned.derivedFromTags
+      ? copyDerivedUploadFields(cloned.derivedFromTags)
+      : undefined,
     formats: copyFormats(cloned.formats) ?? [],
     selectedTrackerIds: [...(cloned.selectedTrackerIds ?? [])],
     groupIds: { ...(cloned.groupIds ?? emptyGroupIds()) },
@@ -111,8 +119,14 @@ function carryUserSelections(next: UploadSnapshot, previous: UploadSnapshot): Up
   // after a partial failure upload the formats that landed a second time.
   const formatIds = new Set((next.formats ?? []).map((format) => format.id))
   const submissions = (previous.submissions ?? []).filter((sub) => formatIds.has(sub.formatId))
+  const derivedFromTags = copyDerivedUploadFields(
+    next.derivedFromTags ?? derivedUploadFieldsFromSnapshot(next)
+  )
+  const rebased = rebaseDerivedUploadFields(previous, derivedFromTags)
   return {
     ...next,
+    ...rebased,
+    derivedFromTags,
     selectedTrackerIds:
       hasPreviousReport ? [...selectedTrackerIds] : next.selectedTrackerIds,
     groupIds: { ...(previous.groupIds ?? emptyGroupIds()) },
@@ -154,6 +168,14 @@ export function mergeConcurrentUploadReport(
     'orpheusSplit',
     'unknown',
     'scene',
+    'artists',
+    'title',
+    'year',
+    'releaseType',
+    'remasterYear',
+    'remasterTitle',
+    'remasterRecordLabel',
+    'remasterCatalogueNumber',
     'tags',
     'image',
     'coverPath',

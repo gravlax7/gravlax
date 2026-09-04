@@ -330,21 +330,25 @@ export function GroupSuggestions(props: {
   const resultsFor = (trackerId: UploadTrackerId): TrackerGroupSuggestion[] =>
     (groupSearch()?.results ?? []).filter((r) => r.trackerId === trackerId)
 
-  createEffect(() => {
-    if (props.state.currentStep !== stepIndexOf('upload')) return
-    void upload().title
-    void upload().artists
-    void upload().remasterCatalogueNumber
-    void upload().selectedTrackerIds
-    void enabledTrackers()
-    if (!(upload().title ?? '').trim()) return
-    if (destinationTrackers().length === 0 && enabledTrackers().length === 0) return
-    void window.gravlax.upload.searchTrackerGroups()
-  })
+  const searched = (): boolean => {
+    const status = groupSearch()?.status
+    return status === 'running' || status === 'done' || status === 'failed'
+  }
 
-  const refresh = (): void => {
+  const search = (): void => {
     void window.gravlax.upload.searchTrackerGroups({ force: true })
   }
+
+  createEffect(() => {
+    if (props.state.currentStep !== stepIndexOf('upload')) return
+    const title = (upload().title ?? '').trim()
+    void upload().selectedTrackerIds
+    void enabledTrackers()
+    if (!title) return
+    if (destinationTrackers().length === 0 && enabledTrackers().length === 0) return
+    if (searched()) return
+    void window.gravlax.upload.searchTrackerGroups()
+  })
 
   return (
     <Card class="upload-report-card group-suggestions-card">
@@ -355,8 +359,8 @@ export function GroupSuggestions(props: {
             <div class="group-suggestions-query mono">Matches for: {queryLabel()}</div>
           </Show>
         </div>
-        <Button variant="secondary" onClick={refresh} disabled={destinationTrackers().length === 0}>
-          Search again
+        <Button variant="secondary" onClick={search} disabled={destinationTrackers().length === 0}>
+          {searched() ? 'Search again' : 'Search'}
         </Button>
       </div>
 

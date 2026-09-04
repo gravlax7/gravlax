@@ -6,14 +6,13 @@ import type {
   BitDepth,
   Bitrate,
   HostedCoverImage,
-  Release,
   Track,
-  UploadArtist,
   UploadFormatPayload,
   UploadSnapshot,
   UploadTrackerId
 } from '@shared/types'
 import { enabledTrackerOptions } from '@shared/config/trackers'
+import { derivedUploadFieldsFromTags } from '@shared/upload/derivedFields'
 import { discoverLogFiles } from '@main/core/tools/diagnostics/sourceMedia'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { enumerateReleaseFiles, totalSize } from '@main/core/tools/releaseFiles'
@@ -30,7 +29,6 @@ import {
 } from '@main/core/tools/transcode'
 import { downloadCoverIfNonexistent } from '@main/core/tools/upload/cover'
 import { uploadImageToHost } from '@main/core/tools/imagehosts/upload'
-import { artistRoleToImportance } from '@shared/upload/artists'
 import { isCoverImageHostId, isValidCoverImageHost } from '@shared/config/imageHosts'
 import { trackerEncoding } from '@shared/upload/encodings'
 import { emptyGroupIds } from '@shared/upload/groupIds'
@@ -48,29 +46,6 @@ export function resolveUploadTags(s: State): string {
   const proposed = genresToTags(s.tags.proposed?.genres)
   if (proposed) return proposed
   return genresToTags(s.tags.current?.genres)
-}
-
-export function parseYear(value: string | undefined): number | undefined {
-  if (!value) return undefined
-  const year = Number.parseInt(value.trim(), 10)
-  return Number.isFinite(year) && year > 0 ? year : undefined
-}
-
-export function uploadArtistsFromRelease(release: Release | undefined): UploadArtist[] {
-  return (release?.artists ?? [])
-    .map((artist) => {
-      const name = (artist.name ?? '').trim()
-      if (!name) return null
-      return { name, importance: artistRoleToImportance(artist.role) }
-    })
-    .filter((artist): artist is UploadArtist => artist !== null)
-}
-
-export function resolveCatalogueNumber(release: Release | undefined, cfg: Config): string {
-  const catalogueNumber = (release?.catNo ?? '').trim()
-  if (catalogueNumber) return catalogueNumber
-  if (cfg.workflow.useUpcAsCatNo) return (release?.upc ?? '').trim()
-  return ''
 }
 
 export function fingerprintUploadInputs(s: State, cfg: Config, version: string): string {
@@ -219,20 +194,15 @@ export async function buildUploadSnapshot(
   })
   await syncCoverToAlternateFormats(cover.coverPath, formats)
   const sizedFormats = await sizeFormats(formats)
+  const derivedFromTags = derivedUploadFieldsFromTags(proposed, cfg.workflow)
 
   return {
     phase: 'ready',
     selectedTrackerIds: trackerIds,
-    artists: uploadArtistsFromRelease(proposed),
-    title: (proposed.title ?? '').trim(),
-    year: parseYear(proposed.groupYear),
-    releaseType: (proposed.releaseType ?? '').trim(),
+    ...derivedFromTags,
+    derivedFromTags,
     orpheusSplit: false,
     unknown: false,
-    remasterYear: parseYear(proposed.year),
-    remasterTitle: (proposed.editionTitle ?? '').trim(),
-    remasterRecordLabel: (proposed.label ?? '').trim(),
-    remasterCatalogueNumber: resolveCatalogueNumber(proposed, cfg),
     scene: false,
     media: s.draft.sourceMedia || '',
     tags: resolveUploadTags(s),

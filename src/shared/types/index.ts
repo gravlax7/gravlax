@@ -84,6 +84,7 @@ export type {
   UploadSubmissionStatus,
   UploadSubmission,
   HostedCoverImage,
+  DerivedUploadFields,
   TorrentExportResult,
   UploadSnapshot,
   UploadFlowSnapshot,

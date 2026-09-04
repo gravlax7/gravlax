@@ -5,11 +5,13 @@ import type {
   UploadFormatPayload,
   UploadSubmission,
   UploadTrackerId,
-  UploadFlowStateJSON
+  UploadFlowStateJSON,
+  Artist,
+  UploadArtist
 } from '@shared/types'
 import { enabledTrackerOptions } from '@shared/config/trackers'
-import { artistRoleLabel } from '@shared/tags/editor'
 import { formatByteSize } from '@shared/format'
+import { DEFAULT_ARTIST_ROLE } from '@shared/types/upload'
 import {
   Badge,
   Button,
@@ -24,16 +26,26 @@ import { Modal } from '../../../components/Modal'
 import { Select } from '../../../components/Select'
 import { Toggle } from '../../../components/Toggle'
 import { TrackerIcon, trackerLabel } from '../../../components/TrackerIcon'
+import { ArtistsEditor, type ArtistEditAction } from '../ArtistsEditor'
 import { spectralUrl } from '../pathUtil'
 import { GroupSuggestions } from '../GroupSuggestions'
 import { createBbcodePreviewBatcher } from '@shared/upload/bbcodePreviewBatcher'
 import { anySelectedTrackerHasGroupId } from '@shared/upload/groupIds'
-import { importanceToArtistRole } from '@shared/upload/artists'
+import {
+  artistRoleToImportance,
+  importanceToArtistRole
+} from '@shared/upload/artists'
 import { spectralDescriptionPreview } from '@shared/upload/spectralDescription'
 import {
   effectiveReleaseType,
-  isOrpheusSplitEligible
+  isOrpheusSplitEligible,
+  STANDARD_RELEASE_TYPES
 } from '@shared/upload/releaseTypes'
+import {
+  derivedFieldMismatchMessage,
+  derivedUploadFieldsFromTags,
+  type DerivedUploadFieldKey
+} from '@shared/upload/derivedFields'
 import {
   pendingUploadTrackerIds,
   validateTrackerHealth,
@@ -41,10 +53,6 @@ import {
   validateUploadReport,
   validateUploadTargets
 } from '@shared/upload/validation'
-
-function importanceLabel(importance: number): string {
-  return artistRoleLabel(importanceToArtistRole(importance))
-}
 
 const requestBbcodePreview = createBbcodePreviewBatcher((source) =>
   window.gravlax.upload.previewBbcode(source)
@@ -58,6 +66,54 @@ function displayOrEmpty(value: string | number | null | undefined): string {
 
 function displayByteSize(value: number | null | undefined): string {
   return value == null ? '—' : formatByteSize(value)
+}
+
+function parseYearInput(value: string): number | undefined {
+  const text = value.trim()
+  if (!text) return undefined
+  const year = Number.parseInt(text, 10)
+  return Number.isFinite(year) && year > 0 ? year : undefined
+}
+
+function editorArtistsFromUpload(artists: UploadArtist[] | undefined): Artist[] {
+  return (artists ?? []).map((artist) => ({
+    name: artist.name,
+    role: importanceToArtistRole(artist.importance)
+  }))
+}
+
+function uploadArtistsFromEditor(artists: Artist[]): UploadArtist[] {
+  return artists.map((artist) => ({
+    name: artist.name ?? '',
+    importance: artistRoleToImportance(artist.role)
+  }))
+}
+
+function applyArtistEdit(artists: Artist[], action: ArtistEditAction): Artist[] {
+  switch (action.type) {
+    case 'name':
+      return artists.map((artist, index) =>
+        index === action.index ? { ...artist, name: action.name } : artist
+      )
+    case 'role':
+      return artists.map((artist, index) =>
+        index === action.index ? { ...artist, role: action.role } : artist
+      )
+    case 'remove':
+      return artists.filter((_, index) => index !== action.index)
+    case 'add':
+      return [...artists, { name: '', role: DEFAULT_ARTIST_ROLE }]
+  }
+}
+
+function TagMismatchNote(props: { message: string | null }) {
+  return (
+    <Show when={props.message}>
+      {(message) => (
+        <div class="upload-report-field-note upload-report-field-warning">{message()}</div>
+      )}
+    </Show>
+  )
 }
 
 function uploadBlockedReason(
@@ -395,6 +451,17 @@ export function UploadStep(props: {
 }) {
   const upload = () => props.state.upload
   const enabledTrackers = createMemo(() => enabledTrackerOptions(props.config))
+  const derivedFromTags = createMemo(() =>
+    derivedUploadFieldsFromTags(props.state.tags.proposed, {
+      useUpcAsCatNo: props.config.workflow.useUpcAsCatNo
+    })
+  )
+  const mismatch = (key: DerivedUploadFieldKey): string | null =>
+    derivedFieldMismatchMessage(key, upload(), derivedFromTags())
+  const artistsForEditor = createMemo(() => {
+    const artists = editorArtistsFromUpload(upload().artists)
+    return artists.length > 0 ? artists : [{ name: '', role: DEFAULT_ARTIST_ROLE }]
+  })
 
   onMount(() => {
     void window.gravlax.upload.ensureUploadReport()
@@ -495,35 +562,46 @@ export function UploadStep(props: {
         <div class="upload-report-grid">
           <div class="upload-report-field upload-report-field-full">
             <span>Artists</span>
-            <div class="mono upload-report-readonly upload-report-artists-readonly">
-              <Show
-                when={(upload().artists ?? []).length > 0}
-                fallback={<span>—</span>}
-              >
-                <For each={upload().artists ?? []}>
-                  {(artist) => (
-                    <div>
-                      {artist.name} [{importanceLabel(artist.importance)}]
-                    </div>
-                  )}
-                </For>
-              </Show>
-            </div>
+            <ArtistsEditor
+              artists={artistsForEditor()}
+              autoFocus={false}
+              onEdit={(action) =>
+                patch({ artists: uploadArtistsFromEditor(applyArtistEdit(artistsForEditor(), action)) })
+              }
+            />
+            <TagMismatchNote message={mismatch('artists')} />
           </div>
 
           <div class="upload-report-field">
             <span>Title</span>
-            <div class="mono upload-report-readonly">{displayOrEmpty(upload().title)}</div>
+            <input
+              class="mono"
+              value={upload().title ?? ''}
+              onInput={(e) => patch({ title: e.currentTarget.value })}
+            />
+            <TagMismatchNote message={mismatch('title')} />
           </div>
 
           <div class="upload-report-field">
             <span>Year</span>
-            <div class="mono upload-report-readonly">{displayOrEmpty(upload().year)}</div>
+            <input
+              class="mono"
+              inputMode="numeric"
+              value={upload().year ?? ''}
+              onInput={(e) => patch({ year: parseYearInput(e.currentTarget.value) })}
+            />
+            <TagMismatchNote message={mismatch('year')} />
           </div>
 
           <div class="upload-report-field">
             <span>Release type</span>
-            <div class="mono upload-report-readonly">{displayOrEmpty(upload().releaseType)}</div>
+            <Select
+              value={upload().releaseType ?? ''}
+              options={[...STANDARD_RELEASE_TYPES]}
+              class="upload-report-release-type-select"
+              onChange={(releaseType) => patch({ releaseType })}
+            />
+            <TagMismatchNote message={mismatch('releaseType')} />
           </div>
 
           <Show when={showOrpheusSplit()}>
@@ -575,26 +653,43 @@ export function UploadStep(props: {
 
           <div class="upload-report-field">
             <span>Edition year</span>
-            <div class="mono upload-report-readonly">{displayOrEmpty(upload().remasterYear)}</div>
+            <input
+              class="mono"
+              inputMode="numeric"
+              value={upload().remasterYear ?? ''}
+              onInput={(e) => patch({ remasterYear: parseYearInput(e.currentTarget.value) })}
+            />
+            <TagMismatchNote message={mismatch('remasterYear')} />
           </div>
 
           <div class="upload-report-field">
             <span>Edition title</span>
-            <div class="mono upload-report-readonly">{displayOrEmpty(upload().remasterTitle)}</div>
+            <input
+              class="mono"
+              value={upload().remasterTitle ?? ''}
+              onInput={(e) => patch({ remasterTitle: e.currentTarget.value })}
+            />
+            <TagMismatchNote message={mismatch('remasterTitle')} />
           </div>
 
           <div class="upload-report-field">
             <span>Record label</span>
-            <div class="mono upload-report-readonly">
-              {displayOrEmpty(upload().remasterRecordLabel)}
-            </div>
+            <input
+              class="mono"
+              value={upload().remasterRecordLabel ?? ''}
+              onInput={(e) => patch({ remasterRecordLabel: e.currentTarget.value })}
+            />
+            <TagMismatchNote message={mismatch('remasterRecordLabel')} />
           </div>
 
           <div class="upload-report-field">
             <span>Catalogue number</span>
-            <div class="mono upload-report-readonly">
-              {displayOrEmpty(upload().remasterCatalogueNumber)}
-            </div>
+            <input
+              class="mono"
+              value={upload().remasterCatalogueNumber ?? ''}
+              onInput={(e) => patch({ remasterCatalogueNumber: e.currentTarget.value })}
+            />
+            <TagMismatchNote message={mismatch('remasterCatalogueNumber')} />
           </div>
 
           <div class="upload-report-toggles">

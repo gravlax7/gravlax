@@ -2,18 +2,14 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { defaultConfig } from '@main/core/config/defaults'
 import { artistRoleToImportance } from '@shared/upload/artists'
 import {
   buildUploadSnapshot,
   fingerprintUploadInputs,
   genresToTags,
   hostCoverImagesForSubmit,
-  parseYear,
-  resolveCatalogueNumber,
   resolveCoverImage,
-  resolveUploadTags,
-  uploadArtistsFromRelease
+  resolveUploadTags
 } from '../uploadReport'
 import { emptyUpload, ensureUploadReport } from '../upload'
 import { newState } from '../state'
@@ -49,41 +45,6 @@ describe('upload report helpers', () => {
         }
       })
     ).toBe('rock, indie')
-  })
-
-  it('parses years including longer stored dates', () => {
-    expect(parseYear('2020')).toBe(2020)
-    expect(parseYear('2018-09-21')).toBe(2018)
-    expect(parseYear('')).toBeUndefined()
-  })
-
-  it('builds upload artists from release', () => {
-    expect(
-      uploadArtistsFromRelease({
-        artists: [
-          { name: 'A', role: 'main' },
-          { name: 'B', role: 'guest' },
-          { name: 'A', role: 'composer' },
-          { name: 'C', role: 'conductor' },
-          { name: '  ', role: 'main' }
-        ]
-      })
-    ).toEqual([
-      { name: 'A', importance: 1 },
-      { name: 'B', importance: 2 },
-      { name: 'A', importance: 4 },
-      { name: 'C', importance: 5 }
-    ])
-  })
-
-  it('uses UPC as catalogue number when CatNo is missing and toggle is on', () => {
-    const cfg = defaultConfig()
-    expect(resolveCatalogueNumber({ upc: '602567971092' }, cfg)).toBe('602567971092')
-    expect(resolveCatalogueNumber({ catNo: '6797109', upc: '602567971092' }, cfg)).toBe(
-      '6797109'
-    )
-    cfg.workflow.useUpcAsCatNo = false
-    expect(resolveCatalogueNumber({ upc: '602567971092' }, cfg)).toBe('')
   })
 
   it('includes the running app version in the upload fingerprint', () => {

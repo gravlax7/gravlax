@@ -2573,7 +2573,11 @@ button.toggle.toggle-on .toggle-thumb {
   line-height: 1.4;
 }
 
-.upload-report-field input,
+.upload-report-field-warning {
+  color: var(--warning);
+}
+
+.upload-report-field > input,
 .upload-report-textarea {
   width: 100%;
   margin: 0;
@@ -2793,12 +2797,6 @@ button.toggle.toggle-on .toggle-thumb {
   color: var(--fg-primary);
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-.upload-report-artists-readonly {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .upload-report-toggles {

@@ -563,6 +563,17 @@ export interface HostedCoverImage {
   url: string
 }
 
+export interface DerivedUploadFields {
+  artists: UploadArtist[]
+  title: string
+  year?: number
+  releaseType: string
+  remasterYear?: number
+  remasterTitle: string
+  remasterRecordLabel: string
+  remasterCatalogueNumber: string
+}
+
 export interface UploadSnapshot {
   phase?: UploadPhase
   selectedTrackerIds?: UploadTrackerId[]
@@ -577,6 +588,7 @@ export interface UploadSnapshot {
   remasterTitle?: string
   remasterRecordLabel?: string
   remasterCatalogueNumber?: string
+  derivedFromTags?: DerivedUploadFields
   scene?: boolean
   media?: string
   tags?: string
