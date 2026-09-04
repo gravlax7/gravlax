@@ -4,7 +4,6 @@ import {
   derivedFieldMismatchMessage,
   derivedFieldValuesEqual,
   derivedUploadFieldsFromTags,
-  emptyDerivedUploadFields,
   parseYear,
   rebaseDerivedUploadFields,
   resolveCatalogueNumber,
@@ -108,7 +107,7 @@ describe('derivedFieldValuesEqual', () => {
 
 describe('derivedFieldMismatchMessage', () => {
   it('does not warn when tags have no value for the field', () => {
-    const derived = emptyDerivedUploadFields()
+    const derived = copyDerivedUploadFields()
     expect(derivedFieldMismatchMessage('title', { title: 'Album' }, derived)).toBeNull()
   })
 
@@ -134,28 +133,28 @@ describe('derivedFieldMismatchMessage', () => {
 describe('rebaseDerivedUploadFields', () => {
   it('keeps an override when that tag field did not change', () => {
     const previous = {
-      ...emptyDerivedUploadFields(),
+      ...copyDerivedUploadFields(),
       title: 'Override',
-      derivedFromTags: { ...emptyDerivedUploadFields(), title: 'Album' }
+      derivedFromTags: { ...copyDerivedUploadFields(), title: 'Album' }
     }
-    const next = { ...emptyDerivedUploadFields(), title: 'Album', remasterTitle: 'Deluxe' }
+    const next = { ...copyDerivedUploadFields(), title: 'Album', remasterTitle: 'Deluxe' }
     expect(rebaseDerivedUploadFields(previous, next).title).toBe('Override')
     expect(rebaseDerivedUploadFields(previous, next).remasterTitle).toBe('Deluxe')
   })
 
   it('adopts a new tag value when that field changed', () => {
     const previous = {
-      ...emptyDerivedUploadFields(),
+      ...copyDerivedUploadFields(),
       title: 'Override',
-      derivedFromTags: { ...emptyDerivedUploadFields(), title: 'Album' }
+      derivedFromTags: { ...copyDerivedUploadFields(), title: 'Album' }
     }
-    const next = { ...emptyDerivedUploadFields(), title: 'Album II' }
+    const next = { ...copyDerivedUploadFields(), title: 'Album II' }
     expect(rebaseDerivedUploadFields(previous, next).title).toBe('Album II')
   })
 
   it('takes the new derived fields when no previous baseline exists', () => {
-    const previous = { ...emptyDerivedUploadFields(), title: 'Stale' }
-    const next = { ...emptyDerivedUploadFields(), title: 'Album' }
+    const previous = { ...copyDerivedUploadFields(), title: 'Stale' }
+    const next = { ...copyDerivedUploadFields(), title: 'Album' }
     expect(rebaseDerivedUploadFields(previous, next).title).toBe('Album')
   })
 })

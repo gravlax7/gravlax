@@ -228,14 +228,7 @@ export interface SourceFingerprint {
   files: SourceFingerprintFile[]
 }
 
-export interface OriginalFileSnapshot {
-  id: string
-  relativePath: string
-}
-
 export interface FilesOriginalSnapshot {
-  folderName: string
-  files: OriginalFileSnapshot[]
   embeddedCoverArtCount?: number
   restoreAvailable?: boolean
   restoreUnavailableReason?: SourceRestoreUnavailableReason

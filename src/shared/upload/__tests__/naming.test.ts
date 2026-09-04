@@ -21,7 +21,7 @@ function buildFolderPlan(
   return buildFilesRenamePlan({
     release,
     files: {
-      original: { folderName: 'old', files: [] },
+      original: {},
       apply: {
         phase: 'idle',
         onDiskModified: false,
@@ -64,7 +64,7 @@ describe('buildFilesRenamePlan', () => {
   it('pads tracks and creates disc and release folders', () => {
     const plan = buildFilesRenamePlan({
       release: { artists: [{ name: 'A' }], title: 'Album', groupYear: '2001', tracks: [{ trackNumber: '1', discNumber: '2', title: 'A/B' }, { trackNumber: '2', discNumber: '1', title: 'Song' }] },
-      files: { original: { folderName: 'old', files: [] }, apply: { phase: 'idle', onDiskModified: false, stripEmbeddedCoverArt: true, renameReleaseFolder: true, renameTrackFiles: true, currentFolderName: 'old', files: [{ id: 'a', currentPath: 'x.flac' }, { id: 'b', currentPath: 'y.flac' }] } },
+      files: { original: {}, apply: { phase: 'idle', onDiskModified: false, stripEmbeddedCoverArt: true, renameReleaseFolder: true, renameTrackFiles: true, currentFolderName: 'old', files: [{ id: 'a', currentPath: 'x.flac' }, { id: 'b', currentPath: 'y.flac' }] } },
       naming,
       sourceMedia: 'WEB',
       encoding: 'Lossless'
@@ -84,7 +84,7 @@ describe('buildFilesRenamePlan', () => {
         tracks: [{ trackNumber: '1', title: 'Song' }]
       },
       files: {
-        original: { folderName: 'old', files: [] },
+        original: {},
         apply: {
           phase: 'idle',
           onDiskModified: false,
@@ -117,7 +117,7 @@ describe('buildFilesRenamePlan', () => {
         tracks: [{ trackNumber: '2', title: '\u03a9 \u2060\u2060Cosmos' }]
       },
       files: {
-        original: { folderName: 'old', files: [] },
+        original: {},
         apply: {
           phase: 'idle',
           onDiskModified: false,
@@ -145,7 +145,7 @@ describe('buildFilesRenamePlan', () => {
         tracks: [{ trackNumber: '9', title: 'Phe\u0301nix' }]
       },
       files: {
-        original: { folderName: 'Album', files: [] },
+        original: {},
         apply: {
           phase: 'idle',
           onDiskModified: false,
@@ -177,7 +177,7 @@ describe('buildFilesRenamePlan', () => {
         tracks: [{ trackNumber: '2', title: 'Cosmos' }]
       },
       files: {
-        original: { folderName: 'old', files: [] },
+        original: {},
         apply: {
           phase: 'idle',
           onDiskModified: false,
@@ -207,7 +207,7 @@ describe('buildFilesRenamePlan', () => {
     const plan = buildFilesRenamePlan({
       release: { title: 'Album', tracks: [{ trackNumber: '2', title: 'Song' }] },
       files: {
-        original: { folderName: 'Album', files: [] },
+        original: {},
         apply: {
           phase: 'idle',
           onDiskModified: false,
@@ -231,7 +231,7 @@ describe('buildFilesRenamePlan', () => {
     const plan = buildFilesRenamePlan({
       release: { title: 'Album', tracks: [{ trackNumber: '1', title: 'Song' }] },
       files: {
-        original: { folderName: 'Album', files: [] },
+        original: {},
         apply: {
           phase: 'idle',
           onDiskModified: false,
@@ -283,7 +283,7 @@ describe('buildFilesRenamePlan', () => {
         ]
       },
       files: {
-        original: { folderName: 'old', files: [] },
+        original: {},
         apply: {
           phase: 'idle',
           onDiskModified: false,
@@ -327,7 +327,7 @@ describe('buildFilesRenamePlan', () => {
         ]
       },
       files: {
-        original: { folderName: 'Album', files: [] },
+        original: {},
         apply: {
           phase: 'idle',
           onDiskModified: false,
@@ -372,7 +372,7 @@ describe('buildFilesRenamePlan', () => {
     const plan = buildFilesRenamePlan({
       release: { title: 'Album', tracks: [{ title: 'Song' }] },
       files: {
-        original: { folderName: 'Album', files: [] },
+        original: {},
         apply: {
           phase: 'idle',
           onDiskModified: false,
@@ -400,7 +400,7 @@ describe('buildFilesRenamePlan', () => {
     const input = {
       release: { title: 'Album', tracks: [{ title: 'Song' }] },
       files: {
-        original: { folderName: 'Album', files: [] },
+        original: {},
         apply: {
           phase: 'idle' as const,
           onDiskModified: false,
@@ -427,7 +427,7 @@ describe('buildFilesRenamePlan', () => {
     const input = {
       release: { title: 'Album', tracks: [{ title: 'Song' }] },
       files: {
-        original: { folderName: 'Album', files: [] },
+        original: {},
         apply: {
           phase: 'idle' as const,
           onDiskModified: false,
@@ -454,7 +454,7 @@ describe('buildFilesRenamePlan', () => {
     const base = {
       release: { title: 'Album', tracks: [{ title: 'One' }] },
       files: {
-        original: { folderName: 'Album', files: [] },
+        original: {},
         apply: {
           phase: 'idle' as const,
           onDiskModified: false,
@@ -486,7 +486,7 @@ describe('buildFilesRenamePlan', () => {
     const plan = buildFilesRenamePlan({
       release: { title: 'é'.repeat(165), tracks: [{ trackNumber: '1', title: 'Song' }] },
       files: {
-        original: { folderName: 'old', files: [] },
+        original: {},
         apply: {
           phase: 'idle',
           onDiskModified: false,

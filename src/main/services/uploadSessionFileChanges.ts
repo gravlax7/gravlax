@@ -240,16 +240,16 @@ export class UploadSessionFileChanges {
       }
       if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
       let next = finishFilesApply(
-            this.context.getState(),
-            result.workspacePath,
-            result.folderName,
-            result.currentPaths,
-            plan.hash,
-            {
-              changedFileCount: result.changedFileCount,
-              strippedPictureCount: result.strippedPictureCount
-            },
-            result.payloadPaths
+        this.context.getState(),
+        result.workspacePath,
+        result.folderName,
+        result.currentPaths,
+        plan.hash,
+        {
+          changedFileCount: result.changedFileCount,
+          strippedPictureCount: result.strippedPictureCount
+        },
+        result.payloadPaths
       )
       next = writeTags ? acceptAppliedTags(next, applied) : setTagsCurrent(next, applied)
       if (embeddedCoverArtCount !== undefined) {

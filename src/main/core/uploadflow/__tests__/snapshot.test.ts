@@ -98,6 +98,27 @@ describe('snapshot round-trip', () => {
     expect(restored.files.apply.renameTrackFiles).toBe(true)
   })
 
+  it('drops old tag backups when restoring a saved workspace', () => {
+    const saved = snapshot(selectSourcePath(newState(), '/music/album'))
+    Object.assign(saved.files!.original, {
+      folderName: 'album',
+      files: [{ id: 'track-1', relativePath: 'track.flac', managedComments: ['TITLE=Old'] }],
+      captured: true,
+      coverCaptured: true,
+      embeddedCoverArtCount: 2,
+      restoreAvailable: false,
+      restoreUnavailableReason: 'changed'
+    })
+
+    const restored = restoreState('/workspace/upload-abc123', saved)
+
+    expect(snapshot(restored).files!.original).toEqual({
+      embeddedCoverArtCount: 2,
+      restoreAvailable: false,
+      restoreUnavailableReason: 'changed'
+    })
+  })
+
   it('migrates a legacy Source snapshot to File Checks', () => {
     const restored = restoreState('/workspace/upload-abc123', {
       sourcePath: '/music/album',

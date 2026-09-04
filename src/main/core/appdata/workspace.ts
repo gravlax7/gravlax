@@ -15,6 +15,7 @@ import {
 } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { SourceFingerprint, SourceFingerprintFile, UploadFlowSnapshot } from '@shared/types'
+import { sourceRestoreUnavailableMessage } from '@shared/upload/sourceRestore'
 import { pathKey } from '@main/core/config/paths'
 import { QUARANTINE_DIRECTORY } from '@main/core/fileChecks/structure'
 
@@ -128,13 +129,7 @@ export async function replaceWorkingCopyFromSource(
   const root = uploadWorkspaceRootForPath(workspacePath)
   const status = await sourceRestoreStatus(root)
   if (!status.available) {
-    throw new Error(
-      status.reason === 'moved'
-        ? 'The source folder was moved or deleted.'
-        : status.reason === 'changed'
-          ? 'The source folder has changed.'
-          : 'This workspace cannot be restored.'
-    )
+    throw new Error(sourceRestoreUnavailableMessage(status.reason))
   }
   const destination = join(root, basename(sourcePath))
   const temp = join(root, `.gravlax-restore-${Date.now()}`)

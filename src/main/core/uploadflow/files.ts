@@ -3,7 +3,7 @@ import type { State } from './state'
 
 export function emptyFiles(): FilesSnapshot {
   return {
-    original: { folderName: '', files: [] },
+    original: {},
     apply: {
       phase: 'idle',
       onDiskModified: false,
@@ -22,8 +22,9 @@ export function setFiles(s: State, files: FilesSnapshot): State {
     ...s,
     files: {
       original: {
-        ...files.original,
-        files: files.original.files.map((file) => ({ id: file.id, relativePath: file.relativePath }))
+        embeddedCoverArtCount: files.original.embeddedCoverArtCount,
+        restoreAvailable: files.original.restoreAvailable,
+        restoreUnavailableReason: files.original.restoreUnavailableReason
       },
       apply: {
         ...files.apply,
@@ -79,11 +80,6 @@ export function initializeFiles(
     ...s,
     files: {
       ...s.files,
-      original: {
-        ...s.files.original,
-        folderName,
-        files: relativePaths.map((relativePath, index) => ({ id: `track-${index + 1}`, relativePath }))
-      },
       apply: {
         ...s.files.apply,
         currentFolderName: folderName,
@@ -441,11 +437,7 @@ export function finishFilesRestore(
     ...s,
     draft: { ...s.draft, workspacePath },
     files: {
-      original: {
-        ...s.files.original,
-        folderName,
-        files: tracks.map((relativePath, index) => ({ id: `track-${index + 1}`, relativePath }))
-      },
+      original: { ...s.files.original },
       apply: {
         ...emptyFiles().apply,
         stripEmbeddedCoverArt: s.files.apply.stripEmbeddedCoverArt,

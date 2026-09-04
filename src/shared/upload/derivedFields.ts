@@ -22,19 +22,6 @@ export const DERIVED_UPLOAD_FIELD_KEYS = [
 
 export type DerivedUploadFieldKey = (typeof DERIVED_UPLOAD_FIELD_KEYS)[number]
 
-export function emptyDerivedUploadFields(): DerivedUploadFields {
-  return {
-    artists: [],
-    title: '',
-    year: undefined,
-    releaseType: '',
-    remasterYear: undefined,
-    remasterTitle: '',
-    remasterRecordLabel: '',
-    remasterCatalogueNumber: ''
-  }
-}
-
 export function parseYear(value: string | undefined): number | undefined {
   if (!value) return undefined
   const year = Number.parseInt(value.trim(), 10)
@@ -78,9 +65,8 @@ export function derivedUploadFieldsFromTags(
 }
 
 export function copyDerivedUploadFields(
-  fields: DerivedUploadFields | undefined
+  source: Partial<DerivedUploadFields> = {}
 ): DerivedUploadFields {
-  const source = fields ?? emptyDerivedUploadFields()
   return {
     artists: (source.artists ?? []).map((artist) => ({ ...artist })),
     title: source.title ?? '',
@@ -91,21 +77,6 @@ export function copyDerivedUploadFields(
     remasterRecordLabel: source.remasterRecordLabel ?? '',
     remasterCatalogueNumber: source.remasterCatalogueNumber ?? ''
   }
-}
-
-export function derivedUploadFieldsFromSnapshot(
-  upload: Pick<UploadSnapshot, DerivedUploadFieldKey>
-): DerivedUploadFields {
-  return copyDerivedUploadFields({
-    artists: upload.artists ?? [],
-    title: upload.title ?? '',
-    year: upload.year,
-    releaseType: upload.releaseType ?? '',
-    remasterYear: upload.remasterYear,
-    remasterTitle: upload.remasterTitle ?? '',
-    remasterRecordLabel: upload.remasterRecordLabel ?? '',
-    remasterCatalogueNumber: upload.remasterCatalogueNumber ?? ''
-  })
 }
 
 export function derivedFieldValuesEqual(
@@ -129,13 +100,13 @@ export function rebaseDerivedUploadFields(
   const previousDerived = previous.derivedFromTags
   if (!previousDerived) return copyDerivedUploadFields(nextDerived)
 
-  const previousValues = derivedUploadFieldsFromSnapshot(previous)
+  const previousValues = copyDerivedUploadFields(previous)
   const rebased = copyDerivedUploadFields(nextDerived)
   for (const key of DERIVED_UPLOAD_FIELD_KEYS) {
     const wasOverride = !derivedFieldValuesEqual(key, previousValues[key], previousDerived[key])
     const sourceChanged = !derivedFieldValuesEqual(key, previousDerived[key], nextDerived[key])
     if (wasOverride && !sourceChanged) {
-      assignDerivedField(rebased, key, previousValues[key])
+      assignDerivedField(rebased, key, previousValues)
     }
   }
   return rebased
@@ -146,8 +117,7 @@ export function derivedFieldMismatchMessage(
   upload: Pick<UploadSnapshot, DerivedUploadFieldKey>,
   derived: DerivedUploadFields
 ): string | null {
-  const current = derivedUploadFieldsFromSnapshot(upload)
-  if (derivedFieldValuesEqual(key, current[key], derived[key])) return null
+  if (derivedFieldValuesEqual(key, upload[key], derived[key])) return null
   const display = formatDerivedField(derived, key)
   return display ? `Differs from tags: ${display}` : null
 }
@@ -157,9 +127,7 @@ export function formatDerivedField(
   key: DerivedUploadFieldKey
 ): string {
   if (key === 'artists') {
-    return (derived.artists ?? [])
-      .map((artist) => ({ name: artist.name.trim(), importance: artist.importance }))
-      .filter((artist) => artist.name)
+    return normalizeArtists(derived.artists)
       .map(
         (artist) =>
           `${artist.name} [${artistRoleLabel(importanceToArtistRole(artist.importance))}]`
@@ -173,20 +141,12 @@ export function formatDerivedField(
   return normalizeString(derived[key])
 }
 
-function assignDerivedField(
+function assignDerivedField<K extends DerivedUploadFieldKey>(
   target: DerivedUploadFields,
-  key: DerivedUploadFieldKey,
-  value: DerivedUploadFields[DerivedUploadFieldKey]
+  key: K,
+  source: DerivedUploadFields
 ): void {
-  if (key === 'artists') {
-    target.artists = (value as UploadArtist[]).map((artist) => ({ ...artist }))
-    return
-  }
-  if (key === 'year' || key === 'remasterYear') {
-    target[key] = value as number | undefined
-    return
-  }
-  target[key] = String(value ?? '')
+  target[key] = source[key]
 }
 
 function artistsEqual(

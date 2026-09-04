@@ -11,7 +11,7 @@ import type {
 import { substituteSpectralBbcode } from '@main/core/tools/upload/descriptions'
 import {
   copyDerivedUploadFields,
-  derivedUploadFieldsFromSnapshot,
+  DERIVED_UPLOAD_FIELD_KEYS,
   rebaseDerivedUploadFields
 } from '@shared/upload/derivedFields'
 import { emptyGroupIds } from '@shared/upload/groupIds'
@@ -120,7 +120,7 @@ function carryUserSelections(next: UploadSnapshot, previous: UploadSnapshot): Up
   const formatIds = new Set((next.formats ?? []).map((format) => format.id))
   const submissions = (previous.submissions ?? []).filter((sub) => formatIds.has(sub.formatId))
   const derivedFromTags = copyDerivedUploadFields(
-    next.derivedFromTags ?? derivedUploadFieldsFromSnapshot(next)
+    next.derivedFromTags ?? next
   )
   const rebased = rebaseDerivedUploadFields(previous, derivedFromTags)
   return {
@@ -168,14 +168,7 @@ export function mergeConcurrentUploadReport(
     'orpheusSplit',
     'unknown',
     'scene',
-    'artists',
-    'title',
-    'year',
-    'releaseType',
-    'remasterYear',
-    'remasterTitle',
-    'remasterRecordLabel',
-    'remasterCatalogueNumber',
+    ...DERIVED_UPLOAD_FIELD_KEYS,
     'tags',
     'image',
     'coverPath',

@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Config } from '@shared/types/config'
-import type { OriginalFileSnapshot } from '@shared/types'
 import type { FilesProgressCallback } from '@main/core/tools/files/apply'
 
 const mocks = vi.hoisted(() => ({
   applyTagsAndRenames: vi.fn(),
-  extractAlbumRelease: vi.fn(),
   extractAlbumReleaseWithEmbeddedCoverArt: vi.fn(),
   buildFilesRenamePlan: vi.fn(),
   replaceWorkingCopyFromSource: vi.fn(),
@@ -18,7 +16,6 @@ vi.mock('@main/core/tools/files/apply', () => ({
 }))
 
 vi.mock('@main/core/tags/extract', () => ({
-  extractAlbumRelease: mocks.extractAlbumRelease,
   extractAlbumReleaseWithEmbeddedCoverArt: mocks.extractAlbumReleaseWithEmbeddedCoverArt
 }))
 
@@ -44,11 +41,6 @@ import { TaskScope } from '@main/services/taskSlot'
 import { UploadSessionFileChanges } from '@main/services/uploadSessionFileChanges'
 import { automaticToolResolver } from '@main/core/tools/binaries'
 
-const originalFile: OriginalFileSnapshot = {
-  id: 'track-1',
-  relativePath: 'old.flac'
-}
-
 function setup() {
   let state: State = {
     ...newState(),
@@ -64,8 +56,6 @@ function setup() {
     },
     files: {
       original: {
-        folderName: 'Old Album',
-        files: [originalFile],
         restoreAvailable: true
       },
       apply: {
@@ -152,7 +142,6 @@ describe('UploadSessionFileChanges folder renames', () => {
       changedFileCount: 1,
       strippedPictureCount: 0
     })
-    mocks.extractAlbumRelease.mockResolvedValue({ title: 'New Album' })
     mocks.replaceWorkingCopyFromSource.mockResolvedValue('/workspace/Old Album')
     mocks.discoverFLACFiles.mockResolvedValue([{ relativePath: 'old.flac' }])
     mocks.enumerateReleasePaths.mockResolvedValue({ files: ['old.flac'], directories: [] })
@@ -445,7 +434,6 @@ describe('UploadSessionFileChanges folder renames', () => {
       urls: ['https://example.invalid/release'],
       tracks: [{ title: 'Track' }]
     }
-    mocks.extractAlbumRelease.mockResolvedValue({ title: 'New Album' })
 
     await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
     expect(getState().tags.current?.cover).toBe('https://example.invalid/cover.jpg')

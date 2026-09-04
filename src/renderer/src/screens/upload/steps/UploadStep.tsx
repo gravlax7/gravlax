@@ -44,6 +44,7 @@ import {
 import {
   derivedFieldMismatchMessage,
   derivedUploadFieldsFromTags,
+  parseYear,
   type DerivedUploadFieldKey
 } from '@shared/upload/derivedFields'
 import {
@@ -66,13 +67,6 @@ function displayOrEmpty(value: string | number | null | undefined): string {
 
 function displayByteSize(value: number | null | undefined): string {
   return value == null ? '—' : formatByteSize(value)
-}
-
-function parseYearInput(value: string): number | undefined {
-  const text = value.trim()
-  if (!text) return undefined
-  const year = Number.parseInt(text, 10)
-  return Number.isFinite(year) && year > 0 ? year : undefined
 }
 
 function editorArtistsFromUpload(artists: UploadArtist[] | undefined): Artist[] {
@@ -588,7 +582,7 @@ export function UploadStep(props: {
               class="mono"
               inputMode="numeric"
               value={upload().year ?? ''}
-              onInput={(e) => patch({ year: parseYearInput(e.currentTarget.value) })}
+              onInput={(e) => patch({ year: parseYear(e.currentTarget.value) })}
             />
             <TagMismatchNote message={mismatch('year')} />
           </div>
@@ -657,7 +651,7 @@ export function UploadStep(props: {
               class="mono"
               inputMode="numeric"
               value={upload().remasterYear ?? ''}
-              onInput={(e) => patch({ remasterYear: parseYearInput(e.currentTarget.value) })}
+              onInput={(e) => patch({ remasterYear: parseYear(e.currentTarget.value) })}
             />
             <TagMismatchNote message={mismatch('remasterYear')} />
           </div>

@@ -83,10 +83,10 @@ export function MetadataStep(props: {
           <div class="metadata-card-row">
             <div class="metadata-card-main">
               <div class="metadata-card-title">Manual</div>
-            <div class="metadata-card-desc">
-              Review or edit the current tags. Gravlax will rewrite and standardize them even if
-              you make no changes.
-            </div>
+              <div class="metadata-card-desc">
+                Review or edit the current tags. Gravlax will rewrite and standardize them even if
+                you make no changes.
+              </div>
             </div>
             <Show when={manualSelected()}>
               <Icon name="check" size={16} class="metadata-check" />

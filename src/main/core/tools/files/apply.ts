@@ -203,28 +203,13 @@ async function readManagedComments(
   return comments
 }
 
-async function pictureBlockNumbers(
-  path: string,
-  signal?: AbortSignal,
-  tools: ToolResolver = automaticToolResolver
-): Promise<number[]> {
-  const output = (await runCommand('metaflac', ['--list', path], signal, undefined, tools)).toString('utf8')
-  const numbers: number[] = []
-  let block: number | undefined
-  for (const line of output.split(/\r?\n/)) {
-    const header = /^METADATA block #(\d+)/.exec(line)
-    if (header) block = Number(header[1])
-    if (/type:\s+6 \(PICTURE\)/.test(line) && block !== undefined) numbers.push(block)
-  }
-  return numbers
-}
-
 async function countEmbeddedCoverArt(
   path: string,
   signal: AbortSignal | undefined,
   tools: ToolResolver
 ): Promise<number> {
-  const pictures = await pictureBlockNumbers(path, signal, tools)
+  const metadata = (await runCommand('metaflac', ['--list', path], signal, undefined, tools)).toString('utf8')
+  const pictures = metadata.split(/\r?\n/).filter((line) => /type:\s+6 \(PICTURE\)/.test(line)).length
   const output = (await runCommand(
     'metaflac',
     ['--no-utf8-convert', '--show-tag=COVERART', path],
@@ -233,7 +218,7 @@ async function countEmbeddedCoverArt(
     tools
   )).toString('utf8')
   const covers = output.replace(/\r\n/g, '\n').split('\n').filter((line) => /^COVERART=/i.test(line)).length
-  return pictures.length + covers
+  return pictures + covers
 }
 
 async function tagValues(

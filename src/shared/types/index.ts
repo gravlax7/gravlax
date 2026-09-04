@@ -33,7 +33,6 @@ export type {
   SourceRestoreUnavailableReason,
   SourceFingerprintFile,
   SourceFingerprint,
-  OriginalFileSnapshot,
   FilesOriginalSnapshot,
   FileNameState,
   PayloadPathState,
