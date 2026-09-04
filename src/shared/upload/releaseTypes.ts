@@ -1,3 +1,4 @@
+import { trackerName } from '@shared/trackers'
 import type { UploadSnapshot, UploadTrackerId } from '@shared/types/upload'
 import { isNamedMainArtist } from './artists'
 
@@ -67,6 +68,15 @@ export function releaseTypesFor(trackerId: UploadTrackerId): Record<string, numb
 
 export function releaseTypeId(trackerId: UploadTrackerId, releaseType: string): number | null {
   return releaseTypesFor(trackerId)[releaseType.trim()] ?? null
+}
+
+export function invalidReleaseTypeMessage(
+  trackerId: UploadTrackerId,
+  releaseType: string
+): string {
+  const name = trackerName(trackerId)
+  if (!releaseType.trim()) return `Release type is required on ${name}.`
+  return `Release type "${releaseType}" is not valid on ${name}.`
 }
 
 export function namedMainArtistCount(

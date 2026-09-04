@@ -234,6 +234,18 @@ describe('validateUploadTargets', () => {
     ).toBeNull()
   })
 
+  it('asks for a release type when none is set', () => {
+    expect(
+      validateUploadTargets(
+        { ...validUpload(), selectedTrackerIds: ['redacted'], releaseType: '' },
+        cfg
+      )
+    ).toBe('Release type is required on Redacted.')
+    expect(
+      validateUploadTargets({ ...validUpload(), selectedTrackerIds: ['redacted'] }, cfg)
+    ).toBe('Release type is required on Redacted.')
+  })
+
   it('skips the release type check when joining an existing group', () => {
     expect(
       validateUploadTargets(

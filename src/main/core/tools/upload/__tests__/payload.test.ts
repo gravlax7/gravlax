@@ -189,7 +189,17 @@ describe('buildTrackerUploadData', () => {
         format: sourceFormat(),
         trackerId: 'redacted'
       })
-    ).toThrow('Release type "Split" is not valid on Redacted')
+    ).toThrow('Release type "Split" is not valid on Redacted.')
+  })
+
+  it('rejects a missing release type', () => {
+    expect(() =>
+      buildTrackerUploadData({
+        upload: upload({ releaseType: '' }),
+        format: sourceFormat(),
+        trackerId: 'redacted'
+      })
+    ).toThrow('Release type is required on Redacted.')
   })
 
   it('drops group-level fields when joining an existing group', () => {
