@@ -11,7 +11,13 @@ import { copyExtraFiles } from './extras'
 import { buildMp3OutputPath } from './naming'
 import { inspectOutputFolder } from './outputFolder'
 import { processFiles, type ProcessProgress } from './processFiles'
-import { readFlacPictures, readPreparedFlacTags, writeMp3Tags } from './tags'
+import {
+  type FlacPicture,
+  mp3OutputMatchesSource,
+  readFlacPictures,
+  readPreparedFlacTags,
+  writeMp3Tags
+} from './tags'
 
 export const LAME_COMMAND_MAP: Record<Bitrate, string[]> = {
   V0: ['-V', '0', '--vbr-new'],
@@ -24,6 +30,7 @@ interface TranscodeItem {
   relativePath: string
   channels: number
   tags: Record<string, string[]>
+  pictures: FlacPicture[]
 }
 
 export interface TranscodeFolderResult {
@@ -50,7 +57,7 @@ export async function transcodeFolder(
     '.mp3'
   )
   if (outputState !== 'missing') {
-    if (outputState === 'complete') {
+    if (outputState === 'complete' && (await mp3FolderMatchesSource(items))) {
       return { outputPath: newPath }
     }
     await rm(newPath, { recursive: true, force: true })
@@ -78,8 +85,7 @@ export async function transcodeFolder(
         options.signal,
         options.tools ?? automaticToolResolver
       )
-      const pictures = await readFlacPictures(item.src)
-      writeMp3Tags(item.dst, item.tags, pictures)
+      writeMp3Tags(item.dst, item.tags, item.pictures)
     },
     options.onProgress,
     (item) => item.relativePath
@@ -107,13 +113,15 @@ async function collectTranscodeItems(path: string, newPath: string): Promise<Tra
     if (!hasTags) {
       throw new Error(`FLAC file has no tags: ${file.absolutePath}`)
     }
+    const pictures = await readFlacPictures(file.absolutePath)
     const relMp3 = file.relativePath.replace(/\.flac$/i, '.mp3')
     items.push({
       src: file.absolutePath,
       dst: join(newPath, relMp3),
       relativePath: file.relativePath,
       channels: stream.channels,
-      tags
+      tags,
+      pictures
     })
   }
   return items
@@ -193,4 +201,11 @@ export async function resolveMp3Executables(
     tools.require('lame')
   ])
   return { flacExecutable, lameExecutable }
+}
+
+async function mp3FolderMatchesSource(items: readonly TranscodeItem[]): Promise<boolean> {
+  for (const item of items) {
+    if (!(await mp3OutputMatchesSource(item.dst, item.tags, item.pictures))) return false
+  }
+  return true
 }

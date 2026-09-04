@@ -4,6 +4,7 @@ import { DEFAULT_USER_AGENT } from '@main/core/tools/http'
 import type { Provider, ReleaseResult } from './base'
 import { formatResult, isPlainHttpURL, parseYear, toString } from './base'
 import { fetchText, HTTPStatusError } from './http'
+import { metadataDate } from '@shared/tags/dates'
 
 export const BANDCAMP_NAME = 'Bandcamp'
 const BANDCAMP_SEARCH = 'https://bandcamp.com/search/'
@@ -83,8 +84,7 @@ function mapBandcampRelease(raw: Record<string, unknown>, url: string): Release 
   if (!html) throw new Error('Failed to parse scraped title.')
   const root = parse(html)
   const context = resolveReleaseContext(root)
-  const year = parseReleaseYear(root)
-  const yearText = year ? String(year) : undefined
+  const yearText = parseReleaseDate(root)
   const tracks = parseTracks(root, context)
   const artists = /various/i.test(context.artist)
     ? []
@@ -101,8 +101,7 @@ function mapBandcampRelease(raw: Record<string, unknown>, url: string): Release 
     cover: parseCoverUrl(root),
     urls: url ? [url] : undefined,
     trackCount: tracks.length || undefined,
-    tracks,
-    comment: BANDCAMP_NAME
+    tracks
   }
 }
 
@@ -357,12 +356,35 @@ function parseGenres(root: HTMLElement): string[] {
   return genres
 }
 
-function parseReleaseYear(root: HTMLElement): number | undefined {
+function parseReleaseDate(root: HTMLElement): string | undefined {
   const credits = textOf(root.querySelector('.tralbumData.tralbum-credits'))
   if (!credits) return undefined
-  const match = /release(?:d|s) ([^\d]+ \d+, \d{4})/.exec(credits)
+  const match = /release(?:d|s) ([A-Za-z]+ \d{1,2}, \d{4})/.exec(credits)
   if (!match?.[1]) return undefined
-  return parseYear(match[1])
+  return parseBandcampDate(match[1]) || undefined
+}
+
+function parseBandcampDate(value: string): string {
+  const match = /^([A-Za-z]+) (\d{1,2}), (\d{4})$/.exec(value.trim())
+  if (!match) return metadataDate(value)
+  const month = BANDCAMP_MONTHS[match[1]!.toLowerCase()]
+  if (!month) return match[3]!
+  return `${match[3]}-${month}-${match[2]!.padStart(2, '0')}`
+}
+
+const BANDCAMP_MONTHS: Record<string, string> = {
+  january: '01',
+  february: '02',
+  march: '03',
+  april: '04',
+  may: '05',
+  june: '06',
+  july: '07',
+  august: '08',
+  september: '09',
+  october: '10',
+  november: '11',
+  december: '12'
 }
 
 function parseTracks(root: HTMLElement, context: ReleaseContext): Track[] {

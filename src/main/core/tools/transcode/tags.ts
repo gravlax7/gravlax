@@ -1,7 +1,13 @@
-import { open } from 'node:fs/promises'
+import { mkdtemp, open, rm, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import NodeID3 from 'node-id3'
 import { readFLACTags } from '@main/core/tags/extract'
 import { readExact } from '@main/core/tools/readExact'
+import { dateYear } from '@shared/tags/dates'
+import { dropTranscodeOnlyTags, isTranscodeDroppedTag } from '@shared/tags/projection'
+import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
+import { runCommand } from '@main/core/tools/runCommand'
 
 const VORBIS_TO_ID3: Record<string, string> = {
   title: 'title',
@@ -14,14 +20,11 @@ const VORBIS_TO_ID3: Record<string, string> = {
   composer: 'composer',
   tracknumber: 'trackNumber',
   discnumber: 'partOfSet',
-  date: 'year',
   comment: 'comment',
   genre: 'genre',
   language: 'language',
   key: 'initialKey',
   bpm: 'bpm',
-  publisher: 'publisher',
-  label: 'publisher',
   isrc: 'ISRC'
 }
 
@@ -41,7 +44,7 @@ export function prepareTags(tags: Record<string, string[]>): Record<string, stri
   const result: Record<string, string[]> = {}
   for (const [key, value] of Object.entries(tags)) {
     const lower = key.toLowerCase()
-    if (lower.startsWith('replaygain') || lower === 'encoder') continue
+    if (isTranscodeDroppedTag(lower)) continue
     result[lower] = [...value]
   }
 
@@ -86,12 +89,8 @@ export async function readPreparedFlacTags(
   flacPath: string
 ): Promise<{ tags: Record<string, string[]>; hasTags: boolean }> {
   const raw = await readFLACTags(flacPath)
-  const lower: Record<string, string[]> = {}
-  for (const [key, values] of Object.entries(raw.values)) {
-    lower[key.toLowerCase()] = values
-  }
-  const hasTags = Object.keys(lower).length > 0
-  return { tags: prepareTags(lower), hasTags }
+  const hasTags = Object.keys(raw.values).length > 0
+  return { tags: prepareTags(raw.values), hasTags }
 }
 
 export async function readFlacPictures(flacPath: string): Promise<FlacPicture[]> {
@@ -123,26 +122,49 @@ export async function readFlacPictures(flacPath: string): Promise<FlacPicture[]>
   }
 }
 
-export function writeMp3Tags(
-  mp3Path: string,
+export function id3TagsFromFlac(
   tags: Record<string, string[]>,
   pictures: FlacPicture[]
-): void {
+): Record<string, unknown> {
   const id3: Record<string, unknown> = {}
   const userDefinedText: Array<{ description: string; value: string }> = []
+  const label = joined(tags.label)
+  const publisher = joined(tags.publisher)
 
   for (const [key, values] of Object.entries(tags)) {
     if (values.length === 0) continue
+    if (key === 'year' && tags.date) continue
+    if (key === 'originalyear' && tags.originaldate) continue
+    if (key === 'date' || key === 'year') {
+      assignDateFrames(id3, userDefinedText, 'year', 'DATE', values)
+      continue
+    }
+    if (key === 'originaldate' || key === 'originalyear') {
+      assignDateFrames(id3, userDefinedText, 'originalYear', 'ORIGINALDATE', values)
+      continue
+    }
+    if (key === 'label') {
+      id3.publisher = values.join('; ')
+      continue
+    }
+    if (key === 'publisher') {
+      if (!label) {
+        id3.publisher = publisher
+      } else if (publisher && publisher !== label) {
+        userDefinedText.push({ description: 'PUBLISHER', value: values.join('; ') })
+      }
+      continue
+    }
     const mapped = VORBIS_TO_ID3[key]
     if (mapped === 'comment') {
-      id3.comment = { language: 'eng', text: values.join('; ') }
+      id3.comment = { language: 'xxx', text: values.join('; ') }
       continue
     }
     if (mapped) {
       id3[mapped] = values.join('; ')
       continue
     }
-    userDefinedText.push({ description: key, value: values.join('; ') })
+    userDefinedText.push({ description: key.toUpperCase(), value: values.join('; ') })
   }
 
   if (userDefinedText.length > 0) {
@@ -159,10 +181,191 @@ export function writeMp3Tags(
     id3.image = images.length === 1 ? images[0] : images
   }
 
-  const result = NodeID3.write(id3, mp3Path)
+  return id3
+}
+
+export function writeMp3Tags(
+  mp3Path: string,
+  tags: Record<string, string[]>,
+  pictures: FlacPicture[]
+): void {
+  const result = NodeID3.write(id3TagsFromFlac(tags, pictures), mp3Path)
   if (result !== true) {
     throw new Error(`failed to write ID3 tags for ${mp3Path}: ${String(result)}`)
   }
+}
+
+export async function mp3OutputMatchesSource(
+  mp3Path: string,
+  tags: Record<string, string[]>,
+  pictures: FlacPicture[]
+): Promise<boolean> {
+  const expected = fingerprintId3(id3TagsFromFlac(tags, pictures))
+  const actual = fingerprintId3(NodeID3.read(mp3Path) as Record<string, unknown>)
+  return expected === actual
+}
+
+export async function flacOutputMatchesSource(
+  outputPath: string,
+  sourceTags: Record<string, string[]>,
+  sourcePictures: FlacPicture[]
+): Promise<boolean> {
+  const actualTags: Record<string, string[]> = {}
+  for (const [key, values] of Object.entries((await readFLACTags(outputPath)).values)) {
+    actualTags[key.trim().toUpperCase()] = values
+  }
+  const expectedTags = dropTranscodeOnlyTags(sourceTags)
+  if (tagFingerprint(actualTags) !== tagFingerprint(expectedTags)) return false
+  const actualPictures = await readFlacPictures(outputPath)
+  return pictureFingerprint(actualPictures) === pictureFingerprint(sourcePictures)
+}
+
+export async function restoreFlacTagsAndPictures(
+  sourcePath: string,
+  destPath: string,
+  signal?: AbortSignal,
+  tools: ToolResolver = automaticToolResolver
+): Promise<void> {
+  const source = await readFLACTags(sourcePath)
+  const pictures = await readFlacPictures(sourcePath)
+  const tags = dropTranscodeOnlyTags(source.values)
+  await writeFlacTagsAndPictures(destPath, tags, pictures, signal, tools)
+  if (!(await flacOutputMatchesSource(destPath, tags, pictures))) {
+    throw new Error(`Tag verification failed for ${destPath}.`)
+  }
+}
+
+async function writeFlacTagsAndPictures(
+  path: string,
+  tags: Record<string, string[]>,
+  pictures: FlacPicture[],
+  signal: AbortSignal | undefined,
+  tools: ToolResolver
+): Promise<void> {
+  const workDir = await mkdtemp(join(tmpdir(), 'gravlax-flac-tags-'))
+  try {
+    await runCommand('metaflac', ['--remove-all-tags', path], signal, undefined, tools)
+    await runCommand(
+      'metaflac',
+      ['--dont-use-padding', '--remove', '--block-type=PICTURE', path],
+      signal,
+      undefined,
+      tools
+    ).catch(() => undefined)
+    const args = ['--no-utf8-convert']
+    let valueIndex = 0
+    for (const [key, items] of Object.entries(tags)) {
+      for (const value of items) {
+        const valuePath = join(workDir, String(valueIndex++))
+        await writeFile(valuePath, value, { encoding: 'utf8', mode: 0o600 })
+        args.push(`--set-tag-from-file=${key}=${valuePath}`)
+      }
+    }
+    if (args.length > 1) {
+      args.push(path)
+      await runCommand('metaflac', args, signal, undefined, tools)
+    }
+    for (const [index, picture] of pictures.entries()) {
+      const picturePath = join(workDir, `picture-${index}`)
+      await writeFile(picturePath, picture.data)
+      const spec = `${picture.type}|${picture.mime}|${picture.description}|${picturePath}`
+      await runCommand('metaflac', [`--import-picture-from=${spec}`, path], signal, undefined, tools)
+    }
+  } finally {
+    await rm(workDir, { recursive: true, force: true })
+  }
+}
+
+function assignDateFrames(
+  id3: Record<string, unknown>,
+  userDefinedText: Array<{ description: string; value: string }>,
+  native: 'year' | 'originalYear',
+  exactName: 'DATE' | 'ORIGINALDATE',
+  values: string[]
+): void {
+  const text = values.join('; ')
+  const year = dateYear(text)
+  if (year) id3[native] = year
+  if (text && text !== year) {
+    userDefinedText.push({ description: exactName, value: text })
+  }
+}
+
+function joined(values: string[] | undefined): string {
+  return (values ?? []).join('; ')
+}
+
+function fingerprintId3(tags: Record<string, unknown>): string {
+  const txxx = normalizeUserText(tags.userDefinedText)
+  const images = normalizeImages(tags.image)
+  const comment = tags.comment as { language?: string; text?: string } | string | undefined
+  return JSON.stringify({
+    title: tags.title ?? '',
+    album: tags.album ?? '',
+    artist: tags.artist ?? '',
+    performerInfo: tags.performerInfo ?? '',
+    conductor: tags.conductor ?? '',
+    remixArtist: tags.remixArtist ?? '',
+    composer: tags.composer ?? '',
+    trackNumber: tags.trackNumber ?? '',
+    partOfSet: tags.partOfSet ?? '',
+    year: tags.year ?? '',
+    originalYear: tags.originalYear ?? '',
+    genre: tags.genre ?? '',
+    publisher: tags.publisher ?? '',
+    ISRC: tags.ISRC ?? '',
+    comment:
+      typeof comment === 'string'
+        ? { language: '', text: comment }
+        : { language: comment?.language ?? '', text: comment?.text ?? '' },
+    txxx,
+    images
+  })
+}
+
+function normalizeUserText(value: unknown): Array<{ description: string; value: string }> {
+  const items = Array.isArray(value) ? value : value ? [value] : []
+  return items
+    .map((item) => {
+      const row = item as { description?: string; value?: string }
+      return {
+        description: (row.description ?? '').toUpperCase(),
+        value: row.value ?? ''
+      }
+    })
+    .sort((a, b) => a.description.localeCompare(b.description) || a.value.localeCompare(b.value))
+}
+
+function normalizeImages(value: unknown): string[] {
+  const items = Array.isArray(value) ? value : value ? [value] : []
+  return items.map((item) => {
+    const image = item as {
+      mime?: string
+      description?: string
+      imageBuffer?: Buffer
+      type?: { id?: number }
+    }
+    const type = image.type?.id ?? 0
+    const mime = image.mime ?? ''
+    const description = image.description ?? ''
+    const data = Buffer.isBuffer(image.imageBuffer)
+      ? image.imageBuffer.toString('base64')
+      : ''
+    return `${type}|${mime}|${description}|${data}`
+  })
+}
+
+function tagFingerprint(tags: Record<string, string[]>): string {
+  const keys = Object.keys(tags).sort()
+  return JSON.stringify(
+    Object.fromEntries(keys.map((key) => [key.toUpperCase(), tags[key]]))
+  )
+}
+
+function pictureFingerprint(pictures: FlacPicture[]): string {
+  return pictures
+    .map((pic) => `${pic.type}|${pic.mime}|${pic.description}|${pic.data.toString('base64')}`)
+    .join('\n')
 }
 
 function parsePictureBlock(payload: Buffer): FlacPicture {

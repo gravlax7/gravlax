@@ -59,17 +59,17 @@ export function fieldDisplayName(field: string): string {
     case FIELD_TITLE:
       return 'Title'
     case FIELD_GROUP_YEAR:
-      return 'Group Year'
+      return 'Original release date'
     case FIELD_YEAR:
-      return 'Year'
+      return 'Edition release date'
     case FIELD_EDITION_TITLE:
       return 'Edition Title'
     case FIELD_LABEL:
-      return 'Label'
+      return 'Record label'
     case FIELD_CAT_NO:
-      return 'CatNo'
+      return 'Catalogue number'
     case FIELD_UPC:
-      return 'UPC'
+      return 'Barcode (UPC/EAN)'
     case FIELD_GENRES:
       return 'Genres'
     case FIELD_RELEASE_TYPE:
@@ -77,7 +77,7 @@ export function fieldDisplayName(field: string): string {
     case FIELD_COMMENT:
       return 'Comment'
     case FIELD_URLS:
-      return 'URLs'
+      return 'Metadata URLs'
     case FIELD_TRACK_COUNT:
       return 'Track Count'
     case FIELD_DISC_NUMBER:

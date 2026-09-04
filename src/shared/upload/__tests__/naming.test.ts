@@ -72,6 +72,39 @@ describe('buildFilesRenamePlan', () => {
     expect(plan.errors).toEqual([])
   })
 
+  it('uses four-digit years in folder tokens', () => {
+    const plan = buildFilesRenamePlan({
+      release: {
+        artists: [{ name: 'A' }],
+        title: 'Album',
+        year: '2020-05-17',
+        groupYear: '2018-09-21',
+        tracks: [{ trackNumber: '1', title: 'Song' }]
+      },
+      files: {
+        original: { captured: false, coverCaptured: false, folderName: 'old', files: [] },
+        apply: {
+          phase: 'idle',
+          onDiskModified: false,
+          stripEmbeddedCoverArt: true,
+          renameReleaseFolder: true,
+          currentFolderName: 'old',
+          files: [{ id: 'a', currentPath: 'x.flac' }]
+        }
+      },
+      naming,
+      sourceMedia: 'WEB',
+      encoding: 'Lossless'
+    })
+    expect(plan.folderName).toBe('A - Album (2020) [WEB FLAC]')
+    expect(
+      buildFolderPlan(
+        { artists: [{ name: 'A' }], title: 'Album', groupYear: '2018-09-21', tracks: [{ title: 'Song' }] },
+        '{artists} - {title} ({groupYear})'
+      ).folderName
+    ).toBe('A - Album (2018)')
+  })
+
   it('removes invisible Unicode formatting characters from generated names', () => {
     const plan = buildFilesRenamePlan({
       release: {

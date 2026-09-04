@@ -1,5 +1,6 @@
 import type { NamingConfig } from '../types/config'
 import type { FilesSnapshot, PayloadPathState, Release, SourceMedia, TranscodeEncoding } from '../types/upload'
+import { dateYear } from '../tags/dates'
 
 export interface PlannedFileName {
   id: string
@@ -151,7 +152,7 @@ export function buildFilesRenamePlan(input: {
       : discFolder ? `${discFolder}/${targetFilename}` : targetFilename
     return { id: file.id, currentPath: file.currentPath, targetPath, targetFilename, changed: file.currentPath !== targetPath }
   })
-  const year = release.year || release.groupYear || ''
+  const year = dateYear(release.year || release.groupYear)
   const catNo = release.catNo ?? ''
   const upc = release.upc ?? ''
   const generatedFolder = sanitize(renderTemplate(naming.releaseFolderTemplate, {
@@ -159,7 +160,7 @@ export function buildFilesRenamePlan(input: {
     albumArtist: release.albumArtist ?? '',
     title: release.title ?? '',
     year,
-    groupYear: release.groupYear ?? '',
+    groupYear: dateYear(release.groupYear),
     editionTitle: release.editionTitle ?? '',
     label: release.label ?? '',
     catNo,

@@ -10,7 +10,6 @@ import {
   isPlainProviderURL,
   mapValue,
   parseCopyrightLabel,
-  parseYear,
   releaseIDFromRawURL,
   sliceValue,
   toString
@@ -20,6 +19,7 @@ import {
   createProviderArtistList,
   mapReleaseTypeToken
 } from './normalization'
+import { metadataDate } from '@shared/tags/dates'
 
 export const DEEZER_NAME = 'Deezer'
 const DEEZER_API = 'https://api.deezer.com'
@@ -103,7 +103,7 @@ function mapDeezerRelease(raw: Record<string, unknown>, url: string): Release {
   const rawTitle = toString(raw.title ?? raw.name)
   const title = stripFeaturedFromTitle(rawTitle) || rawTitle
   const artists = deezerArtists(raw)
-  const year = parseYear(toString(raw.release_date ?? raw.year))
+  const year = metadataDate(toString(raw.release_date ?? raw.year))
   const labelValue =
     typeof raw.label === 'string' || typeof raw.label === 'number'
       ? toString(raw.label)
@@ -115,8 +115,8 @@ function mapDeezerRelease(raw: Record<string, unknown>, url: string): Release {
   return {
     title,
     artists,
-    year: year ? String(year) : undefined,
-    groupYear: year ? String(year) : undefined,
+    year: year || undefined,
+    groupYear: year || undefined,
     label,
     catNo: toString(raw.catno ?? raw.catalog_number),
     upc,
@@ -125,8 +125,7 @@ function mapDeezerRelease(raw: Record<string, unknown>, url: string): Release {
     cover: toString(raw.cover_xl ?? raw.cover) || undefined,
     urls: url ? [url] : undefined,
     trackCount: tracks.length || Number(raw.track_count ?? 0) || undefined,
-    tracks,
-    comment: DEEZER_NAME
+    tracks
   }
 }
 

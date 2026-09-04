@@ -11,6 +11,7 @@ import {
   toString
 } from './base'
 import { fetchJSON } from './http'
+import { metadataDate } from '@shared/tags/dates'
 
 export const DISCOGS_NAME = 'Discogs'
 
@@ -50,11 +51,15 @@ const RELEASE_TYPES: Record<string, string> = {
 
 const ARTIST_ROLES: Record<string, string> = {
   'Composed By': 'composer',
+  Composer: 'composer',
+  Conductor: 'conductor',
+  Arranger: 'arranger',
   Producer: 'producer',
   Featuring: 'guest',
   Vocals: 'guest',
   'Featuring [Vocals]': 'guest',
-  Remix: 'remixer'
+  Remix: 'remixer',
+  Remixer: 'remixer'
 }
 
 const SOURCES: Array<[string, string]> = [
@@ -119,13 +124,18 @@ function mapDiscogsRelease(raw: Record<string, unknown>, url: string): Release {
   const descriptions = sliceValue(formats[0]?.descriptions).map(toString).filter(Boolean)
   const labels = sliceValue(raw.labels).map(mapValue)
   const label = sanitizeDiscogsArtist(toString(labels[0]?.name)) || 'Not On Label'
-  const year = parseYear(toString(raw.year))
+  const date = metadataDate(toString(raw.released)) || metadataDate(toString(raw.year))
   const tracks = mapDiscogsTracks(raw)
+  const artists = [
+    ...mapDiscogsMainArtists(sliceValue(raw.artists)),
+    ...mapDiscogsExtraArtists(sliceValue(raw.extraartists))
+  ]
 
   return {
     title,
-    year: year ? String(year) : undefined,
-    groupYear: year ? String(year) : undefined,
+    artists: artists.length > 0 ? artists : undefined,
+    year: date || undefined,
+    groupYear: date || undefined,
     editionTitle: discogsEditionTitle(descriptions),
     label,
     catNo: toString(labels[0]?.catno),
@@ -134,8 +144,7 @@ function mapDiscogsRelease(raw: Record<string, unknown>, url: string): Release {
     cover: toString(mapValue(sliceValue(raw.images)[0]).resource_url) || undefined,
     urls: url ? [url] : undefined,
     trackCount: tracks.length || undefined,
-    tracks,
-    comment: DISCOGS_NAME
+    tracks
   }
 }
 
@@ -255,14 +264,8 @@ function mapDiscogsTrackArtists(
       ? mapDiscogsMainArtists(trackArtists)
       : releaseArtists.map((artist) => ({ ...artist }))
 
-  for (const raw of sliceValue(track.extraartists)) {
-    const extra = mapValue(raw)
-    const name = sanitizeDiscogsArtist(toString(extra.name))
-    if (!name) continue
-    for (const rawRole of toString(extra.role).split(',')) {
-      const role = ARTIST_ROLES[rawRole.trim()]
-      if (role) artists.push({ name, role })
-    }
+  for (const extra of mapDiscogsExtraArtists(sliceValue(track.extraartists))) {
+    artists.push(extra)
   }
 
   const specificNames = new Set(
@@ -280,6 +283,20 @@ function mapDiscogsTrackArtists(
     seen.add(key)
     return true
   })
+}
+
+function mapDiscogsExtraArtists(entries: unknown[]): Artist[] {
+  const artists: Artist[] = []
+  for (const raw of entries) {
+    const extra = mapValue(raw)
+    const name = sanitizeDiscogsArtist(toString(extra.name))
+    if (!name) continue
+    for (const rawRole of toString(extra.role).split(',')) {
+      const role = ARTIST_ROLES[rawRole.trim()]
+      if (role) artists.push({ name, role })
+    }
+  }
+  return artists
 }
 
 function mapDiscogsMainArtists(entries: unknown[]): Artist[] {

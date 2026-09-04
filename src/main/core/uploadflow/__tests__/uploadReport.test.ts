@@ -51,8 +51,9 @@ describe('upload report helpers', () => {
     ).toBe('rock, indie')
   })
 
-  it('parses years', () => {
+  it('parses years including longer stored dates', () => {
     expect(parseYear('2020')).toBe(2020)
+    expect(parseYear('2018-09-21')).toBe(2018)
     expect(parseYear('')).toBeUndefined()
   })
 

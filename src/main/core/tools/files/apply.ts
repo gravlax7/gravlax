@@ -6,14 +6,9 @@ import { automaticToolResolver, type ToolResolver } from '../binaries'
 import { removeEmptyDirectories } from '../directories'
 import { runCommand } from '../runCommand'
 import { finishStagedFolderRename, prepareStagedFolderRename, uploadWorkspaceRootForPath } from '../../appdata/workspace'
+import { managedRemovalKeys, managedTagProjection } from '@shared/tags/projection'
 
-const MANAGED_KEYS = [
-  'TITLE', 'ARTIST', 'COMPOSER', 'CONDUCTOR', 'TRACKNUMBER', 'TRACK NUMBER',
-  'DISCNUMBER', 'DISC NUMBER', 'TRACKTOTAL', 'TOTALTRACKS', 'DISCTOTAL', 'TOTALDISCS',
-  'ALBUM', 'ALBUMARTIST', 'ALBUM ARTIST', 'DATE', 'YEAR', 'LABEL',
-  'CATALOGNUMBER', 'CATALOG NUMBER', 'CATNO', 'UPC', 'BARCODE', 'GENRE',
-  'COMMENT', 'DESCRIPTION', 'COVERART', 'COVERARTMIME'
-] as const
+const MANAGED_KEYS = [...managedRemovalKeys(), 'COVERART', 'COVERARTMIME']
 
 export interface ApplyFilesResult {
   workspacePath: string
@@ -261,49 +256,14 @@ async function pictureBlockNumbers(
 }
 
 function tagValues(release: Release, index: number, originalComments: string[]): Map<string, string[]> {
-  const track = release.tracks?.[index] ?? {}
-  const discTotal = Math.max(1, ...(release.tracks ?? []).map((item) => Number.parseInt(item.discNumber ?? '1', 10) || 1))
-  const leadArtists = uniqueArtistNames(track.artists, 'main').length + uniqueArtistNames(track.artists, 'conductor').length
-  const artist = leadArtists > 0
-    ? one(trackArtistValue(track.artists))
-    : originalCommentValues(originalComments, 'ARTIST')
-  const composers = uniqueArtistNames(track.artists, 'composer')
-  const conductors = uniqueArtistNames(track.artists, 'conductor')
-  const album = [release.title, release.editionTitle ? `(${release.editionTitle})` : ''].filter(Boolean).join(' ')
-  return cleanValues(new Map<string, string[]>([
-    ['TITLE', one(track.title)], ['ARTIST', artist], ['COMPOSER', composers], ['CONDUCTOR', conductors],
-    ['TRACKNUMBER', one(track.trackNumber)], ['DISCNUMBER', one(track.discNumber)],
-    ['TRACKTOTAL', one(String(release.tracks?.length ?? 0))], ['DISCTOTAL', one(String(discTotal))],
-    ['ALBUM', one(album)], ['ALBUMARTIST', one(release.albumArtist)], ['DATE', one(release.groupYear)],
-    ['LABEL', one(release.label)], ['CATALOGNUMBER', one(release.catNo)], ['UPC', one(release.upc)],
-    ['GENRE', one([...(release.genres ?? [])].sort((a, b) => a.localeCompare(b)).join('; '))],
-    ['COMMENT', one(release.comment)]
-  ]))
+  const values = managedTagProjection(release, index)
+  if (!values.has('ARTIST')) {
+    const artist = originalCommentValues(originalComments, 'ARTIST')
+    if (artist.length > 0) values.set('ARTIST', artist)
+  }
+  return values
 }
 
-function trackArtistValue(artists: Release['artists']): string {
-  const main = uniqueArtistNames(artists, 'main')
-  const conductors = uniqueArtistNames(artists, 'conductor')
-  const lead = [...new Set([...main, ...conductors])]
-  let value = conductors.length > 0
-    ? lead.join(', ')
-    : joinArtistNames(lead)
-  const guests = uniqueArtistNames(artists, 'guest')
-  if (guests.length >= 4) value += ' (feat. Various)'
-  else if (guests.length > 0) value += ` (feat. ${joinArtistNames(guests)})`
-  return value
-}
-
-function uniqueArtistNames(artists: Release['artists'], role: string): string[] {
-  return [...new Set((artists ?? []).filter((artist) => (artist.role || 'main') === role).map((artist) => artist.name?.trim() ?? '').filter(Boolean))]
-}
-
-function joinArtistNames(names: string[]): string {
-  const separator = names.length > 2 && !names.some((name) => name.includes('&')) ? ', ' : ' & '
-  return names.join(separator)
-}
-
-function one(value?: string): string[] { return value ? [value] : [] }
 function originalCommentValues(comments: string[], key: string): string[] {
   const prefix = `${key.toUpperCase()}=`
   return comments.flatMap((comment) => {
@@ -312,14 +272,7 @@ function originalCommentValues(comments: string[], key: string): string[] {
     return [comment.slice(split + 1)]
   })
 }
-function cleanValues(values: Map<string, string[]>): Map<string, string[]> {
-  const result = new Map<string, string[]>()
-  for (const [key, items] of values) {
-    const kept = items.map((item) => item.normalize('NFC')).filter((item) => item !== '')
-    if (kept.length > 0) result.set(key, kept)
-  }
-  return result
-}
+
 function commentsToValues(comments: string[]): Map<string, string[]> {
   const result = new Map<string, string[]>()
   for (const comment of comments) {
@@ -331,6 +284,7 @@ function commentsToValues(comments: string[]): Map<string, string[]> {
   }
   return result
 }
+
 function valuesToComments(values: Map<string, string[]>): string[] {
   return [...values].flatMap(([key, items]) => items.map((value) => `${key}=${value}`))
 }
@@ -342,6 +296,7 @@ async function addLegacyCoverValues(values: Map<string, string[]>, original: Ori
     values.set(backup.key, [...(values.get(backup.key) ?? []), value])
   }
 }
+
 function sameComments(a: string[], b: string[]): boolean {
   const normalize = (items: string[]) => items.map((item) => `${item.slice(0, item.indexOf('=')).toUpperCase()}${item.slice(item.indexOf('=')).normalize('NFC')}`).sort()
   return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b))

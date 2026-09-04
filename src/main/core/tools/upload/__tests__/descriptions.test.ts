@@ -92,7 +92,7 @@ describe('generateAlbumDescription', () => {
       {
         artists: [{ name: 'Artist', role: 'main' }],
         title: 'Demo Album',
-        year: '2024',
+        year: '2024-05-17',
         urls: ['https://musicbrainz.org/release/abc'],
         sourceUrl: 'https://musicbrainz.org/release/abc'
       }

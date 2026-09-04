@@ -1,5 +1,6 @@
 import type { Artist, Release } from '@shared/types/upload'
 import { normalizeArtistRole } from '@shared/tags/editor'
+import { dateYear } from '@shared/tags/dates'
 import { isMultiDisc as discNumbersAreMultiDisc } from '@shared/upload/naming'
 import { getDescriptionTemplate } from '@shared/upload/templates'
 import { renderTemplate, type TemplateContext } from '@shared/upload/templateRender'
@@ -238,7 +239,7 @@ export function buildAlbumDescriptionContext(
     (metadata.sourceUrl ?? '').trim() ||
     (metadata.urls ?? []).map((u) => u.trim()).find(Boolean) ||
     ''
-  const year = (metadata.year ?? '').trim()
+  const year = dateYear(metadata.year)
   const genres = (metadata.genres ?? []).map((g) => g.trim()).filter(Boolean).join(', ')
   return {
     artist: formatArtistList(mainArtists),

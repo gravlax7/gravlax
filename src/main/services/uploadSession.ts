@@ -1244,12 +1244,13 @@ export class UploadSession {
   async refreshTags(): Promise<void> {
     if (!this.state.draft.workspacePath) return
     const workspacePath = this.state.draft.workspacePath
+    const urls = this.state.tags.proposed?.urls ?? this.state.tags.current?.urls
     // A failed metadata request leaves the proposed release empty. Reloading
     // tags must retry that request too, rather than only rereading the files.
     this.tags.cancel()
     this.apply(clearTagsRelease(this.state))
     this.apply(setTagsCurrentLoading(this.state))
-    if (!(await this.loadCurrentTags(workspacePath))) return
+    if (!(await this.loadCurrentTags(workspacePath, urls))) return
     if (this.state.tags.currentStatus !== 'ready') return
     if (!this.state.metadata.selected) return
     void this.startTagsReleaseIfNeeded()
@@ -1719,13 +1720,19 @@ export class UploadSession {
   }
 
   /** Reads the tags already on disk. Resolves true if the run stayed current. */
-  private async loadCurrentTags(workspacePath: string): Promise<boolean> {
+  private async loadCurrentTags(
+    workspacePath: string,
+    preservedUrls?: string[]
+  ): Promise<boolean> {
     let loaded = false
     await this.tagsCurrent.run(
       async (task) => {
         const { release, embeddedCoverArtCount } =
           await extractAlbumReleaseWithEmbeddedCoverArt(workspacePath)
         if (!task.fresh()) return
+        if ((!release.urls || release.urls.length === 0) && (preservedUrls?.length ?? 0) > 0) {
+          release.urls = [...(preservedUrls ?? [])]
+        }
         const [files, payload] = await Promise.all([
           discoverFLACFiles(workspacePath),
           enumerateReleasePaths(workspacePath)

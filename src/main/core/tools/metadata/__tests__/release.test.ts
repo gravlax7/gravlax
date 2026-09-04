@@ -140,8 +140,8 @@ describe('normalizeProviderRelease artists', () => {
     expect(release.catNo).toBe('6797109')
     expect(release.upc).toBe('602567971092')
     expect(release.releaseType).toBe('Album')
-    expect(release.year).toBe('2018')
-    expect(release.groupYear).toBe('2018')
+    expect(release.year).toBe('2018-09-21')
+    expect(release.groupYear).toBe('2018-09-21')
     expect(release.tracks).toHaveLength(17)
     expect(release.tracks?.[0]?.trackNumber).toBe('1')
   })
@@ -214,8 +214,8 @@ describe('normalizeProviderRelease artists', () => {
     )
 
     expect(release.releaseType).toBe('Live Album')
-    expect(release.year).toBe('2020')
-    expect(release.groupYear).toBe('2019')
+    expect(release.year).toBe('2020-01-01')
+    expect(release.groupYear).toBe('2019-05-01')
   })
 
   it('reads MusicBrainz genres from the release and release group', () => {
@@ -411,6 +411,50 @@ describe('normalizeProviderRelease artists', () => {
     expect(release.tracks?.[0]?.artists).toEqual([
       { name: 'Four Tet', role: 'main' },
       { name: 'Burial', role: 'guest' }
+    ])
+  })
+
+  it('reads MusicBrainz recording relation credits', () => {
+    const release = normalizeProviderRelease(
+      {
+        title: 'Works',
+        date: '2018-09-21',
+        'artist-credit': [{ name: 'Orchestra', artist: { name: 'Orchestra' } }],
+        media: [
+          {
+            position: 1,
+            tracks: [
+              {
+                number: '1',
+                title: 'Prelude',
+                'artist-credit': [{ name: 'Orchestra', artist: { name: 'Orchestra' } }],
+                recording: {
+                  title: 'Prelude',
+                  relations: [
+                    { type: 'composer', artist: { name: 'Bach' } },
+                    { type: 'conductor', artist: { name: 'Maestro' } },
+                    { type: 'producer', artist: { name: 'Producer' } }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      'MusicBrainz',
+      'https://musicbrainz.org/release/88e95ea5-b609-4f8b-b0cb-69896eef2f47'
+    )
+
+    expect(release.year).toBe('2018-09-21')
+    expect(release.comment).toBeUndefined()
+    expect(release.urls).toEqual([
+      'https://musicbrainz.org/release/88e95ea5-b609-4f8b-b0cb-69896eef2f47'
+    ])
+    expect(release.tracks?.[0]?.artists).toEqual([
+      { name: 'Orchestra', role: 'main' },
+      { name: 'Bach', role: 'composer' },
+      { name: 'Maestro', role: 'conductor' },
+      { name: 'Producer', role: 'producer' }
     ])
   })
 

@@ -55,6 +55,12 @@ describe('tags editor', () => {
     release = setFieldEditorValue(release, 'artists', 'Alice [main]\nBob [guest]')
     expect(editorValue(release, 'artists')).toBe('Alice [main]\nBob [guest]')
     expect(fieldDisplayName('artists')).toBe('Artists')
+    expect(fieldDisplayName('groupYear')).toBe('Original release date')
+    expect(fieldDisplayName('year')).toBe('Edition release date')
+    expect(fieldDisplayName('label')).toBe('Record label')
+    expect(fieldDisplayName('catNo')).toBe('Catalogue number')
+    expect(fieldDisplayName('upc')).toBe('Barcode (UPC/EAN)')
+    expect(fieldDisplayName('urls')).toBe('Metadata URLs')
     expect(fieldEditable('trackCount')).toBe(false)
   })
 

@@ -114,6 +114,7 @@ describe('UploadSessionFileChanges folder renames', () => {
       changedFileCount: 1,
       strippedPictureCount: 0
     })
+    mocks.extractAlbumRelease.mockResolvedValue({ title: 'New Album' })
   })
 
   it('keeps a successful apply current after it renames the release folder', async () => {
@@ -263,6 +264,38 @@ describe('UploadSessionFileChanges folder renames', () => {
       error: 'Choose how to read artist names that contain separators.'
     })
     expect(mocks.applyTagsAndRenames).not.toHaveBeenCalled()
+  })
+
+  it('does not apply tags when a date is not YYYY, YYYY-MM, or YYYY-MM-DD', async () => {
+    const { service, getState } = setup()
+    getState().tags.proposed = {
+      title: 'New Album',
+      year: 'May 2020',
+      tracks: [{ title: 'Track' }]
+    }
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({
+      ok: false,
+      error: 'Dates must be YYYY, YYYY-MM, or YYYY-MM-DD.'
+    })
+    expect(mocks.applyTagsAndRenames).not.toHaveBeenCalled()
+  })
+
+  it('keeps source URLs and cover art URL after Apply rereads the files', async () => {
+    const { service, getState } = setup()
+    getState().tags.proposed = {
+      title: 'New Album',
+      cover: 'https://example.invalid/cover.jpg',
+      urls: ['https://example.invalid/release'],
+      tracks: [{ title: 'Track' }]
+    }
+    mocks.extractAlbumRelease.mockResolvedValue({ title: 'New Album' })
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
+    expect(getState().tags.current?.cover).toBe('https://example.invalid/cover.jpg')
+    expect(getState().tags.current?.urls).toEqual(['https://example.invalid/release'])
+    expect(getState().tags.proposed?.cover).toBe('https://example.invalid/cover.jpg')
+    expect(getState().tags.proposed?.urls).toEqual(['https://example.invalid/release'])
   })
 
   it('keeps a successful restore current after it restores the folder name', async () => {

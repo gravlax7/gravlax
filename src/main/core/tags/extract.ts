@@ -10,6 +10,7 @@ import {
   FIELD_COMMENT,
   FIELD_EDITION_TITLE,
   FIELD_GENRES,
+  FIELD_GROUP_YEAR,
   FIELD_LABEL,
   FIELD_RELEASE_TYPE,
   FIELD_TITLE,
@@ -26,6 +27,12 @@ import {
   sortedUniqueStrings,
   uniqueStringsStable
 } from '@shared/tags/editor'
+import { metadataDate } from '@shared/tags/dates'
+import {
+  firstAliasValue,
+  mergeAliasValues,
+  TAG_ALIASES
+} from '@shared/tags/projection'
 
 interface FlacTags {
   values: Record<string, string[]>
@@ -63,20 +70,33 @@ export async function extractAlbumReleaseWithEmbeddedCoverArt(
     mixed
   }
 
-  release.title = sharedScalar(tagSets, mixed, FIELD_TITLE, 'ALBUM')
-  const year = sharedYear(tagSets, mixed, FIELD_YEAR, 'DATE', 'YEAR')
-  release.year = year
-  release.groupYear = year
-  release.label = sharedScalar(tagSets, mixed, FIELD_LABEL, 'LABEL')
-  release.catNo = sharedScalar(tagSets, mixed, FIELD_CAT_NO, 'CATALOGNUMBER', 'CATALOG NUMBER', 'CATNO')
-  release.upc = sharedScalar(tagSets, mixed, FIELD_UPC, 'UPC', 'BARCODE')
-  release.comment = sharedScalar(tagSets, mixed, FIELD_COMMENT, 'COMMENT', 'DESCRIPTION')
-  release.editionTitle = sharedScalar(tagSets, mixed, FIELD_EDITION_TITLE, 'EDITIONTITLE', 'EDITION TITLE')
-  release.releaseType = sharedScalar(tagSets, mixed, FIELD_RELEASE_TYPE, 'RELEASETYPE', 'RELEASE TYPE')
-  release.genres = sharedList(tagSets, mixed, FIELD_GENRES, splitGenreValues, 'GENRE')
+  release.title = sharedScalar(tagSets, mixed, FIELD_TITLE, ...TAG_ALIASES.ALBUM)
+  release.editionTitle = sharedScalar(
+    tagSets,
+    mixed,
+    FIELD_EDITION_TITLE,
+    ...TAG_ALIASES.EDITIONTITLE
+  )
+
+  const date = metadataDate(sharedScalar(tagSets, mixed, FIELD_YEAR, ...TAG_ALIASES.DATE))
+  const original = metadataDate(
+    sharedScalar(tagSets, mixed, FIELD_GROUP_YEAR, ...TAG_ALIASES.ORIGINALDATE)
+  )
+  release.year = date || original
+  release.groupYear = original || date
+
+  release.label = sharedScalar(tagSets, mixed, FIELD_LABEL, ...TAG_ALIASES.LABEL)
+  release.catNo = sharedScalar(tagSets, mixed, FIELD_CAT_NO, ...TAG_ALIASES.CATALOGNUMBER)
+  release.upc = sharedScalar(tagSets, mixed, FIELD_UPC, ...TAG_ALIASES.UPC)
+  release.comment = sharedScalar(tagSets, mixed, FIELD_COMMENT, ...TAG_ALIASES.COMMENT)
+  release.releaseType = sharedScalar(tagSets, mixed, FIELD_RELEASE_TYPE, ...TAG_ALIASES.RELEASETYPE)
+  release.genres = sharedList(tagSets, mixed, FIELD_GENRES, splitGenreValues, ...TAG_ALIASES.GENRE)
   release.urls = sharedList(tagSets, mixed, FIELD_URLS, splitURLValues, ...urlTagKeys)
 
-  const albumArtists = commonArtistTagSet(tagSets, 'ALBUMARTIST', 'ALBUM ARTIST')
+  const namedAlbumArtists = commonArtistTagSet(tagSets, ...TAG_ALIASES.ALBUMARTISTS)
+  const albumArtists = namedAlbumArtists.ok
+    ? namedAlbumArtists
+    : commonArtistTagSet(tagSets, ...TAG_ALIASES.ALBUMARTIST)
   const aggregated = aggregateTrackArtists(tracks)
   if (albumArtists.ok) {
     release.artists = mergeAlbumAndTrackArtists(albumArtists.artists, aggregated.artists)
@@ -94,7 +114,7 @@ export async function extractAlbumReleaseWithEmbeddedCoverArt(
     }
   }
 
-  const albumArtist = sharedScalar(tagSets, null, FIELD_ALBUM_ARTIST, 'ALBUMARTIST', 'ALBUM ARTIST')
+  const albumArtist = sharedScalar(tagSets, null, FIELD_ALBUM_ARTIST, ...TAG_ALIASES.ALBUMARTIST)
   release.albumArtist = albumArtist || deriveAlbumArtist(release.artists ?? [])
 
   if (Object.keys(mixed).length === 0) {
@@ -179,16 +199,27 @@ function parseVorbisComments(payload: Buffer): FlacTags {
 }
 
 function buildTrack(tagSet: FlacTags): Track {
-  let discNumber = firstTagValue(tagSet, 'DISCNUMBER', 'DISC NUMBER')
+  let discNumber = firstAliasValue(tagSet.values, 'DISCNUMBER')
   if (!discNumber) discNumber = '1'
-  const trackNumber = firstTagValue(tagSet, 'TRACKNUMBER', 'TRACK NUMBER')
-  const title = firstTagValue(tagSet, 'TITLE')
-  let genericArtists = parseArtistCreditValues(tagValues(tagSet, 'ARTIST'))
+  const trackNumber = firstAliasValue(tagSet.values, 'TRACKNUMBER')
+  const title = firstAliasValue(tagSet.values, 'TITLE')
+  const namedMains = mergeAliasValues(tagSet.values, 'ARTISTS')
+  let genericArtists =
+    namedMains.length > 0
+      ? namedMains.map((name) => ({ name, role: 'main' }))
+      : parseArtistCreditValues(tagValues(tagSet, ...TAG_ALIASES.ARTIST))
   if (genericArtists.length === 0) {
-    genericArtists = parseArtistCreditValues(tagValues(tagSet, 'ALBUMARTIST', 'ALBUM ARTIST'))
+    const namedAlbumMains = mergeAliasValues(tagSet.values, 'ALBUMARTISTS')
+    genericArtists =
+      namedAlbumMains.length > 0
+        ? namedAlbumMains.map((name) => ({ name, role: 'main' }))
+        : parseArtistCreditValues(tagValues(tagSet, ...TAG_ALIASES.ALBUMARTIST))
   }
-  const composers = parseRoleCreditValues(tagValues(tagSet, 'COMPOSER'), 'composer')
-  const conductors = parseRoleCreditValues(tagValues(tagSet, 'CONDUCTOR'), 'conductor')
+  const composers = parseRoleCreditValues(mergeAliasValues(tagSet.values, 'COMPOSER'), 'composer')
+  const conductors = parseRoleCreditValues(mergeAliasValues(tagSet.values, 'CONDUCTOR'), 'conductor')
+  const remixers = parseRoleCreditValues(mergeAliasValues(tagSet.values, 'REMIXER'), 'remixer')
+  const producers = parseRoleCreditValues(mergeAliasValues(tagSet.values, 'PRODUCER'), 'producer')
+  const arrangers = parseRoleCreditValues(mergeAliasValues(tagSet.values, 'ARRANGER'), 'arranger')
   const conductorNames = new Set(conductors.map((artist) => artistNameKey(artist.name ?? '')))
   let mainCount = genericArtists.filter((artist) => (artist.role || 'main') === 'main').length
   genericArtists = genericArtists.filter((artist) => {
@@ -198,7 +229,14 @@ function buildTrack(tagSet: FlacTags): Track {
     if (role === 'main') mainCount--
     return false
   })
-  const artists = mergeArtistsByRole(genericArtists, composers, conductors)
+  const artists = mergeArtistsByRole(
+    genericArtists,
+    composers,
+    conductors,
+    remixers,
+    producers,
+    arrangers
+  )
   return applyFeaturedArtistsFromTitle({
     discNumber: sanitizeNumberTag(discNumber),
     trackNumber: sanitizeNumberTag(trackNumber),
@@ -327,33 +365,6 @@ function sharedScalar(
   return consistent.trim()
 }
 
-function sharedYear(
-  tagSets: FlacTags[],
-  mixed: Record<string, boolean> | null,
-  field: string,
-  ...keys: string[]
-): string {
-  let found = false
-  let consistent = ''
-  let isMixedFlag = false
-  for (const tagSet of tagSets) {
-    const current = extractYear(firstTagValue(tagSet, ...keys))
-    if (!current) continue
-    if (!found) {
-      found = true
-      consistent = current
-      continue
-    }
-    if (consistent !== current) {
-      isMixedFlag = true
-    }
-  }
-  if (mixed && isMixedFlag) {
-    mixed[field] = true
-  }
-  return consistent
-}
-
 function sharedList(
   tagSets: FlacTags[],
   mixed: Record<string, boolean> | null,
@@ -439,15 +450,6 @@ function sanitizeNumberTag(value: string): string {
     value = value.slice(0, slash)
   }
   return value.trim()
-}
-
-function extractYear(value: string): string {
-  value = value.trim()
-  if (!value) return ''
-  const match = /(\d{4})/.exec(value)
-  if (!match?.[1]) return ''
-  if (Number.isNaN(Number(match[1]))) return ''
-  return match[1]
 }
 
 function equalFoldSlices(left: string[], right: string[]): boolean {

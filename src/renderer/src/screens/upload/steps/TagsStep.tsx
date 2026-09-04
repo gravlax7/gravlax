@@ -29,6 +29,7 @@ import { Toggle } from '../../../components/Toggle'
 import { Select } from '../../../components/Select'
 import { ArtistsEditor, type ArtistEditAction } from '../ArtistsEditor'
 import { SeparatorArtistBanner } from '../SeparatorArtistBanner'
+import { invalidReleaseDateFields } from '@shared/tags/dates'
 
 export function TagsStep(props: {
   state: UploadFlowStateJSON
@@ -63,6 +64,11 @@ export function TagsStep(props: {
     props.state.upload.phase === 'submitting' || props.state.seed.phase !== 'idle'
   const busy = (): boolean =>
     props.state.files.apply.phase === 'applying' || props.state.files.apply.phase === 'restoring'
+  const invalidDates = (): string[] =>
+    invalidReleaseDateFields(
+      props.state.tags.proposed?.groupYear,
+      props.state.tags.proposed?.year
+    )
   const payloadState = (id: string) =>
     (props.state.files.apply.payloadPaths ?? []).find((item) => item.id === id)
   const pathErrors = (currentPath: string, targetPath: string): string[] =>
@@ -150,6 +156,11 @@ export function TagsStep(props: {
             void window.gravlax.upload.updateTagsProposed(next)
           }}
         />
+        <Show when={invalidDates().length > 0}>
+          <Callout tone="error" class="tags-release-status">
+            Original and edition release dates must be YYYY, YYYY-MM, or YYYY-MM-DD.
+          </Callout>
+        </Show>
         <div class="tags-table-wrap">
           <table class="tags-table">
           <thead>

@@ -22,6 +22,7 @@ import {
   type State
 } from '@main/core/uploadflow'
 import { pendingSeparatorArtists } from '@shared/tags/editor'
+import { invalidReleaseDateFields } from '@shared/tags/dates'
 import { buildFilesRenamePlan } from '@shared/upload/naming'
 import {
   applyTagsAndRenames as writeTagsAndRenames,
@@ -99,6 +100,9 @@ export class UploadSessionFileChanges {
       if (!workspacePath || !release) return this.fail('Tags are not ready.')
       if (pendingSeparatorArtists(release).length > 0) {
         return { ok: false, error: 'Choose how to read artist names that contain separators.' }
+      }
+      if (invalidReleaseDateFields(release.groupYear, release.year).length > 0) {
+        return { ok: false, error: 'Dates must be YYYY, YYYY-MM, or YYYY-MM-DD.' }
       }
       stillCurrent = this.context.createWorkspaceGuard(workspacePath)
       const plan = buildFilesRenamePlan({
@@ -187,6 +191,20 @@ export class UploadSessionFileChanges {
 
       await this.invalidateGeneratedFiles()
       if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
+      let applied = release
+      try {
+        const extracted = await extractAlbumRelease(result.workspacePath)
+        if ((release.urls?.length ?? 0) > 0) {
+          extracted.urls = [...(release.urls ?? [])]
+        }
+        if (release.cover) {
+          extracted.cover = release.cover
+        }
+        applied = extracted
+      } catch {
+        applied = release
+      }
+      if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
       this.context.apply(
         acceptAppliedTags(
           finishFilesApply(
@@ -201,7 +219,7 @@ export class UploadSessionFileChanges {
             },
             result.payloadPaths
           ),
-          release
+          applied
         )
       )
       // Renaming the release folder changes workspacePath on purpose. Follow

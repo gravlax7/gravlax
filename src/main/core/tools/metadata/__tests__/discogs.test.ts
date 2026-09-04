@@ -169,8 +169,7 @@ describe('Discogs provider', () => {
       catNo: 'WIGCD126',
       releaseType: 'Album',
       cover: 'https://img.discogs.test/cover.jpg',
-      trackCount: 8,
-      comment: 'Discogs'
+      trackCount: 8
     })
     expect(release.genres).toEqual(['Electronic'])
     expect(release.albumArtist).toBe('Four Tet')

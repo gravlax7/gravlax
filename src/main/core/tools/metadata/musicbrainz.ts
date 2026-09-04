@@ -16,6 +16,7 @@ import {
   sliceValue,
   toString
 } from './base'
+import { metadataDate } from '@shared/tags/dates'
 import { fetchJSON, HTTPStatusError } from './http'
 import { createProviderArtistList, mapReleaseTypeToken } from './normalization'
 import {
@@ -139,8 +140,8 @@ function mapMusicBrainzRelease(raw: Record<string, unknown>, url: string): Relea
   const title = stripFeaturedFromTitle(rawTitle) || rawTitle
   const artists = mapMusicBrainzArtists(sliceValue(raw['artist-credit']))
   const releaseGroup = mapValue(raw['release-group'])
-  const year = parseYear(toString(raw.date))
-  const groupYear = parseYear(toString(releaseGroup['first-release-date'])) ?? year
+  const year = metadataDate(toString(raw.date))
+  const groupYear = metadataDate(toString(releaseGroup['first-release-date'])) || year
   const labelInfo = sliceValue(raw['label-info']).map(mapValue)
   const label = toString(mapValue(labelInfo[0]?.label).name)
   const upc = toString(raw.barcode)
@@ -154,8 +155,8 @@ function mapMusicBrainzRelease(raw: Record<string, unknown>, url: string): Relea
   return {
     title,
     artists,
-    year: year ? String(year) : undefined,
-    groupYear: groupYear ? String(groupYear) : undefined,
+    year: year || undefined,
+    groupYear: groupYear || undefined,
     label,
     catNo,
     upc,
@@ -167,8 +168,7 @@ function mapMusicBrainzRelease(raw: Record<string, unknown>, url: string): Relea
     cover: cover || undefined,
     urls: url ? [url] : undefined,
     trackCount: tracks.length || Number(raw['track-count'] ?? 0) || undefined,
-    tracks,
-    comment: MUSICBRAINZ_NAME
+    tracks
   }
 }
 
@@ -182,13 +182,21 @@ function mapMusicBrainzTracks(raw: Record<string, unknown>): NonNullable<Release
       const recording = mapValue(mappedTrack.recording)
       const trackArtists = mapMusicBrainzArtists(sliceValue(mappedTrack['artist-credit']))
       const recordingArtists = mapMusicBrainzArtists(sliceValue(recording['artist-credit']))
+      const relationArtists = [
+        ...musicBrainzRelationArtists(mappedTrack),
+        ...musicBrainzRelationArtists(recording)
+      ]
+      const artists =
+        trackArtists.length > 0
+          ? [...trackArtists, ...relationArtists]
+          : [...recordingArtists, ...relationArtists]
       tracks.push(
         applyFeaturedArtistsFromTitle({
           discNumber,
           trackNumber:
             toString(mappedTrack.number ?? mappedTrack.position) || String(trackIndex + 1),
           title: toString(mappedTrack.title ?? recording.title),
-          artists: trackArtists.length > 0 ? trackArtists : recordingArtists
+          artists: artists.length > 0 ? artists : undefined
         })
       )
     })
@@ -232,6 +240,25 @@ function mapMusicBrainzArtists(credits: unknown[]): Artist[] {
     const role = toString(mapped.role) || (featuredFromJoinphrase ? 'guest' : '')
     if (name) add(name, role)
     featuredFromJoinphrase = joinphraseIndicatesFeatured(toString(mapped.joinphrase))
+  }
+  return artists
+}
+
+function musicBrainzRelationArtists(raw: Record<string, unknown>): Artist[] {
+  const roles: Record<string, string> = {
+    composer: 'composer',
+    conductor: 'conductor',
+    remixer: 'remixer',
+    producer: 'producer',
+    arranger: 'arranger'
+  }
+  const artists: Artist[] = []
+  for (const rel of sliceValue(raw.relations)) {
+    const mapped = mapValue(rel)
+    const role = roles[toString(mapped.type).toLowerCase()]
+    if (!role) continue
+    const name = toString(mapValue(mapped.artist).name)
+    if (name) artists.push({ name, role })
   }
   return artists
 }

@@ -133,6 +133,77 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
       { name: 'Track Artist', role: 'guest' }
     ])
   })
+
+  it('keeps original and edition dates and falls back to DATE', async () => {
+    const withBoth = await extractAlbumReleaseWithEmbeddedCoverArt(
+      await writeTestFlac(['ORIGINALDATE=2018-09-21', 'DATE=2020-05'], 0)
+    )
+    expect(withBoth.release.groupYear).toBe('2018-09-21')
+    expect(withBoth.release.year).toBe('2020-05')
+
+    const dateOnly = await extractAlbumReleaseWithEmbeddedCoverArt(
+      await writeTestFlac(['DATE=2019-01-02'], 0)
+    )
+    expect(dateOnly.release.groupYear).toBe('2019-01-02')
+    expect(dateOnly.release.year).toBe('2019-01-02')
+
+    const yearAlias = await extractAlbumReleaseWithEmbeddedCoverArt(
+      await writeTestFlac(['YEAR=2011'], 0)
+    )
+    expect(yearAlias.release.year).toBe('2011')
+    expect(yearAlias.release.groupYear).toBe('2011')
+  })
+
+  it('prefers ALBUMARTISTS over the joined ALBUMARTIST tag', async () => {
+    const result = await extractAlbumReleaseWithEmbeddedCoverArt(
+      await writeTestFlac(['ALBUMARTISTS=Named', 'ALBUMARTIST=Named, Extra'], 0)
+    )
+    expect(result.release.artists).toEqual([{ name: 'Named', role: 'main' }])
+  })
+
+  it('keeps parentheticals in ALBUM and reads EDITIONTITLE when present', async () => {
+    const fromAlbum = await extractAlbumReleaseWithEmbeddedCoverArt(
+      await writeTestFlac(['ALBUM=Rounds (Deluxe Edition)'], 0)
+    )
+    expect(fromAlbum.release.title).toBe('Rounds (Deluxe Edition)')
+    expect(fromAlbum.release.editionTitle).toBe('')
+
+    const tagged = await extractAlbumReleaseWithEmbeddedCoverArt(
+      await writeTestFlac(['ALBUM=Rounds', 'EDITIONTITLE=Reissue'], 0)
+    )
+    expect(tagged.release.title).toBe('Rounds')
+    expect(tagged.release.editionTitle).toBe('Reissue')
+  })
+
+  it('reads companion artists, extra roles, barcodes, and release type', async () => {
+    const result = await extractAlbumReleaseWithEmbeddedCoverArt(
+      await writeTestFlac([
+        'ALBUM=Album',
+        'ARTISTS=Main',
+        'ARTIST=Main, Maestro (feat. Guest)',
+        'COMPOSER=Writer',
+        'CONDUCTOR=Maestro',
+        'REMIXER=Remixer',
+        'PRODUCER=Producer',
+        'ARRANGER=Arranger',
+        'BARCODE=012345678901',
+        'RELEASETYPE=Album',
+        'URL=https://example.invalid/release'
+      ], 0)
+    )
+
+    expect(result.release.upc).toBe('012345678901')
+    expect(result.release.releaseType).toBe('Album')
+    expect(result.release.urls).toEqual(['https://example.invalid/release'])
+    expect(result.release.tracks?.[0]?.artists).toEqual([
+      { name: 'Main', role: 'main' },
+      { name: 'Writer', role: 'composer' },
+      { name: 'Maestro', role: 'conductor' },
+      { name: 'Remixer', role: 'remixer' },
+      { name: 'Producer', role: 'producer' },
+      { name: 'Arranger', role: 'arranger' }
+    ])
+  })
 })
 
 async function writeTestFlac(comments: string[], pictureCount: number): Promise<string> {

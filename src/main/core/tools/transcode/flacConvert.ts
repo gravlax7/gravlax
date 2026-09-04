@@ -4,12 +4,18 @@ import { dirname, join } from 'node:path'
 import type { BitDepth } from '@shared/types'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 import { SOURCE_TORRENT_PLACEHOLDER } from '@main/core/tools/upload/descriptions'
+import { readFLACTags } from '@main/core/tags/extract'
 import { gatherTrackAudioInfo } from './audioInfo'
 import { copyExtraFiles } from './extras'
 import { buildDownconvertOutputPath } from './naming'
 import { inspectOutputFolder } from './outputFolder'
 import { resolveSampleRateFamily } from './options'
 import { processFiles, type ProcessProgress } from './processFiles'
+import {
+  flacOutputMatchesSource,
+  readFlacPictures,
+  restoreFlacTagsAndPictures
+} from './tags'
 
 export const SOX_DEPTH_ARGS: Record<BitDepth, string[]> = {
   16: ['-R', '-G', '-b', '16'],
@@ -54,9 +60,7 @@ export async function convertFolder(
     '.flac'
   )
   if (outputState !== 'missing') {
-    // An aborted conversion leaves a partial folder behind. Treating the folder's
-    // mere existence as success would hand that partial release to the uploader.
-    if (outputState === 'complete') {
+    if (outputState === 'complete' && (await flacFolderMatchesSource(items))) {
       return { sampleRate, outputPath: newPath }
     }
     await rm(newPath, { recursive: true, force: true })
@@ -79,6 +83,12 @@ export async function convertFolder(
         item.dst,
         bitDepth,
         item.targetRate,
+        options.signal,
+        options.tools ?? automaticToolResolver
+      )
+      await restoreFlacTagsAndPictures(
+        item.src,
+        item.dst,
         options.signal,
         options.tools ?? automaticToolResolver
       )
@@ -167,4 +177,13 @@ async function runSox(
       )
     })
   })
+}
+
+async function flacFolderMatchesSource(items: readonly ConvertItem[]): Promise<boolean> {
+  for (const item of items) {
+    const source = await readFLACTags(item.src)
+    const pictures = await readFlacPictures(item.src)
+    if (!(await flacOutputMatchesSource(item.dst, source.values, pictures))) return false
+  }
+  return true
 }

@@ -26,6 +26,7 @@ import {
   setTrackFieldEditorValue,
   type ArtistEditRow
 } from '@shared/tags/editor'
+import { invalidReleaseDateFields } from '@shared/tags/dates'
 import {
   UPLOAD_STEPS,
   canNavigateToStep,
@@ -553,7 +554,11 @@ export function UploadScreen(props: {
                   (props.state.tags.releaseStatus === 'loading' ||
                     props.state.files.apply.phase === 'applying' ||
                     props.state.files.apply.phase === 'restoring' ||
-                    pendingSeparatorArtists(props.state.tags.proposed).length > 0))
+                    pendingSeparatorArtists(props.state.tags.proposed).length > 0 ||
+                    invalidReleaseDateFields(
+                      props.state.tags.proposed?.groupYear,
+                      props.state.tags.proposed?.year
+                    ).length > 0))
               }
               onClick={() => {
                 if (stepId() === 'seed') {

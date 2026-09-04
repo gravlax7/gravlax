@@ -47,7 +47,16 @@ describe('tag and filename writes', () => {
       const applyProgress: Array<{ current: number; total: number; label: string }> = []
       const result = await applyTagsAndRenames({
         workspacePath: album,
-        release: { title: 'New Album', groupYear: '2024', albumArtist: 'Artist', comment: 'Line one\nLine two', tracks: [{ title: 'New title', trackNumber: '1', discNumber: '1', artists: [{ name: 'Artist', role: 'main' }] }] },
+        release: {
+          title: 'New Album',
+          editionTitle: 'Deluxe Edition',
+          groupYear: '2018-09-21',
+          year: '2024',
+          albumArtist: 'Artist',
+          upc: '012345678901',
+          comment: 'Line one\nLine two',
+          tracks: [{ title: 'New title', trackNumber: '1', discNumber: '1', artists: [{ name: 'Artist', role: 'main' }] }]
+        },
         plan: { folderName: 'Artist - New Album', files: [{ id: 'track-1', currentPath: 'old.flac', targetPath: '01. New title.flac', targetFilename: '01. New title.flac', changed: true }], errors: [], warnings: [], hash: 'test' },
         originals: captured.originals,
         stripEmbeddedCoverArt: true,
@@ -58,6 +67,13 @@ describe('tag and filename writes', () => {
       expect(applyProgress.at(-1)).toEqual({ current: 2, total: 2, label: 'Finishing…' })
       const changed = join(result.workspacePath, '01. New title.flac')
       expect((await runCommand('metaflac', ['--show-tag=TITLE', changed])).toString()).toContain('TITLE=New title')
+      expect((await runCommand('metaflac', ['--show-tag=ALBUM', changed])).toString()).toContain('ALBUM=New Album')
+      expect((await runCommand('metaflac', ['--show-tag=EDITIONTITLE', changed])).toString()).toContain('EDITIONTITLE=Deluxe Edition')
+      expect((await runCommand('metaflac', ['--show-tag=DATE', changed])).toString()).toContain('DATE=2024')
+      expect((await runCommand('metaflac', ['--show-tag=ORIGINALDATE', changed])).toString()).toContain('ORIGINALDATE=2018-09-21')
+      expect((await runCommand('metaflac', ['--show-tag=YEAR', changed])).toString()).not.toContain('YEAR=')
+      expect((await runCommand('metaflac', ['--show-tag=BARCODE', changed])).toString()).toContain('BARCODE=012345678901')
+      expect((await runCommand('metaflac', ['--show-tag=UPC', changed])).toString()).toContain('UPC=012345678901')
       expect((await runCommand('metaflac', ['--show-tag=ISRC', changed])).toString()).toContain('ISRC=KEEP')
       expect((await runCommand('metaflac', ['--show-tag=COMMENT', changed])).toString()).toContain('Line one\nLine two')
       expect((await runCommand('metaflac', ['--list', changed])).toString()).not.toContain('(PICTURE)')
@@ -103,6 +119,8 @@ describe('tag and filename writes', () => {
         '--set-tag=REPLAYGAIN_ALBUM_GAIN=-6.00 dB',
         '--set-tag=REPLAYGAIN_ALBUM_PEAK=0.9999',
         '--set-tag=X-GRAVLAX-TEST=keep me',
+        '--set-tag=PUBLISHER=Keep Publisher',
+        '--set-tag=EDITIONTITLE=Deluxe',
         '--set-tag=COVERART=LEGACYDATA',
         '--set-tag=COVERARTMIME=image/png',
         `--import-picture-from=${image}`,
@@ -153,6 +171,7 @@ describe('tag and filename writes', () => {
         'COMPOSER=Bach, Johann Sebastian'
       ])
       expect(await tagLines(source, 'CONDUCTOR')).toEqual(['CONDUCTOR=Maestro'])
+      expect(await tagLines(source, 'ARTISTS')).toEqual(['ARTISTS=Adele'])
       expect(await tagLines(source, 'ISRC')).toEqual(['ISRC=GB-ABC-12-34567'])
       expect(await tagLines(source, 'REPLAYGAIN_TRACK_GAIN')).toEqual([
         'REPLAYGAIN_TRACK_GAIN=-7.00 dB'
@@ -169,12 +188,14 @@ describe('tag and filename writes', () => {
       expect(await tagLines(source, 'X-GRAVLAX-TEST')).toEqual([
         'X-GRAVLAX-TEST=keep me'
       ])
+      expect(await tagLines(source, 'PUBLISHER')).toEqual(['PUBLISHER=Keep Publisher'])
+      expect(await tagLines(source, 'EDITIONTITLE')).toEqual([])
       expect(await tagLines(source, 'COVERART')).toEqual(['COVERART=LEGACYDATA'])
       expect((await runCommand('metaflac', ['--list', source])).toString()).toContain('(PICTURE)')
 
       const extracted = await extractAlbumReleaseWithEmbeddedCoverArt(source)
       expect(extracted.release.tracks?.[0]?.artists).toEqual([
-        { name: 'Adele, Maestro', role: 'main' },
+        { name: 'Adele', role: 'main' },
         { name: 'Adele', role: 'composer' },
         { name: 'Bach, Johann Sebastian', role: 'composer' },
         { name: 'Maestro', role: 'conductor' }
@@ -301,6 +322,12 @@ describe('tag and filename writes', () => {
       })
       expect(await readFile(join(album, 'Disc 01', 'rip.log'), 'utf8')).toBe('one')
       expect(await readFile(join(album, 'Disc 02', 'rip.log'), 'utf8')).toBe('two')
+      expect(await tagLines(join(album, 'Disc 01', '01. One.flac'), 'TRACKTOTAL')).toEqual([
+        'TRACKTOTAL=1'
+      ])
+      expect(await tagLines(join(album, 'Disc 01', '01. One.flac'), 'DISCTOTAL')).toEqual([
+        'DISCTOTAL=2'
+      ])
       await restoreOriginalFiles({
         workspacePath: result.workspacePath,
         originals: captured.originals,
