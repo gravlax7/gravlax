@@ -255,6 +255,13 @@ export class UploadSessionFileChanges {
       if (embeddedCoverArtCount !== undefined) {
         next = setEmbeddedCoverArtCount(next, embeddedCoverArtCount)
       }
+      // Reading tags back and renaming paths changes the plan inputs. Save
+      // their accepted state so revisiting Metadata does not repeat the writes.
+      next.files.apply.appliedHash = buildFilesRenamePlan({
+        ...planInput,
+        release: next.tags.proposed ?? release,
+        files: next.files
+      }).hash
       this.context.apply(next)
       // Renaming the release folder changes workspacePath on purpose. Follow
       // that path so the guard does not treat our own rename as a source swap.

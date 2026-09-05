@@ -40,6 +40,7 @@ import { newState, type State } from '@main/core/uploadflow'
 import { TaskScope } from '@main/services/taskSlot'
 import { UploadSessionFileChanges } from '@main/services/uploadSessionFileChanges'
 import { automaticToolResolver } from '@main/core/tools/binaries'
+import type { FilesRenamePlan } from '@shared/upload/naming'
 
 function setup() {
   let state: State = {
@@ -226,6 +227,50 @@ describe('UploadSessionFileChanges folder renames', () => {
     await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
     expect(startTranscodeInspection).toHaveBeenCalledOnce()
     expect(mocks.applyTagsAndRenames).toHaveBeenCalledOnce()
+  })
+
+  it.each([true, false])('skips unchanged tags after reading applied files back (rename: %s)', async (rename) => {
+    const naming = await vi.importActual<typeof import('@shared/upload/naming')>('@shared/upload/naming')
+    mocks.buildFilesRenamePlan.mockImplementation(naming.buildFilesRenamePlan)
+    const { service, getState, cancelGeneratedWork, notify } = setup()
+    getState().files.apply.renameReleaseFolder = rename
+    getState().files.apply.renameTrackFiles = rename
+    getState().metadata.selected = { provider: 'manual' }
+    mocks.applyTagsAndRenames.mockImplementation(async ({ plan }: { plan: FilesRenamePlan }) => ({
+      workspacePath: `/workspace/${plan.folderName}`,
+      folderName: plan.folderName,
+      currentPaths: plan.files.map((file) => ({ id: file.id, currentPath: file.targetPath })),
+      payloadPaths: (plan.payloadFiles ?? []).map((file) => ({ id: file.id, currentPath: file.targetPath })),
+      changedFileCount: plan.files.filter((file) => file.changed).length,
+      strippedPictureCount: 0
+    }))
+    mocks.extractAlbumReleaseWithEmbeddedCoverArt.mockResolvedValue({
+      release: {
+        title: 'New Album',
+        trackCount: 1,
+        tracks: [{ title: 'Track', trackNumber: '1', discNumber: '1' }]
+      },
+      embeddedCoverArtCount: 0
+    })
+
+    await expect(service.applyTagsAndNames()).resolves.toEqual({ ok: true })
+    const transcode = getState().transcode
+    transcode.phase = 'done'
+    const upload = getState().upload
+    cancelGeneratedWork.mockClear()
+    notify.mockClear()
+
+    // Crossing Tags again after revisiting Metadata must preserve prepared work.
+    await expect(service.applyTagsAndNames()).resolves.toEqual({ ok: true })
+    expect(mocks.applyTagsAndRenames).toHaveBeenCalledOnce()
+    expect(cancelGeneratedWork).not.toHaveBeenCalled()
+    expect(notify).not.toHaveBeenCalled()
+    expect(getState().transcode).toBe(transcode)
+    expect(getState().upload).toBe(upload)
+
+    service.updateTagsProposed({ ...getState().tags.proposed, comment: 'Edited' })
+    await expect(service.applyTagsAndNames()).resolves.toEqual({ ok: true })
+    expect(mocks.applyTagsAndRenames).toHaveBeenCalledTimes(2)
   })
 
   it('marks a keep-existing no-op complete without a worker or confirmation', async () => {
