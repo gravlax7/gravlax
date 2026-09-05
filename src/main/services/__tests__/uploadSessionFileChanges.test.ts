@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Config } from '@shared/types/config'
+import { ARTIST_ROLE_PRESETS } from '@shared/types/upload'
 import type { FilesProgressCallback } from '@main/core/tools/files/apply'
 
 const mocks = vi.hoisted(() => ({
@@ -236,6 +237,11 @@ describe('UploadSessionFileChanges folder renames', () => {
     getState().files.apply.renameReleaseFolder = rename
     getState().files.apply.renameTrackFiles = rename
     getState().metadata.selected = { provider: 'manual' }
+    const artists = [
+      { name: 'Lead', role: 'main' },
+      { name: 'Producer', role: 'producer' }
+    ]
+    service.updateTagsProposed({ ...getState().tags.proposed, artists })
     mocks.applyTagsAndRenames.mockImplementation(async ({ plan }: { plan: FilesRenamePlan }) => ({
       workspacePath: `/workspace/${plan.folderName}`,
       folderName: plan.folderName,
@@ -254,6 +260,7 @@ describe('UploadSessionFileChanges folder renames', () => {
     })
 
     await expect(service.applyTagsAndNames()).resolves.toEqual({ ok: true })
+    expect(getState().tags.proposed?.artists).toEqual(artists)
     const transcode = getState().transcode
     transcode.phase = 'done'
     const upload = getState().upload
@@ -394,6 +401,7 @@ describe('UploadSessionFileChanges folder renames', () => {
     expect(getState().tags.proposed?.artists).toEqual([
       { name: 'Bach, Johann Sebastian', role: 'composer', separatorKept: true }
     ])
+    expect(getState().tags.current?.artists).toBeUndefined()
   })
 
   it('allows navigation past unchanged tags after seeding', async () => {
@@ -485,6 +493,65 @@ describe('UploadSessionFileChanges folder renames', () => {
     expect(getState().tags.current?.urls).toEqual(['https://example.invalid/release'])
     expect(getState().tags.proposed?.cover).toBe('https://example.invalid/cover.jpg')
     expect(getState().tags.proposed?.urls).toEqual(['https://example.invalid/release'])
+  })
+
+  it.each(ARTIST_ROLE_PRESETS)('keeps an added release-level %s after reading files back', async (role) => {
+    const { service, getState } = setup()
+    const lead = { name: 'Lead', role: 'main' }
+    const added = { name: 'Added', role }
+    const artists = [lead, added]
+    const tracks = [{ title: 'Track', artists: [lead] }]
+    service.updateTagsProposed({ title: 'New Album', artists, tracks })
+    const readBackTracks = [{ ...tracks[0], trackNumber: '1', discNumber: '1' }]
+    mocks.extractAlbumReleaseWithEmbeddedCoverArt.mockResolvedValueOnce({
+      release: {
+        title: 'New Album',
+        artists: role === 'main' ? artists : [lead],
+        tracks: readBackTracks
+      },
+      embeddedCoverArtCount: 0
+    })
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
+
+    expect(mocks.applyTagsAndRenames).toHaveBeenCalledWith(
+      expect.objectContaining({ release: { title: 'New Album', artists, tracks } })
+    )
+    expect(getState().tags.current?.artists).toEqual(artists)
+    expect(getState().tags.proposed?.artists).toEqual(artists)
+    expect(getState().tags.current?.tracks).toEqual(readBackTracks)
+    expect(getState().tags.proposed?.tracks).toEqual(readBackTracks)
+    expect(getState().tags.proposedDirty).toBe(false)
+  })
+
+  it('keeps release credit edits when track credits differ after reading files back', async () => {
+    const { service, getState } = setup()
+    const lead = { name: 'Lead', role: 'main' }
+    const trackArtists = [
+      lead,
+      { name: 'Removed', role: 'guest' },
+      { name: 'Bach, Johann Sebastian', role: 'composer' }
+    ]
+    const artists = [
+      lead,
+      { name: 'Bach, Johann Sebastian', role: 'arranger', separatorKept: true }
+    ]
+    const tracks = [{
+      title: 'Track',
+      artists: trackArtists.map((artist) => ({ ...artist, separatorKept: true }))
+    }]
+    service.updateTagsProposed({ title: 'New Album', artists, tracks })
+    const readBackTracks = [{ title: 'Track', artists: trackArtists }]
+    mocks.extractAlbumReleaseWithEmbeddedCoverArt.mockResolvedValueOnce({
+      release: { title: 'New Album', artists: trackArtists, tracks: readBackTracks },
+      embeddedCoverArtCount: 0
+    })
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
+
+    expect(getState().tags.current?.artists).toEqual(artists)
+    expect(getState().tags.proposed?.artists).toEqual(artists)
+    expect(getState().tags.proposed?.tracks).toEqual(readBackTracks)
   })
 
   it('keeps a successful restore current after it restores the folder name', async () => {

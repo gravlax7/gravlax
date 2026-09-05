@@ -493,7 +493,7 @@ export function UploadStep(props: {
       {/* TODO(v1.0.0): Remove this beta notice and its styles. */}
       <Callout tone="info" class="upload-beta-notice">
         <span>
-          During the Gravlax beta, it's recommended you check your files manually before uploading.
+          During the Gravlax beta, it's recommended you check files manually before uploading.
         </span>
         <Button
           variant="secondary"

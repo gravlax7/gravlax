@@ -229,6 +229,9 @@ export class UploadSessionFileChanges {
         const extracted = await extractAlbumReleaseWithEmbeddedCoverArt(result.workspacePath)
         applied = extracted.release
         embeddedCoverArtCount = extracted.embeddedCoverArtCount
+        if (writeTags && release.artists) {
+          applied.artists = release.artists.map((artist) => ({ ...artist }))
+        }
         if (writeTags && (release.urls?.length ?? 0) > 0) {
           applied.urls = [...(release.urls ?? [])]
         }
