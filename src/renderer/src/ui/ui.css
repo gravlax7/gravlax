@@ -2353,6 +2353,14 @@ button.toggle.toggle-on .toggle-thumb {
   overflow-wrap: anywhere;
 }
 
+.upload-beta-notice {
+  flex-wrap: wrap;
+}
+
+.upload-beta-notice > span {
+  flex: 1 1 20rem;
+}
+
 .upload-report-card {
   display: flex;
   flex-direction: column;

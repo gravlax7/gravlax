@@ -490,6 +490,22 @@ export function UploadStep(props: {
 
   return (
     <Section title="Upload" description="Review what will be uploaded and where.">
+      {/* TODO(v1.0.0): Remove this beta notice and its styles. */}
+      <Callout tone="info" class="upload-beta-notice">
+        <span>
+          During the Gravlax beta, it's recommended you check your files manually before uploading.
+        </span>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={!props.state.draft.workspacePath}
+          onClick={() => void window.gravlax.shell.openPath(`${props.state.draft.workspacePath}/..`)}
+        >
+          <Icon name="folder" size={14} />
+          Open Workspace
+        </Button>
+      </Callout>
+
       <Show when={props.state.transcode?.phase === 'running'}>
         <Callout tone="info">Transcoding is still running in the background.</Callout>
       </Show>
