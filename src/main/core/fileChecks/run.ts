@@ -1,6 +1,8 @@
 import type {
   FileChecksSnapshot,
   IntegritySummary,
+  MQASummary,
+  UpconvertSummary,
   SourceMedia
 } from '@shared/types'
 import type { ToolResolver } from '@main/core/tools/binaries'
@@ -104,55 +106,74 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
       taskFailed: false
     }
   }
-  const shouldRepair = options.repairRequested || (options.autoRepair && options.repairAllowed)
-  const integrity = shouldRepair
-    ? await jobs.repairIntegrity(workspacePath, {
-        signal,
-        tools,
-        onRepairStarting: options.onRepairStarting,
-        onProgress: progress('integrity')
-      })
-    : await jobs.checkIntegrity(workspacePath, {
-        signal,
-        tools,
-        onProgress: progress('integrity')
-      })
+  // Logs only read .log files, so they can overlap FLAC checks and repairs.
+  const controller = new AbortController()
+  const checkSignal = signal
+    ? AbortSignal.any([signal, controller.signal])
+    : controller.signal
+  checkSignal.throwIfAborted()
+  let logsComplete = sourceMedia !== 'CD'
+  const logCheck = (async () => {
+    if (sourceMedia !== 'CD') return { logFiles: [], checks: [] }
+    onProgress?.(0, 1, `${JOB_LABELS.logchecker} — Checking rip logs…`)
+    const logs = await jobs.checkLogs(workspacePath, {
+      sourceMedia,
+      trackers: options.trackers,
+      signal: checkSignal
+    })
+    logsComplete = true
+    return logs
+  })()
+  const audioChecks = (async () => {
+    const shouldRepair = options.repairRequested || (options.autoRepair && options.repairAllowed)
+    const integrity = shouldRepair
+      ? await jobs.repairIntegrity(workspacePath, {
+          signal: checkSignal,
+          tools,
+          onRepairStarting: options.onRepairStarting,
+          onProgress: progress('integrity')
+        })
+      : await jobs.checkIntegrity(workspacePath, {
+          signal: checkSignal,
+          tools,
+          onProgress: progress('integrity')
+        })
 
-  if (integrity.status !== 'passed') {
-    return {
-      snapshot: {
-        status: 'ok',
-        structure,
-        integrity,
-        mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
-        upconvert: { checkedCount: 0, results: [], errors: [] },
-        logs: { logFiles: [], checks: [] }
-      },
-      detail: integritySummaryDetail(integrity),
-      taskFailed: false
+    checkSignal.throwIfAborted()
+    let mqa: MQASummary = { checkedCount: 0, mqaPaths: [], errors: [] }
+    let upconvert: UpconvertSummary = { checkedCount: 0, results: [], errors: [] }
+    if (integrity.status === 'passed') {
+      options.onIntegrityPassed?.(integrity)
+      mqa = await jobs.checkMqa(workspacePath, {
+        signal: checkSignal,
+        tools,
+        onProgress: progress('mqa')
+      })
+      checkSignal.throwIfAborted()
+      upconvert = await jobs.checkUpconvert(workspacePath, {
+        signal: checkSignal,
+        tools,
+        onProgress: progress('upconvert')
+      })
     }
-  }
+    checkSignal.throwIfAborted()
+    if (!logsComplete) {
+      onProgress?.(0, 1, `${JOB_LABELS.logchecker} — Checking rip logs…`)
+    }
+    return { integrity, mqa, upconvert }
+  })()
 
-  options.onIntegrityPassed?.(integrity)
-  const mqa = await jobs.checkMqa(workspacePath, {
-    signal,
-    tools,
-    onProgress: progress('mqa')
-  })
-  const upconvert = await jobs.checkUpconvert(workspacePath, {
-    signal,
-    tools,
-    onProgress: progress('upconvert')
-  })
-  onProgress?.(0, 1, `${JOB_LABELS.logchecker} — Checking rip logs…`)
-  const logs = sourceMedia === 'CD'
-    ? await jobs.checkLogs(workspacePath, {
-        sourceMedia,
-        trackers: options.trackers,
-        signal
-      })
-    : { logFiles: [], checks: [] }
-  onProgress?.(1, 1, `${JOB_LABELS.logchecker} — Complete`)
+  const [{ integrity, mqa, upconvert }, logs] = await Promise.all([audioChecks, logCheck])
+    .catch(async (error) => {
+      controller.abort()
+      // Drain both jobs before callers can change the workspace or start another run.
+      await Promise.allSettled([audioChecks, logCheck])
+      throw error
+    })
+  checkSignal.throwIfAborted()
+  if (sourceMedia === 'CD') {
+    onProgress?.(1, 1, `${JOB_LABELS.logchecker} — Complete`)
+  }
   const taskFailed = logs.checks.some((check) => Boolean(check.error))
   const snapshot: FileChecksSnapshot = {
     status: taskFailed ? 'failed' : 'ok',
@@ -165,8 +186,8 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
   const detail = [
     structureSummaryDetail(structure, 'FLAC'),
     integritySummaryDetail(integrity),
-    mqaSummaryDetail(mqa),
-    upconvertSummaryDetail(upconvert),
+    integrity.status === 'passed' ? mqaSummaryDetail(mqa) : '',
+    integrity.status === 'passed' ? upconvertSummaryDetail(upconvert) : '',
     logcheckerSummaryDetail(logs)
   ].filter(Boolean).join('\n\n')
 
