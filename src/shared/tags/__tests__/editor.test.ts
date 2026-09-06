@@ -323,21 +323,25 @@ describe('tags editor', () => {
       { name: 'Earth, Wind & Fire', role: 'main' }
     ])
     expect(separatorArtistOptions('Bach, Jean Sebastian')).toEqual([
-      { action: 'split', label: 'Jean Sebastian & Bach' },
-      { action: 'reorder', label: 'Jean Sebastian Bach' },
-      { action: 'keep', label: 'Keep Bach, Jean Sebastian' }
+      { action: 'split', label: 'Split into Jean Sebastian + Bach' },
+      { action: 'reorder', label: 'Reorder as Jean Sebastian Bach' },
+      { action: 'keep', label: 'Keep as one artist' }
     ])
     expect(separatorArtistOptions('AC/DC')).toEqual([
-      { action: 'split', label: 'AC & DC' },
-      { action: 'keep', label: 'Keep AC/DC' }
+      { action: 'split', label: 'Split into AC + DC' },
+      { action: 'keep', label: 'Keep as one artist' }
     ])
     expect(separatorArtistOptions('Alice / Bob')).toEqual([
-      { action: 'split', label: 'Alice & Bob' },
-      { action: 'keep', label: 'Keep Alice / Bob' }
+      { action: 'split', label: 'Split into Alice + Bob' },
+      { action: 'keep', label: 'Keep as one artist' }
     ])
     expect(separatorArtistOptions('Earth, Wind & Fire')).toEqual([
-      { action: 'split', label: 'Earth, Wind, Fire' },
-      { action: 'keep', label: 'Keep Earth, Wind & Fire' }
+      { action: 'split', label: 'Split into Earth + Wind + Fire' },
+      { action: 'keep', label: 'Keep as one artist' }
+    ])
+    expect(separatorArtistOptions('Jackie Brenston & His Delta Cats')).toEqual([
+      { action: 'split', label: 'Split into Jackie Brenston + His Delta Cats' },
+      { action: 'keep', label: 'Keep as one artist' }
     ])
   })
 

@@ -636,13 +636,13 @@ export function separatorArtistOptions(name: string): SeparatorArtistOption[] {
   if (parts.length >= 2) {
     if (isCommaOnlyName(name)) {
       const swapped = [parts[1]!, parts[0]!]
-      options.push({ action: 'split', label: joinOptionNames(swapped) })
-      options.push({ action: 'reorder', label: `${parts[1]} ${parts[0]}` })
+      options.push({ action: 'split', label: `Split into ${swapped.join(' + ')}` })
+      options.push({ action: 'reorder', label: `Reorder as ${parts[1]} ${parts[0]}` })
     } else {
-      options.push({ action: 'split', label: joinOptionNames(parts) })
+      options.push({ action: 'split', label: `Split into ${parts.join(' + ')}` })
     }
   }
-  options.push({ action: 'keep', label: `Keep ${name}` })
+  options.push({ action: 'keep', label: 'Keep as one artist' })
   return options
 }
 
@@ -699,11 +699,6 @@ function splitListSeparatorParts(name: string): string[] {
     .split(/\s*(?:,|;|\/|&|\band\b|\bvs\.?\b)\s*/gi)
     .map((part) => part.trim())
     .filter(Boolean)
-}
-
-function joinOptionNames(names: string[]): string {
-  if (names.length === 2) return `${names[0]} & ${names[1]}`
-  return names.join(', ')
 }
 
 function replacementArtists(artist: Artist, action: SeparatorArtistAction): Artist[] {

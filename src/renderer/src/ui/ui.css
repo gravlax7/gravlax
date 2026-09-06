@@ -1675,6 +1675,19 @@ button.toggle.toggle-on .toggle-thumb {
   gap: var(--space-2);
 }
 
+.tags-separator-actions .ui-btn {
+  white-space: normal;
+  height: auto;
+  min-height: 28px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  text-align: left;
+}
+
+.tags-separator-actions .ui-icon {
+  flex-shrink: 0;
+}
+
 .tags-row-separator-pending {
   background: var(--bg-hover);
 }

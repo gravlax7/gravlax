@@ -6,7 +6,7 @@ import {
   separatorArtistOptions,
   type SeparatorArtistAction
 } from '@shared/tags/editor'
-import { Button, Card, Icon } from '../../ui'
+import { Button, Card, Icon, type IconName } from '../../ui'
 
 export function SeparatorArtistBanner(props: {
   release: Release | undefined
@@ -43,6 +43,7 @@ export function SeparatorArtistBanner(props: {
                         variant={option.action === 'keep' ? 'ghost' : 'secondary'}
                         onClick={() => resolve(name, option.action)}
                       >
+                        <Icon name={separatorActionIcon(option.action)} size={14} />
                         {option.label}
                       </Button>
                     )}
@@ -55,4 +56,15 @@ export function SeparatorArtistBanner(props: {
       </Card>
     </Show>
   )
+}
+
+function separatorActionIcon(action: SeparatorArtistAction): IconName {
+  switch (action) {
+    case 'split':
+      return 'users'
+    case 'reorder':
+      return 'arrow-left-right'
+    case 'keep':
+      return 'user'
+  }
 }
