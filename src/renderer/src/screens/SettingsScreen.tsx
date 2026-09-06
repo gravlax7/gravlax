@@ -389,7 +389,10 @@ export function SettingsScreen(props: {
                               !draft().torrentClient.useApiKey) ||
                             (current().id === 'torrentClient' &&
                               (field.name === 'username' || field.name === 'password') &&
-                              draft().torrentClient.useApiKey)
+                              draft().torrentClient.useApiKey) ||
+                            (current().id === 'naming' &&
+                              field.name === 'variousArtistsTrackFileTemplate' &&
+                              !draft().naming.useVariousArtistsTrackFileTemplate)
                           }
                           onReveal={() =>
                             setRevealed((r) => ({

@@ -15,6 +15,8 @@ describe('config', () => {
     const cfg = defaultConfig()
     expect(cfg.naming.releaseFolderTemplate).not.toBe('')
     expect(cfg.naming.trackFileTemplate).not.toBe('')
+    expect(cfg.naming.useVariousArtistsTrackFileTemplate).toBe(true)
+    expect(cfg.naming.variousArtistsTrackFileTemplate).toBe('{trackNumber}. {artist} - {title}')
     expect(cfg.naming.albumDescriptionTemplateId).toBe('peachfuzz')
     expect(cfg.tools).toEqual({
       sox: '',
@@ -127,7 +129,25 @@ describe('config', () => {
       }
     })
     expect(cfg.naming.releaseFolderTemplate).toBe('{title}')
+    expect(cfg.naming.variousArtistsTrackFileTemplate).toBe('{trackNumber}. {artist} - {title}')
+    expect(cfg.naming.useVariousArtistsTrackFileTemplate).toBe(true)
     expect(cfg.naming).not.toHaveProperty('replaceSpacesWith')
+  })
+
+  it('loads, updates, and resets the various-artists filename toggle', () => {
+    expect(mergeLoadedConfig({ naming: {} }).naming.useVariousArtistsTrackFileTemplate).toBe(true)
+    const loaded = mergeLoadedConfig({ naming: { useVariousArtistsTrackFileTemplate: false } })
+    expect(loaded.naming.useVariousArtistsTrackFileTemplate).toBe(false)
+    const changed = setFieldBool(defaultConfig(), 'naming', 'useVariousArtistsTrackFileTemplate', false)
+    expect(fieldBoolValue(changed, 'naming', 'useVariousArtistsTrackFileTemplate')).toBe(false)
+    expect(resetSection(changed, 'naming').naming.useVariousArtistsTrackFileTemplate).toBe(true)
+  })
+
+  it('does not require the various-artists template when the toggle is off', () => {
+    const cfg = defaultConfig()
+    cfg.naming.useVariousArtistsTrackFileTemplate = false
+    cfg.naming.variousArtistsTrackFileTemplate = ''
+    expect(validate(cfg).some((issue) => issue.field === 'variousArtistsTrackFileTemplate')).toBe(false)
   })
 
   it('drops the retired temporary directory setting when loading config', () => {

@@ -171,6 +171,10 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return c.releaseFolderTemplate
         case 'trackFileTemplate':
           return c.trackFileTemplate
+        case 'useVariousArtistsTrackFileTemplate':
+          return String(c.useVariousArtistsTrackFileTemplate)
+        case 'variousArtistsTrackFileTemplate':
+          return c.variousArtistsTrackFileTemplate
         case 'multiDiscFolderTemplate':
           return c.multiDiscFolderTemplate
       }
@@ -282,6 +286,7 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       if (field === 'albumDescriptionTemplateId') next.naming.albumDescriptionTemplateId = value
       if (field === 'releaseFolderTemplate') next.naming.releaseFolderTemplate = value
       if (field === 'trackFileTemplate') next.naming.trackFileTemplate = value
+      if (field === 'variousArtistsTrackFileTemplate') next.naming.variousArtistsTrackFileTemplate = value
       if (field === 'multiDiscFolderTemplate') next.naming.multiDiscFolderTemplate = value
       break
     case 'spectral':
@@ -361,6 +366,9 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
       if (field === 'deleteOriginalFolder') next.cleanup.deleteOriginalFolder = value
       if (field === 'deleteTemporaryFiles') next.cleanup.deleteTemporaryFiles = value
       if (field === 'deleteSpectralsAfterUpload') next.cleanup.deleteSpectralsAfterUpload = value
+      break
+    case 'naming':
+      if (field === 'useVariousArtistsTrackFileTemplate') next.naming.useVariousArtistsTrackFileTemplate = value
       break
     case 'workflow':
       if (field === 'confirmBeforeWrites') next.workflow.confirmBeforeWrites = value

@@ -185,6 +185,8 @@ const configInput: z.ZodType<Config> = z.object({
     albumDescriptionTemplateId: z.string(),
     releaseFolderTemplate: z.string(),
     trackFileTemplate: z.string(),
+    useVariousArtistsTrackFileTemplate: z.boolean(),
+    variousArtistsTrackFileTemplate: z.string(),
     multiDiscFolderTemplate: z.string()
   }),
   spectral: z.object({

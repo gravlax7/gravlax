@@ -155,6 +155,9 @@ export function validate(cfg: Config): ValidationIssue[] {
   if (cfg.naming.trackFileTemplate === '') {
     add('naming', 'trackFileTemplate', 'track file template is required')
   }
+  if (cfg.naming.useVariousArtistsTrackFileTemplate && cfg.naming.variousArtistsTrackFileTemplate === '') {
+    add('naming', 'variousArtistsTrackFileTemplate', 'various artists track file template is required')
+  }
   if (cfg.naming.multiDiscFolderTemplate === '') {
     add('naming', 'multiDiscFolderTemplate', 'multi-disc folder template is required')
   }
@@ -163,6 +166,11 @@ export function validate(cfg: Config): ValidationIssue[] {
   }
   for (const message of validateTrackFileTemplate(cfg.naming.trackFileTemplate)) {
     add('naming', 'trackFileTemplate', message)
+  }
+  if (cfg.naming.useVariousArtistsTrackFileTemplate) {
+    for (const message of validateTrackFileTemplate(cfg.naming.variousArtistsTrackFileTemplate)) {
+      add('naming', 'variousArtistsTrackFileTemplate', message)
+    }
   }
   for (const message of validateMultiDiscFolderTemplate(cfg.naming.multiDiscFolderTemplate)) {
     add('naming', 'multiDiscFolderTemplate', message)

@@ -148,6 +148,8 @@ export interface NamingConfig {
   albumDescriptionTemplateId: string
   releaseFolderTemplate: string
   trackFileTemplate: string
+  useVariousArtistsTrackFileTemplate: boolean
+  variousArtistsTrackFileTemplate: string
   multiDiscFolderTemplate: string
 }
 

@@ -92,6 +92,8 @@ function setup() {
           albumDescriptionTemplateId: 'x',
           releaseFolderTemplate: '{artists} - {title} ({year}) [{source} {format}]',
           trackFileTemplate: '{trackNumber}. {title}',
+          useVariousArtistsTrackFileTemplate: true,
+          variousArtistsTrackFileTemplate: '{trackNumber}. {artist} - {title}',
           multiDiscFolderTemplate: 'Disc {discNumber}'
         }
       }) as Config,

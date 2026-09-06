@@ -1,7 +1,7 @@
 import { For, Index, Show, createMemo } from 'solid-js'
 import type { Artist, Track, UploadFlowStateJSON } from '@shared/types'
 import type { Config } from '@shared/types/config'
-import { buildFilesRenamePlan } from '@shared/upload/naming'
+import { buildFilesRenamePlan, trackFileTemplateFor } from '@shared/upload/naming'
 import {
   FIELD_ARTISTS,
   FIELD_ORDER,
@@ -483,7 +483,7 @@ export function TagsStep(props: {
             disabled={busy() || locked()}
             onChange={(value) => void window.gravlax.upload.setRenameTrackFiles(value)}
           />
-          <span><strong>Rename FLAC tracks</strong><small>{props.config.naming.trackFileTemplate}</small></span>
+          <span><strong>Rename FLAC tracks</strong><small>{trackFileTemplateFor(props.config.naming, props.state.tags.proposed ?? {})}</small></span>
         </label>
 
         <Show when={

@@ -62,6 +62,8 @@ function cfgWithRedacted(tracker: TrackerConfig): Config {
       albumDescriptionTemplateId: 'peachfuzz',
       releaseFolderTemplate: '{artists} - {title}',
       trackFileTemplate: '{trackNumber}. {title}',
+      useVariousArtistsTrackFileTemplate: true,
+      variousArtistsTrackFileTemplate: '{trackNumber}. {artist} - {title}',
       multiDiscFolderTemplate: 'Disc {discNumber}'
     },
     spectral: {

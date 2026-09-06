@@ -64,6 +64,8 @@ function defaultConfig(): Config {
       albumDescriptionTemplateId: 'peachfuzz',
       releaseFolderTemplate: '{artists} - {title} ({year}) [{source} {format}]',
       trackFileTemplate: '{trackNumber}. {title}',
+      useVariousArtistsTrackFileTemplate: true,
+      variousArtistsTrackFileTemplate: '{trackNumber}. {artist} - {title}',
       multiDiscFolderTemplate: 'Disc {discNumber}'
     },
     spectral: {
@@ -290,10 +292,21 @@ describe('buildSalmonImportPlan — naming templates', () => {
 
   it('imports rewritten templates as approximate rows', () => {
     const result = plan({
-      upload: { formatting: { file_template: '{tracknumber}. {artist} - {title}' } }
+      upload: { formatting: { file_template: '{tracknumber} - {artist} - {title}' } }
+    })
+    const template = row(result, 'naming.variousArtistsTrackFileTemplate')!
+    expect(template.value).toBe('{trackNumber} - {artist} - {title}')
+    expect(template.kind).toBe('approximate')
+    expect(template.defaultSelected).toBe(true)
+    expect(template.note).toBe('Template fields renamed to match Gravlax.')
+  })
+
+  it('imports the single-artist file template onto trackFileTemplate', () => {
+    const result = plan({
+      upload: { formatting: { one_album_artist_file_template: '{tracknumber} {title}' } }
     })
     const template = row(result, 'naming.trackFileTemplate')!
-    expect(template.value).toBe('{trackNumber}. {artist} - {title}')
+    expect(template.value).toBe('{trackNumber} {title}')
     expect(template.kind).toBe('approximate')
     expect(template.defaultSelected).toBe(true)
     expect(template.note).toBe('Template fields renamed to match Gravlax.')

@@ -171,6 +171,8 @@ function configInput(): Config {
       albumDescriptionTemplateId: 'peachfuzz',
       releaseFolderTemplate: '{title}',
       trackFileTemplate: '{title}',
+      useVariousArtistsTrackFileTemplate: true,
+      variousArtistsTrackFileTemplate: '{artist} - {title}',
       multiDiscFolderTemplate: '{discNumber}'
     },
     spectral: {

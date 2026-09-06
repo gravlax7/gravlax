@@ -224,7 +224,14 @@ export function sections(): SectionMetadata[] {
           options: []
         },
         { name: 'releaseFolderTemplate', label: 'Release folder template', description: 'Fields: {artists}, {albumArtist}, {title}, {year}, {groupYear}, {editionTitle}, {label}, {catNo}, {upc}, {catNoOrUpc}, {source}, {format}, {encoding}, {releaseType}. Use {{ and }} for literal braces, for example {{{label}, {catNoOrUpc}}}.', type: 'string' },
-        { name: 'trackFileTemplate', label: 'Track file template', description: 'Fields: {trackNumber}, {discNumber}, {title}, {artist}', type: 'string' },
+        { name: 'trackFileTemplate', label: 'Track file template', description: 'Used when the album has a single main artist. Fields: {trackNumber}, {discNumber}, {title}, {artist}', type: 'string' },
+        {
+          name: 'useVariousArtistsTrackFileTemplate',
+          label: 'Use various artists track file template',
+          description: 'When the album is credited to Various Artists, name files with a separate template. Turn this off to use the track file template for every album.',
+          type: 'bool'
+        },
+        { name: 'variousArtistsTrackFileTemplate', label: 'Various artists track file template', description: 'Used when the album is credited to Various Artists. Fields: {trackNumber}, {discNumber}, {title}, {artist}', type: 'string' },
         { name: 'multiDiscFolderTemplate', label: 'Multi-disc folder template', description: 'Fields: {discNumber}, {discTotal}', type: 'string' }
       ]
     },

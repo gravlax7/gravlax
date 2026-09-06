@@ -199,6 +199,12 @@ export function normalizeNaming(raw: unknown, base: Config['naming']): Config['n
   if (typeof obj.trackFileTemplate === 'string') {
     next.trackFileTemplate = obj.trackFileTemplate
   }
+  if (typeof obj.useVariousArtistsTrackFileTemplate === 'boolean') {
+    next.useVariousArtistsTrackFileTemplate = obj.useVariousArtistsTrackFileTemplate
+  }
+  if (typeof obj.variousArtistsTrackFileTemplate === 'string') {
+    next.variousArtistsTrackFileTemplate = obj.variousArtistsTrackFileTemplate
+  }
   if (typeof obj.multiDiscFolderTemplate === 'string') {
     next.multiDiscFolderTemplate = obj.multiDiscFolderTemplate
   }

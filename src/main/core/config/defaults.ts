@@ -61,6 +61,8 @@ export function defaultConfig(): Config {
       albumDescriptionTemplateId: 'peachfuzz',
       releaseFolderTemplate: '{artists} - {title} ({year}) [{source} {format}]',
       trackFileTemplate: '{trackNumber}. {title}',
+      useVariousArtistsTrackFileTemplate: true,
+      variousArtistsTrackFileTemplate: '{trackNumber}. {artist} - {title}',
       multiDiscFolderTemplate: 'CD {discNumber}'
     },
     spectral: {

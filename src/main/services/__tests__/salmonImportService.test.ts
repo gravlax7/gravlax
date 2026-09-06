@@ -40,7 +40,7 @@ compress_spectrals = false
 use_upc_as_catno = false
 
 [upload.formatting]
-file_template = "{tracknumber}. {artist} - {title}"
+file_template = "{tracknumber} - {artist} - {title}"
 `
 
 // pass is `rclone obscure seedbox-secret`
@@ -103,7 +103,7 @@ describe('readSalmonImportSources', () => {
       'transfer.port': 2222,
       'transfer.remotePath': '/home/uploader/data',
       'workflow.useUpcAsCatNo': false,
-      'naming.trackFileTemplate': '{trackNumber}. {artist} - {title}'
+      'naming.variousArtistsTrackFileTemplate': '{trackNumber} - {artist} - {title}'
     })
     // The obscured rclone password comes back as plaintext.
     expect(values['transfer.password']).toBe('seedbox-secret')

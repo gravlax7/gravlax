@@ -107,6 +107,24 @@ export const validateTrackFileTemplate = (template: string): string[] => validat
 export const validateMultiDiscFolderTemplate = (template: string): string[] => validateNamingTemplate(template, DISC_KEYS)
 export const validateReleaseFolderTemplate = (template: string): string[] => validateNamingTemplate(template, FOLDER_KEYS)
 
+export function isVariousArtistsRelease(release: Release): boolean {
+  if (isVariousArtistsName(release.albumArtist ?? '')) return true
+  const albumMains = mainArtistNames(release.artists)
+  if (albumMains.length >= 4) return true
+  if (albumMains.some((name) => isVariousArtistsName(name))) return true
+  if (albumMains.length > 0) return false
+  const tracks = release.tracks ?? []
+  if (tracks.length < 2) return false
+  const first = mainArtistKey(tracks[0]?.artists)
+  return tracks.slice(1).some((track) => mainArtistKey(track.artists) !== first)
+}
+
+export function trackFileTemplateFor(naming: NamingConfig, release: Release): string {
+  return naming.useVariousArtistsTrackFileTemplate && isVariousArtistsRelease(release)
+    ? naming.variousArtistsTrackFileTemplate
+    : naming.trackFileTemplate
+}
+
 export type FilesRenamePlanInput = {
   release: Release
   files: FilesSnapshot
@@ -123,8 +141,9 @@ export function buildFilesRenamePlan(input: FilesRenamePlanInput): FilesRenamePl
   const writeTags = input.writeTags ?? true
   const renameTrackFiles = files.apply.renameTrackFiles !== false
   const warnings: string[] = []
+  const trackTemplate = trackFileTemplateFor(naming, release)
   const errors = [
-    ...(renameTrackFiles ? validateNamingTemplate(naming.trackFileTemplate, TRACK_KEYS) : []),
+    ...(renameTrackFiles ? validateNamingTemplate(trackTemplate, TRACK_KEYS) : []),
     ...(renameTrackFiles ? validateNamingTemplate(naming.multiDiscFolderTemplate, DISC_KEYS) : []),
     ...(files.apply.renameReleaseFolder
       ? validateNamingTemplate(naming.releaseFolderTemplate, FOLDER_KEYS)
@@ -138,7 +157,7 @@ export function buildFilesRenamePlan(input: FilesRenamePlanInput): FilesRenamePl
   const proposedTracks = files.apply.files.map((file, index): PlannedFileName => {
     const track = release.tracks?.[index] ?? {}
     const manual = renameTrackFiles ? file.filenameOverride : undefined
-    const generated = renderTemplate(naming.trackFileTemplate, {
+    const generated = renderTemplate(trackTemplate, {
       trackNumber: padNumber(track.trackNumber, index + 1),
       discNumber: padNumber(track.discNumber, 1),
       title: track.title ?? '',
@@ -352,8 +371,25 @@ function hasUsefulText(value: string): boolean {
   return value.replace(/[\s,;:/_-]+/g, '').length > 0
 }
 
+function mainArtistNames(artists?: Release['artists']): string[] {
+  return [...new Set((artists ?? [])
+    .filter((artist) => !artist.role || artist.role === 'main')
+    .map((artist) => artist.name?.trim())
+    .filter((name): name is string => Boolean(name)))]
+    .sort((a, b) => a.localeCompare(b))
+}
+
+function mainArtistKey(artists?: Release['artists']): string {
+  return mainArtistNames(artists).join('\0')
+}
+
+function isVariousArtistsName(name: string): boolean {
+  const key = name.trim().replace(/\s+/g, ' ').toLowerCase()
+  return key === 'various artists' || key === 'various'
+}
+
 function mainArtists(artists?: Release['artists']): string {
-  const names = [...new Set((artists ?? []).filter((artist) => !artist.role || artist.role === 'main').map((artist) => artist.name?.trim()).filter((name): name is string => Boolean(name)))].sort((a, b) => a.localeCompare(b))
+  const names = mainArtistNames(artists)
   if (names.length > 4) return 'Various'
   if (names.length <= 2 && !names.some((name) => name.includes('&'))) return names.join(' & ')
   return names.join(', ')

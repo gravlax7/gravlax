@@ -542,16 +542,16 @@ function mapUpload(builder: PlanBuilder, toml: Record<string, unknown>): void {
   })
   addTemplateRow(builder, {
     sourceKey: 'upload.formatting.file_template',
-    field: 'trackFileTemplate',
+    field: 'variousArtistsTrackFileTemplate',
     template: str(formatting, 'file_template'),
     validate: validateTrackFileTemplate
   })
-  if (str(formatting, 'one_album_artist_file_template') !== undefined) {
-    builder.skip(
-      'upload.formatting.one_album_artist_file_template',
-      'Gravlax uses one track template regardless of how many album artists there are.'
-    )
-  }
+  addTemplateRow(builder, {
+    sourceKey: 'upload.formatting.one_album_artist_file_template',
+    field: 'trackFileTemplate',
+    template: str(formatting, 'one_album_artist_file_template'),
+    validate: validateTrackFileTemplate
+  })
 
   for (const key of ['search', 'description', 'web_interface', 'requests', 'ai_review'] as const) {
     if (table(upload, key)) {
@@ -564,7 +564,7 @@ function addTemplateRow(
   builder: PlanBuilder,
   spec: {
     sourceKey: string
-    field: 'releaseFolderTemplate' | 'trackFileTemplate'
+    field: 'releaseFolderTemplate' | 'trackFileTemplate' | 'variousArtistsTrackFileTemplate'
     template: string | undefined
     validate: (template: string) => string[]
   }

@@ -6,12 +6,37 @@ import {
   validateReleaseFolderTemplate,
   validateTrackFileTemplate
 } from '../naming'
+import type { Release } from '../../types/upload'
 
 const naming = {
   albumDescriptionTemplateId: 'x',
   releaseFolderTemplate: '{artists} - {title} ({year}) [{source} {format}]',
   trackFileTemplate: '{trackNumber}. {title}',
+  useVariousArtistsTrackFileTemplate: true,
+  variousArtistsTrackFileTemplate: '{trackNumber}. {artist} - {title}',
   multiDiscFolderTemplate: 'Disc {discNumber}'
+}
+
+function buildTrackPlan(release: Release, extra?: Partial<typeof naming>) {
+  const tracks = release.tracks ?? []
+  return buildFilesRenamePlan({
+    release,
+    files: {
+      original: {},
+      apply: {
+        phase: 'idle',
+        onDiskModified: false,
+        stripEmbeddedCoverArt: true,
+        renameReleaseFolder: false,
+        renameTrackFiles: true,
+        currentFolderName: 'old',
+        files: tracks.map((_, index) => ({ id: String(index), currentPath: `${index}.flac` }))
+      }
+    },
+    naming: { ...naming, ...extra },
+    sourceMedia: 'WEB',
+    encoding: 'Lossless'
+  })
 }
 
 function buildFolderPlan(
@@ -517,6 +542,119 @@ describe('buildFilesRenamePlan', () => {
     )
 
     expect(plan.folderName).toBe(expected)
+    expect(plan.errors).toEqual([])
+  })
+})
+
+describe('various artists track file template', () => {
+  it('includes the track artist when the album has no single main artist', () => {
+    const plan = buildTrackPlan({
+      tracks: [
+        { trackNumber: '1', title: 'One', artists: [{ name: 'A' }] },
+        { trackNumber: '2', title: 'Two', artists: [{ name: 'B' }] }
+      ]
+    })
+    expect(plan.files.map((file) => file.targetFilename)).toEqual([
+      '01. A - One.flac',
+      '02. B - Two.flac'
+    ])
+    expect(plan.errors).toEqual([])
+  })
+
+  it('includes the track artist when the album is credited to Various Artists', () => {
+    const plan = buildTrackPlan({
+      artists: [{ name: 'Various Artists', role: 'main' }],
+      albumArtist: 'Various Artists',
+      tracks: [
+        { trackNumber: '1', title: 'One', artists: [{ name: 'A' }] },
+        { trackNumber: '2', title: 'Two', artists: [{ name: 'B' }] }
+      ]
+    })
+    expect(plan.files.map((file) => file.targetFilename)).toEqual([
+      '01. A - One.flac',
+      '02. B - Two.flac'
+    ])
+    expect(plan.errors).toEqual([])
+  })
+
+  it('includes the track artist when the album has four main artists', () => {
+    const plan = buildTrackPlan({
+      artists: [
+        { name: 'A', role: 'main' },
+        { name: 'B', role: 'main' },
+        { name: 'C', role: 'main' },
+        { name: 'D', role: 'main' }
+      ],
+      tracks: [
+        { trackNumber: '1', title: 'One', artists: [{ name: 'A' }] },
+        { trackNumber: '2', title: 'Two', artists: [{ name: 'B' }] }
+      ]
+    })
+    expect(plan.files.map((file) => file.targetFilename)).toEqual([
+      '01. A - One.flac',
+      '02. B - Two.flac'
+    ])
+    expect(plan.errors).toEqual([])
+  })
+
+  it('keeps the track file template when the album has one main artist', () => {
+    const plan = buildTrackPlan({
+      artists: [{ name: 'Arno', role: 'main' }, { name: 'Jane Birkin', role: 'guest' }],
+      albumArtist: 'Arno',
+      tracks: [
+        { trackNumber: '1', title: 'One', artists: [{ name: 'Arno' }, { name: 'Jane Birkin' }] },
+        { trackNumber: '2', title: 'Two', artists: [{ name: 'Arno' }, { name: 'Stephan Eicher' }] }
+      ]
+    })
+    expect(plan.files.map((file) => file.targetFilename)).toEqual([
+      '01. One.flac',
+      '02. Two.flac'
+    ])
+    expect(plan.errors).toEqual([])
+  })
+
+  it('keeps the single-artist template when every track has the same main artists', () => {
+    const plan = buildTrackPlan({
+      tracks: [
+        { trackNumber: '1', title: 'One', artists: [{ name: 'A' }] },
+        { trackNumber: '2', title: 'Two', artists: [{ name: 'A' }] }
+      ]
+    })
+    expect(plan.files.map((file) => file.targetFilename)).toEqual([
+      '01. One.flac',
+      '02. Two.flac'
+    ])
+    expect(plan.errors).toEqual([])
+  })
+
+  it('does not switch when only guest artists differ', () => {
+    const plan = buildTrackPlan({
+      tracks: [
+        { trackNumber: '1', title: 'One', artists: [{ name: 'A' }, { name: 'X', role: 'guest' }] },
+        { trackNumber: '2', title: 'Two', artists: [{ name: 'A' }, { name: 'Y', role: 'guest' }] }
+      ]
+    })
+    expect(plan.files.map((file) => file.targetFilename)).toEqual([
+      '01. One.flac',
+      '02. Two.flac'
+    ])
+    expect(plan.errors).toEqual([])
+  })
+
+  it('uses the track file template when the various-artists template is off', () => {
+    const plan = buildTrackPlan(
+      {
+        tracks: [
+          { trackNumber: '1', title: 'One', artists: [{ name: 'A' }] },
+          { trackNumber: '2', title: 'Two', artists: [{ name: 'B' }] }
+        ]
+      },
+      { useVariousArtistsTrackFileTemplate: false }
+    )
+    expect(plan.files.map((file) => file.targetFilename)).toEqual([
+      '01. One.flac',
+      '02. Two.flac'
+    ])
     expect(plan.errors).toEqual([])
   })
 })
