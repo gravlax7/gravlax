@@ -5,6 +5,7 @@ import type {
   UploadFlowStateJSON
 } from '../types/upload'
 import { pendingSeparatorArtists } from '../tags/editor'
+import { lossyMasterMissingSpectral } from './lossyReport'
 import {
   WORKFLOW_STEPS,
   evaluateStepNavigation,
@@ -40,8 +41,11 @@ export function stepHasError(index: number, state: UploadFlowStateJSON): boolean
       return !state.fileChecks.structure.ready ||
         state.fileChecks.integrity.status === 'failed' ||
         taskById(state.background.tasks, 'file-checks')?.status === 'failed'
-    case 'spectrals':
-      return taskById(state.background.tasks, 'spectrals')?.status === 'failed'
+    case 'spectrals': {
+      const spectrals = taskById(state.background.tasks, 'spectrals')
+      return spectrals?.status === 'failed' ||
+        (spectrals?.status === 'succeeded' && lossyMasterMissingSpectral(state.draft))
+    }
     case 'metadata':
       return taskById(state.background.tasks, 'metadata')?.status === 'failed'
     case 'tags':

@@ -19,10 +19,10 @@ import {
 import { buildTrackerUploadData, collectLogFiles } from '@main/core/tools/upload/payload'
 import {
   SOURCE_TORRENT_PLACEHOLDER,
-  buildLossyMasterComment,
   substituteSourceTorrentUrl,
   wrapTranscodeLossyComment
 } from '@main/core/tools/upload/descriptions'
+import { buildLossyMasterComment } from '@shared/upload/lossyReport'
 
 export function submissionId(trackerId: UploadTrackerId, formatId: string): string {
   return `${trackerId}:${formatId}`

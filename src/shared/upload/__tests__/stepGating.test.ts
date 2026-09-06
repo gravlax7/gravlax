@@ -9,6 +9,8 @@ import {
   stepNodeStatus,
   UPLOAD_STEPS
 } from '../stepGating'
+import { LOSSY_MASTER_SPECTRAL_REQUIRED } from '../lossyReport'
+import { evaluateStepNavigation } from '../workflow'
 
 function baseState(overrides: Partial<UploadFlowStateJSON> = {}): UploadFlowStateJSON {
   return {
@@ -259,6 +261,51 @@ describe('stepHasError', () => {
           }
         }
       }))
+    ).toBe(false)
+  })
+
+  it('marks spectrals when a lossy master has none selected', () => {
+    const succeeded = {
+      id: 'spectrals' as const,
+      step: 'spectrals' as const,
+      title: 'Spectrals',
+      status: 'succeeded' as const,
+      detail: 'ok',
+      progressCurrent: 1,
+      progressTotal: 1,
+      progressLabel: ''
+    }
+    const draft = {
+      sourcePath: '/a',
+      workspacePath: '/w',
+      sourceMedia: 'WEB' as const,
+      lossyMaster: true,
+      lossyComment: '',
+      spectralIds: [] as number[],
+      spectralIdsAuto: false
+    }
+    const blocked = baseState({
+      currentStep: 1,
+      draft,
+      background: { sourcePath: '/a', sourceMedia: 'WEB', tasks: [succeeded] }
+    })
+    expect(stepHasError(1, blocked)).toBe(true)
+    expect(highestReachableStep(blocked)).toBe(1)
+    expect(canNavigateToStep(2, blocked)).toBe(false)
+    expect(evaluateStepNavigation(blocked, 2)).toEqual({
+      ok: false,
+      error: LOSSY_MASTER_SPECTRAL_REQUIRED
+    })
+    expect(canNavigateToStep(0, blocked)).toBe(true)
+    expect(
+      stepHasError(
+        1,
+        baseState({
+          currentStep: 1,
+          draft: { ...draft, spectralIds: [1] },
+          background: { sourcePath: '/a', sourceMedia: 'WEB', tasks: [succeeded] }
+        })
+      )
     ).toBe(false)
   })
 })

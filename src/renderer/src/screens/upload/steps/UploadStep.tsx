@@ -30,12 +30,18 @@ import { ArtistsEditor, type ArtistEditAction } from '../ArtistsEditor'
 import { spectralUrl } from '../pathUtil'
 import { GroupSuggestions } from '../GroupSuggestions'
 import { createBbcodePreviewBatcher } from '@shared/upload/bbcodePreviewBatcher'
+import { createBbcodePreview } from '@shared/upload/bbcodePreview'
+import {
+  addLossySource,
+  buildLossyMasterComment,
+  validateLossyMasterReport
+} from '@shared/upload/lossyReport'
 import { anySelectedTrackerHasGroupId } from '@shared/upload/groupIds'
 import {
   artistRoleToImportance,
   importanceToArtistRole
 } from '@shared/upload/artists'
-import { spectralDescriptionPreview } from '@shared/upload/spectralDescription'
+import { SPECTRAL_PLACEHOLDER, spectralDescriptionPreview } from '@shared/upload/spectralDescription'
 import {
   effectiveReleaseType,
   isOrpheusSplitEligible,
@@ -119,6 +125,7 @@ function uploadBlockedReason(
   const localError =
     validatePreparedUploadFormats(state) ??
     validateUploadReport(state.upload) ??
+    validateLossyMasterReport(state.draft) ??
     validateUploadTargets(
       state.upload,
       config,
@@ -133,6 +140,7 @@ function BbcodeDescriptionField(props: {
   label: string
   value: string
   previewValue?: string
+  previewReady: boolean
   rows: number
   badge?: 'groupId'
   onChange: (value: string) => void
@@ -141,58 +149,18 @@ function BbcodeDescriptionField(props: {
   const [html, setHtml] = createSignal('')
   const [loading, setLoading] = createSignal(false)
   const [previewError, setPreviewError] = createSignal<string | null>(null)
-  let lastSource: string | null = null
-  let lastHtml = ''
-  let requestGeneration = 0
-  let disposed = false
   const previewSource = () => props.previewValue ?? props.value
-
-  const requestPreview = (source: string, force = false): void => {
-    if (!force && lastSource === source) {
-      setHtml(lastHtml)
-      setPreviewError(null)
-      setLoading(false)
-      return
-    }
-
-    const generation = ++requestGeneration
-    if (source === '') {
-      lastSource = source
-      lastHtml = ''
-      setHtml('')
-      setPreviewError(null)
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    setPreviewError(null)
-    void requestBbcodePreview(source).then(
-      (nextHtml) => {
-        if (disposed || generation !== requestGeneration) return
-        lastSource = source
-        lastHtml = nextHtml
-        setHtml(nextHtml)
-        setLoading(false)
-      },
-      (error: unknown) => {
-        if (disposed || generation !== requestGeneration) return
-        const message = error instanceof Error ? error.message.trim() : String(error).trim()
-        setPreviewError(message || 'Could not load the BBCode preview.')
-        setLoading(false)
-      }
-    )
-  }
+  const preview = createBbcodePreview(requestBbcodePreview, (state) => {
+    setHtml(state.html)
+    setLoading(state.loading)
+    setPreviewError(state.error)
+  })
 
   createEffect(() => {
-    const source = previewSource()
-    if (!editing()) requestPreview(source)
+    preview.update(previewSource(), editing(), props.previewReady)
   })
 
-  onCleanup(() => {
-    disposed = true
-    requestGeneration += 1
-  })
+  onCleanup(() => preview.dispose())
 
   return (
     <div class="upload-report-field upload-report-field-full">
@@ -225,7 +193,7 @@ function BbcodeDescriptionField(props: {
                 <Callout tone="warning">
                   <div class="upload-report-bbcode-error">
                     <span>{previewError()}</span>
-                    <Button variant="secondary" onClick={() => requestPreview(previewSource(), true)}>
+                    <Button variant="secondary" onClick={() => preview.retry(previewSource())}>
                       Retry
                     </Button>
                   </div>
@@ -239,6 +207,7 @@ function BbcodeDescriptionField(props: {
       >
         <textarea
           class="mono upload-report-textarea"
+          aria-label={props.label}
           rows={props.rows}
           value={props.value}
           onInput={(e) => props.onChange(e.currentTarget.value)}
@@ -481,6 +450,11 @@ export function UploadStep(props: {
     () => uploadBlockedReason(props.state, props.config, props.health, props.healthLoading)
   )
   const submissions = createMemo(() => upload().submissions ?? [])
+  const previewReady = () => (upload().formats ?? []).length > 0
+  const lossyComment = () => props.state.draft.lossyComment
+  const lossySourceSuggestion = () =>
+    props.state.draft.sourceMedia === 'WEB' ? props.state.metadata.selected?.url?.trim() ?? '' : ''
+  const setLossyComment = (comment: string) => void window.gravlax.upload.setLossyComment(comment)
   const showOrpheusSplit = createMemo(() => isOrpheusSplitEligible(upload()))
   const completed = createMemo(() => submissions().filter((s) => s.status === 'done'))
   const isRetry = createMemo(() => completed().length > 0 && upload().phase !== 'done')
@@ -715,6 +689,7 @@ export function UploadStep(props: {
 
           <BbcodeDescriptionField
             label="Album description"
+            previewReady={previewReady()}
             value={upload().albumDesc ?? ''}
             rows={10}
             badge={anySelectedTrackerHasGroupId(upload()) ? 'groupId' : undefined}
@@ -722,6 +697,55 @@ export function UploadStep(props: {
           />
         </div>
       </Card>
+
+      <Show when={props.state.draft.lossyMaster}>
+        <Card class="upload-report-card">
+          <div class="upload-report-heading">Lossy master report</div>
+          <div class="upload-report-field-note">
+            This comment is sent with the approval report only. Spectrals you host are included
+            in the report.
+          </div>
+          <div class="upload-report-field-note">
+            {props.state.draft.sourceMedia === 'CD'
+              ? 'Add proof of purchase or borrowing, such as a receipt or a link to supporting evidence.'
+              : 'Add where you obtained these files, ideally with a link to the release.'}
+          </div>
+          <Show when={lossySourceSuggestion()}>
+            {(url) => (
+              <Callout tone="warning">
+                <div class="upload-lossy-source">
+                  <span>
+                    Use this link only if it is where you obtained these files. If you used a
+                    different source, enter that instead.
+                  </span>
+                  <span class="mono upload-lossy-source-url">{url()}</span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={lossyComment().includes(url())}
+                    onClick={() => setLossyComment(addLossySource(lossyComment(), url()))}
+                  >
+                    Add link as source
+                  </Button>
+                </div>
+              </Callout>
+            )}
+          </Show>
+          <BbcodeDescriptionField
+            label="Report comment"
+            previewReady={previewReady()}
+            value={lossyComment()}
+            previewValue={buildLossyMasterComment({
+              comment: lossyComment(),
+              spectralBbcode: props.state.draft.spectralIds.length > 0
+                ? upload().spectralBbcode || SPECTRAL_PLACEHOLDER
+                : ''
+            })}
+            rows={5}
+            onChange={setLossyComment}
+          />
+        </Card>
+      </Show>
 
       <div class="upload-report-formats-header">
         <div class="upload-report-heading">Uploads</div>
@@ -742,12 +766,6 @@ export function UploadStep(props: {
                 <strong>{format().label}</strong>
                 <span class="mono upload-report-path">{format().folderPath}</span>
               </div>
-              <Show when={props.state.draft.lossyMaster}>
-                <Callout tone="warning">
-                  <Icon name="alert-triangle" size={16} />
-                  <span>This upload will be reported as a lossy master.</span>
-                </Callout>
-              </Show>
               <div class="upload-report-grid upload-report-format-grid">
                 <div class="upload-report-field">
                   <span>Format</span>
@@ -773,6 +791,7 @@ export function UploadStep(props: {
                 </Show>
                 <BbcodeDescriptionField
                   label="Release description"
+                  previewReady={previewReady()}
                   value={format().releaseDesc}
                   previewValue={spectralDescriptionPreview(
                     format().releaseDesc,

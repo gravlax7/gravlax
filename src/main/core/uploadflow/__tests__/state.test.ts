@@ -172,6 +172,17 @@ describe('uploadflow', () => {
     expect(lossyComment(restored)).toBe('Soft clipped')
   })
 
+  it('restores a comment without inserting metadata source links', () => {
+    let state = setLossyComment(
+      setSourceMedia(selectSourcePath(newState(), '/tmp/release'), 'WEB'),
+      'Receipt and source details'
+    )
+    state = restoreState('/tmp/workspace/release', snapshot(state))
+    state = setMetadataSelection(state, { provider: 'bandcamp', url: 'https://example.com/album' })
+    state = setCurrentStep(setSourceMedia(state, 'CD'), 5)
+    expect(lossyComment(state)).toBe('Receipt and source details')
+  })
+
   it('setDefaultSpectralIds pre-selects until the user picks for themselves', () => {
     let state = selectSourcePath(newState(), '/tmp/release')
     expect(spectralIds(state)).toEqual([])

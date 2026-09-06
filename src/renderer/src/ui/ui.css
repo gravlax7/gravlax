@@ -1478,26 +1478,6 @@ button.toggle.toggle-on .toggle-thumb {
   font-weight: var(--weight-medium);
 }
 
-.spectrals-lossy-comment {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-width: 40rem;
-}
-
-.spectrals-lossy-comment-hint {
-  color: var(--fg-muted);
-  font-size: var(--text-sm);
-}
-
-.spectrals-lossy-comment textarea {
-  width: 100%;
-  margin: 0;
-  resize: vertical;
-  min-height: 4.5rem;
-  line-height: 1.4;
-}
-
 .metadata-provider {
   display: flex;
   flex-direction: column;
@@ -2359,6 +2339,18 @@ button.toggle.toggle-on .toggle-thumb {
 
 .upload-beta-notice > span {
   flex: 1 1 20rem;
+}
+
+.upload-lossy-source {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.upload-lossy-source-url {
+  overflow-wrap: anywhere;
 }
 
 .upload-report-card {

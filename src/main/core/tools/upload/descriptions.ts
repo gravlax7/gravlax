@@ -40,7 +40,6 @@ export interface ReleaseDescInput {
   hybrid?: boolean
   releaseDate?: string
   lossyMaster?: boolean
-  lossyComment?: string
   sourceUrl?: string
   metadataUrls?: string[]
   tracks?: TrackDescInput[]
@@ -136,19 +135,6 @@ export const SOURCE_TORRENT_PLACEHOLDER = '[i]FLAC torrent URL will be inserted 
 export function substituteSourceTorrentUrl(description: string, url: string): string {
   if (!description.includes(SOURCE_TORRENT_PLACEHOLDER)) return description
   return description.replace(SOURCE_TORRENT_PLACEHOLDER, url)
-}
-
-export interface LossyMasterCommentInput {
-  comment?: string
-  spectralBbcode?: string
-}
-
-/** The body of a lossy master / lossy web approval report. */
-export function buildLossyMasterComment(input: LossyMasterCommentInput): string {
-  let out = (input.comment ?? '').trim()
-  if (out) out += '\n\n'
-  out += input.spectralBbcode ?? ''
-  return out
 }
 
 /**
@@ -298,8 +284,7 @@ export function generateReleaseDescription(input: ReleaseDescInput): string {
   }
 
   if (input.lossyMaster) {
-    const note = (input.lossyComment ?? '').trim() || 'Reported as lossy master.'
-    description += `[u]Lossy Notes:[/u]\n${note}\n\n`
+    description += '[u]Lossy Notes:[/u]\nReported as lossy master.\n\n'
   }
 
   if (input.sourceUrl) {

@@ -1,6 +1,7 @@
 import type { BackgroundTask, StepID, TagsSnapshot, UploadFlowStateJSON } from '../types/upload'
 import { pendingSeparatorArtists } from '../tags/editor'
 import { WORKFLOW_STEPS, type WorkflowStep } from './steps'
+import { LOSSY_MASTER_SPECTRAL_REQUIRED, lossyMasterMissingSpectral } from './lossyReport'
 
 export { WORKFLOW_STEPS, type WorkflowStep } from './steps'
 
@@ -41,8 +42,11 @@ export function highestReachableStep(state: UploadFlowStateJSON): number {
   // nothing about the release and can be retried from its own step.
 
   const spectrals = taskById(state.background.tasks, 'spectrals')
-  if (spectrals?.status === 'succeeded') highest = Math.max(highest, index('metadata'))
   if (spectrals?.status === 'failed') return Math.max(highest, index('spectrals'))
+  if (spectrals?.status === 'succeeded') {
+    if (lossyMasterMissingSpectral(state.draft)) return Math.max(highest, index('spectrals'))
+    highest = Math.max(highest, index('metadata'))
+  }
 
   const metadata = taskById(state.background.tasks, 'metadata')
   if (metadata?.status === 'succeeded' || state.metadata.selected) {
@@ -102,6 +106,14 @@ export function evaluateStepNavigation(
         ? 'Wait for the FLAC integrity check to finish.'
         : 'Repair failed FLAC integrity checks before continuing.'
     }
+  }
+  const metadataStep = workflowStepIndex('metadata') ?? WORKFLOW_STEPS.length
+  if (
+    goingForward &&
+    targetIndex >= metadataStep &&
+    lossyMasterMissingSpectral(state.draft)
+  ) {
+    return { ok: false, error: LOSSY_MASTER_SPECTRAL_REQUIRED }
   }
   const tagsStep = workflowStepIndex('tags') ?? WORKFLOW_STEPS.length
   if (goingForward && state.currentStep < tagsStep && targetIndex >= tagsStep && !state.metadata.selected) {

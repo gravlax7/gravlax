@@ -67,25 +67,6 @@ export function SpectralsStep(props: {
         />
       </div>
 
-      <Show when={props.state.draft.lossyMaster}>
-        <div class="spectrals-lossy-comment">
-          <label class="spectrals-lossy-label" for="lossy-comment">
-            Lossy comment
-          </label>
-          <div class="spectrals-lossy-comment-hint">
-            Optional note for the lossy approval report. Spectrals are included automatically at
-            report time.
-          </div>
-          <textarea
-            id="lossy-comment"
-            rows={3}
-            value={props.state.draft.lossyComment}
-            placeholder="e.g. Sourced from Bandcamp"
-            onInput={(e) => void window.gravlax.upload.setLossyComment(e.currentTarget.value)}
-          />
-        </div>
-      </Show>
-
       <Show when={props.spectrals[0]}>
         <Button
           variant="ghost"
@@ -118,7 +99,9 @@ export function SpectralsStep(props: {
         </div>
         <Show when={selectedIds().length === 0}>
           <Callout tone="warning">
-            No spectrals selected — the release description will not show any.
+            {props.state.draft.lossyMaster
+              ? 'A lossy master report needs at least one spectral. Select the tracks that show the problem.'
+              : 'No spectrals selected — the release description will not show any.'}
           </Callout>
         </Show>
       </Show>

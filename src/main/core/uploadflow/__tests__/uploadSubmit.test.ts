@@ -246,6 +246,34 @@ describe('multi-format submission', () => {
     })
   })
 
+  it.each(['CD', 'WEB'] as const)('reports the %s comment without assuming the metadata URL is the source', async (media) => {
+    await submit({
+      selectedTrackerIds: ['redacted'],
+      formats: [format('source', 'FLAC', '/workspace/Album', 'FLAC', 'Lossless')],
+      media
+    }, {
+      lossyMaster: true,
+      lossyComment: 'Proof and source details',
+      sourceUrl: 'https://example.com/metadata',
+      spectralBbcode: '[hide=Spectrals]x[/hide]\n'
+    })
+    expect(mocks.reportLossyMaster).toHaveBeenCalledWith(
+      1,
+      'Proof and source details\n\n[hide=Spectrals]x[/hide]\n',
+      media,
+      undefined
+    )
+  })
+
+  it('reports an edited source note without spectrals when none are selected', async () => {
+    await submit({
+      selectedTrackerIds: ['redacted'],
+      formats: [format('source', 'FLAC', '/workspace/Album', 'FLAC', 'Lossless')],
+      media: 'WEB'
+    }, { lossyMaster: true, lossyComment: 'Sourced from: https://example.com/release' })
+    expect(mocks.reportLossyMaster.mock.calls[0]?.[1]).toBe('Sourced from: https://example.com/release')
+  })
+
   it('points the transcode lossy report at the source FLAC torrent', async () => {
     const upload: UploadSnapshot = {
       selectedTrackerIds: ['redacted'],

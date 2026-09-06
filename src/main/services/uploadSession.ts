@@ -1,6 +1,7 @@
 import { access, rm } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
+import { validateLossyMasterReport } from '@shared/upload/lossyReport'
 import type { Config } from '@shared/types/config'
 import type {
   MetadataSelection,
@@ -451,6 +452,7 @@ export class UploadSession {
     const error =
       validatePreparedUploadFormats(this.state) ??
       validateUploadReport(this.state.upload) ??
+      validateLossyMasterReport(this.state.draft) ??
       validateUploadTargets(this.state.upload, cfg, pendingTrackerIds)
     if (error) {
       this.apply(failUploadReport(this.state, error))

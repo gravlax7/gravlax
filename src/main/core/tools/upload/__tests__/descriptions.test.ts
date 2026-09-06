@@ -3,7 +3,6 @@ import { listDescriptionTemplateIds } from '@shared/upload/templates'
 import {
   SPECTRAL_PLACEHOLDER,
   SOURCE_TORRENT_PLACEHOLDER,
-  buildLossyMasterComment,
   buildAlbumDescriptionContext,
   formatDuration,
   generateAlbumDescription,
@@ -234,14 +233,13 @@ describe('generateReleaseDescription', () => {
     expect(desc).toContain('[hr]Uploaded with [b]gravlax[/b] v0.1.0')
   })
 
-  it('adds lossy notes when flagged', () => {
+  it('adds only a short lossy notice when flagged', () => {
     const desc = generateReleaseDescription({
       lossyMaster: true,
-      lossyComment: 'Soft clipped',
       version: '0.1.0'
     })
     expect(desc).toContain('[u]Lossy Notes:[/u]')
-    expect(desc).toContain('Soft clipped')
+    expect(desc).toContain('Reported as lossy master.')
     expect(desc).toContain('[hr]Uploaded with [b]gravlax[/b] v0.1.0')
   })
 })
@@ -332,24 +330,6 @@ describe('substituteSourceTorrentUrl', () => {
   it('leaves a description the user stripped the placeholder from alone', () => {
     const edited = '[b]Source:[/b] https://example/manual\n'
     expect(substituteSourceTorrentUrl(edited, 'https://red/torrents.php?torrentid=7')).toBe(edited)
-  })
-})
-
-describe('buildLossyMasterComment', () => {
-  it('joins the user comment and spectrals', () => {
-    expect(
-      buildLossyMasterComment({
-        comment: 'Sourced from Bandcamp',
-        spectralBbcode: '[hide=Spectrals]x[/hide]\n'
-      })
-    ).toBe('Sourced from Bandcamp\n\n[hide=Spectrals]x[/hide]\n')
-  })
-
-  it('omits empty sections', () => {
-    expect(buildLossyMasterComment({ spectralBbcode: '[hide=Spectrals]x[/hide]\n' })).toBe(
-      '[hide=Spectrals]x[/hide]\n'
-    )
-    expect(buildLossyMasterComment({})).toBe('')
   })
 })
 

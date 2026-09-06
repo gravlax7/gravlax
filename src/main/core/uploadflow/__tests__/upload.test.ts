@@ -20,7 +20,7 @@ import {
 import { SPECTRAL_PLACEHOLDER, SOURCE_TORRENT_PLACEHOLDER } from '@main/core/tools/upload/descriptions'
 import type { UploadFormatPayload, UploadSubmission } from '@shared/types'
 import { emptyGroupSearch } from '../groupSearch'
-import { newState } from '../state'
+import { newState, setLossyComment } from '../state'
 import { fingerprintUploadInputs } from '../uploadReport'
 import { JPEG, TEST_VERSION, cfgWithCoverHost, cfgWithTrackers } from './uploadTestFixtures'
 
@@ -295,6 +295,33 @@ describe('resumeSubmit', () => {
     expect(next.upload.selectedTrackerIds).toEqual(['redacted', 'orpheus'])
     expect(next.upload.scene).toBe(true)
     expect(next.upload.orpheusSplit).toBe(true)
+  })
+
+  it('keeps report comments out of public descriptions and preserves upload edits when comments change', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-lossy-report-'))
+    const cfg = cfgWithTrackers(['redacted'])
+    let state = newState()
+    state.draft.workspacePath = dir
+    state.draft.sourceMedia = 'CD'
+    state.draft.lossyMaster = true
+    state = setLossyComment(state, 'Proof of borrowing: private note')
+    state = await ensureUploadReport(state, cfg, TEST_VERSION)
+    expect(state.upload.formats?.[0]?.releaseDesc).toContain('Reported as lossy master.')
+    expect(state.upload.formats?.[0]?.releaseDesc).not.toContain('private note')
+    const formats = state.upload.formats!.map((format) => ({ ...format, releaseDesc: 'My description' }))
+    state = updateUploadReport(state, { albumDesc: 'My album description', formats })
+    const fingerprint = fingerprintUploadInputs(state, cfg, TEST_VERSION)
+    state = setLossyComment(state, 'Different proof')
+    expect(fingerprintUploadInputs(state, cfg, TEST_VERSION)).toBe(fingerprint)
+    state = await ensureUploadReport(state, cfg, TEST_VERSION)
+    expect(state.upload.albumDesc).toBe('My album description')
+    expect(state.upload.formats?.[0]?.releaseDesc).toBe('My description')
+    expect(state.draft.lossyComment).toBe('Different proof')
+
+    state.tags.proposed = { title: 'Changed metadata' }
+    state = await ensureUploadReport(state, cfg, TEST_VERSION)
+    expect(state.draft.lossyComment).toBe('Different proof')
+    expect(state.upload.formats?.[0]?.releaseDesc).not.toContain('Different proof')
   })
 
   it('keeps a title override when only the transcode fingerprint changes', async () => {

@@ -63,7 +63,6 @@ export function fingerprintUploadInputs(s: State, cfg: Config, version: string):
     filePlan: s.files.apply.appliedHash ?? '',
     media: s.draft.sourceMedia,
     lossy: s.draft.lossyMaster,
-    lossyComment: s.draft.lossyComment,
     albumDescriptionTemplateId: cfg.naming.albumDescriptionTemplateId,
     useUpcAsCatNo: cfg.workflow.useUpcAsCatNo,
     proposed: {
@@ -120,7 +119,6 @@ export async function buildUploadSnapshot(
     sampleRate,
     hybrid,
     lossyMaster: s.draft.lossyMaster,
-    lossyComment: s.draft.lossyComment,
     sourceUrl,
     metadataUrls: proposed.urls,
     tracks: hybrid ? trackInputs : undefined,

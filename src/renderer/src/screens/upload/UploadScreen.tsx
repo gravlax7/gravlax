@@ -28,6 +28,7 @@ import {
   type ArtistEditRow
 } from '@shared/tags/editor'
 import { invalidReleaseDateFields } from '@shared/tags/dates'
+import { lossyMasterMissingSpectral } from '@shared/upload/lossyReport'
 import {
   UPLOAD_STEPS,
   canNavigateToStep,
@@ -590,6 +591,7 @@ export function UploadScreen(props: {
               loading={stepId() === 'tags' && (props.state.files.apply.phase === 'applying' || props.state.files.apply.phase === 'restoring')}
               disabled={
                 (stepId() === 'seed' && props.state.seed.phase !== 'done') ||
+                (stepId() === 'spectrals' && lossyMasterMissingSpectral(props.state.draft)) ||
                 (stepId() === 'metadata' && !props.state.metadata.selected) ||
                 (stepId() === 'transcode' && props.state.transcode?.phase === 'inspecting') ||
                 (stepId() === 'tags' &&
