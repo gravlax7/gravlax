@@ -215,6 +215,22 @@ describe('generateAlbumDescription', () => {
     expect(desc).toContain('[b]Tracklist:[/b]')
     expect(desc).toContain('[b]01.[/b] Intro [i](1:30)[/i]')
   })
+
+  it.each(listDescriptionTemplateIds())(
+    'omits More info when there is no source URL in %s',
+    (templateId) => {
+      const desc = generateAlbumDescription(
+        [{ trackNumber: '1', title: 'Intro', durationSeconds: 90 }],
+        {
+          artists: [{ name: 'Artist', role: 'main' }],
+          title: 'Demo Album',
+          templateId
+        }
+      )
+      expect(desc).not.toContain('More info')
+      expect(desc).not.toContain('[url=]')
+    }
+  )
 })
 
 describe('generateReleaseDescription', () => {
