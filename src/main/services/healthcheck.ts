@@ -12,6 +12,7 @@ import { healthcheckImageHosts } from '@main/core/tools/imagehosts/health'
 import { healthcheckTrackers, trackerHealthRowsReady } from '@main/core/tools/trackers/health'
 import { createQBittorrentClient } from '@main/core/tools/torrentClient'
 import { testSftpConnection } from '@main/core/tools/transfer'
+import { canEnableRedactedImageHost } from '@shared/config/trackers'
 
 export type HealthRowReporter = (row: HealthRow) => void
 
@@ -96,7 +97,7 @@ function overviewFor(cfg: Config, rows: HealthRow[]): string {
   const trackerReady = trackerHealthRowsReady(rows.filter((row) => row.group === 'Trackers'))
   const imageReady =
     rows.some((row) => row.group === 'Image Hosts' && row.status === 'available') ||
-    (cfg.imageHosts.redacted.enabled &&
+    (canEnableRedactedImageHost(cfg) &&
       rows.some(
         (row) => row.id === trackerHealthRowId('redacted', 'api') && row.status === 'available'
       ))

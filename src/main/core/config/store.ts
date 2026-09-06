@@ -215,6 +215,30 @@ export function normalizeTools(raw: unknown, base: Config['tools']): Config['too
   return next
 }
 
+export function normalizeImageHosts(
+  raw: unknown,
+  base: Config['imageHosts']
+): Config['imageHosts'] {
+  if (!raw || typeof raw !== 'object') return base
+  const obj = raw as Record<string, unknown>
+  const next = structuredClone(base)
+  if (obj.thesungod && typeof obj.thesungod === 'object') {
+    const host = obj.thesungod as Record<string, unknown>
+    if (typeof host.enabled === 'boolean') next.thesungod.enabled = host.enabled
+    if (typeof host.apiKey === 'string') next.thesungod.apiKey = host.apiKey
+  }
+  if (obj.imgbb && typeof obj.imgbb === 'object') {
+    const host = obj.imgbb as Record<string, unknown>
+    if (typeof host.enabled === 'boolean') next.imgbb.enabled = host.enabled
+    if (typeof host.apiKey === 'string') next.imgbb.apiKey = host.apiKey
+  }
+  if (obj.catbox && typeof obj.catbox === 'object') {
+    const host = obj.catbox as Record<string, unknown>
+    if (typeof host.enabled === 'boolean') next.catbox.enabled = host.enabled
+  }
+  return next
+}
+
 export function mergeLoadedConfig(raw: unknown): Config {
   const cfg = defaultConfig()
   if (!raw || typeof raw !== 'object') {
@@ -257,6 +281,10 @@ export function mergeLoadedConfig(raw: unknown): Config {
     }
     if (key === 'naming') {
       cfg.naming = normalizeNaming(obj.naming, cfg.naming)
+      continue
+    }
+    if (key === 'imageHosts') {
+      cfg.imageHosts = normalizeImageHosts(obj.imageHosts, cfg.imageHosts)
       continue
     }
     if (obj[key] && typeof obj[key] === 'object') {

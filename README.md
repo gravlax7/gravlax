@@ -120,7 +120,8 @@ package from your distribution or from the [FLAC project](https://xiph.org/flac/
 - **Trackers:** Site and announce URLs are not included in the application's code. You have to add them in Settings.
   Enable each tracker you use and enter an API key and session cookie. Both are required for Gravlax to work properly.
 - **Image Hosts:** Enable an image host and add its API key where needed. Pick
-  the host for spectrals and each tracker.
+  the host for spectrals and each tracker. Enabling Redacted also offers its
+  image host for that tracker's cover.
   Redacted Image Host and Ra cannot be used for spectral uploads.
 - **Torrent Client:** Set this up if you seed through qBittorrent's Web UI.
 - **Seedbox:** Turn this on only when you want Gravlax to send release folders

@@ -24,7 +24,7 @@ export function enabledImageHostOptions(cfg: Config): string[] {
   if (cfg.imageHosts.thesungod.enabled) options.push('thesungod')
   if (cfg.imageHosts.imgbb.enabled) options.push('imgbb')
   if (cfg.imageHosts.catbox.enabled) options.push('catbox')
-  if (cfg.imageHosts.redacted.enabled && canEnableRedactedImageHost(cfg)) options.push('redacted')
+  if (canEnableRedactedImageHost(cfg)) options.push('redacted')
   return options
 }
 
@@ -44,6 +44,9 @@ export function isValidCoverImageHost(
   host: string
 ): boolean {
   if (host === '') return true
+  if (host === 'redacted') {
+    return tracker === 'redacted' && cfg.trackers.redacted.apiKey.trim() !== ''
+  }
   return coverImageHostOptions(cfg, tracker).includes(host)
 }
 

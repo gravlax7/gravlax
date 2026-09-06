@@ -512,7 +512,6 @@ describe('cover image report work', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const cfg = cfgWithTrackers(['redacted', 'orpheus'])
-    cfg.imageHosts.redacted.enabled = true
     cfg.imageHosts.thesungod.enabled = true
     cfg.imageHosts.thesungod.apiKey = 'ra-key'
     cfg.trackers.redacted.siteUrl = 'redacted.example'

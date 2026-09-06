@@ -143,8 +143,7 @@ function configInput(): Config {
     imageHosts: {
       thesungod: { enabled: false, apiKey: '' },
       imgbb: { enabled: false, apiKey: '' },
-      catbox: { enabled: false },
-      redacted: { enabled: false }
+      catbox: { enabled: false }
     },
     torrentClient: {
       enabled: false,

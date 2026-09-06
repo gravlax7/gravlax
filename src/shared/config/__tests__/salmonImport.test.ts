@@ -36,8 +36,7 @@ function defaultConfig(): Config {
     imageHosts: {
       thesungod: { enabled: false, apiKey: '' },
       imgbb: { enabled: false, apiKey: '' },
-      catbox: { enabled: true },
-      redacted: { enabled: false }
+      catbox: { enabled: true }
     },
     torrentClient: {
       enabled: false,

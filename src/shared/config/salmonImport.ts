@@ -2,7 +2,6 @@ import type { Config, SectionID } from '@shared/types/config'
 import { UPLOAD_TRACKER_IDS } from '@shared/trackers'
 import type { RcloneRemote } from '@shared/config/rcloneConf'
 import { sanitizeCoverImageHosts } from '@shared/config/imageHosts'
-import { canEnableRedactedImageHost } from '@shared/config/trackers'
 import { sections } from '@shared/config/sections'
 import { validateReleaseFolderTemplate, validateTrackFileTemplate } from '@shared/upload/naming'
 
@@ -887,8 +886,6 @@ export function applySalmonImport(
     if (!selected.has(row.id)) continue
     writeField(next, row.section, row.field, row.value)
   }
-  // Same invariants the Settings screen enforces after an edit.
-  if (!canEnableRedactedImageHost(next)) next.imageHosts.redacted.enabled = false
   sanitizeCoverImageHosts(next)
   return next
 }

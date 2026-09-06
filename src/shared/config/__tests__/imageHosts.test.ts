@@ -50,8 +50,7 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
     imageHosts: {
       thesungod: { enabled: false, apiKey: '' },
       imgbb: { enabled: false, apiKey: '' },
-      catbox: { enabled: false },
-      redacted: { enabled: false }
+      catbox: { enabled: false }
     },
     torrentClient: {
       enabled: false,
@@ -115,8 +114,7 @@ describe('imageHosts', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: true, apiKey: 'key' },
-        catbox: { enabled: true },
-        redacted: { enabled: false }
+        catbox: { enabled: true }
       }
     })
     expect(enabledImageHostOptions(cfg)).toEqual(['thesungod', 'imgbb', 'catbox'])
@@ -128,14 +126,13 @@ describe('imageHosts', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: false, apiKey: '' },
-        catbox: { enabled: false },
-        redacted: { enabled: false }
+        catbox: { enabled: false }
       }
     })
     expect(enabledSpectralImageHostOptions(cfg)).toEqual([])
   })
 
-  it('lists redacted only when enabled and the tracker is configured', () => {
+  it('lists redacted when the tracker is enabled with an API key', () => {
     let cfg = baseConfig({
       trackers: {
         redacted: {
@@ -154,12 +151,6 @@ describe('imageHosts', () => {
           sessionCookie: '',
           coverImageHost: ''
         }
-      },
-      imageHosts: {
-        thesungod: { enabled: false, apiKey: '' },
-        imgbb: { enabled: false, apiKey: '' },
-        catbox: { enabled: false },
-        redacted: { enabled: true }
       }
     })
     expect(enabledImageHostOptions(cfg)).toEqual(['redacted'])
@@ -197,8 +188,7 @@ describe('imageHosts', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: true, apiKey: 'key' },
-        catbox: { enabled: true },
-        redacted: { enabled: true }
+        catbox: { enabled: true }
       }
     })
     expect(coverImageHostOptions(cfg, 'redacted')).toEqual([
@@ -236,12 +226,36 @@ describe('imageHosts', () => {
       imageHosts: {
         thesungod: { enabled: false, apiKey: '' },
         imgbb: { enabled: true, apiKey: 'key' },
-        catbox: { enabled: false },
-        redacted: { enabled: false }
+        catbox: { enabled: false }
       }
     })
     sanitizeCoverImageHosts(cfg)
     expect(cfg.trackers.redacted.coverImageHost).toBe('')
     expect(cfg.trackers.orpheus.coverImageHost).toBe('')
+  })
+
+  it('keeps the redacted cover host when the tracker is turned off', () => {
+    const cfg = baseConfig({
+      trackers: {
+        redacted: {
+          enabled: false,
+          siteUrl: 'redacted.example',
+          announceUrl: 'announce.redacted.example',
+          apiKey: 'key',
+          sessionCookie: '',
+          coverImageHost: 'redacted'
+        },
+        orpheus: {
+          enabled: false,
+          siteUrl: '',
+          announceUrl: '',
+          apiKey: '',
+          sessionCookie: '',
+          coverImageHost: ''
+        }
+      }
+    })
+    sanitizeCoverImageHosts(cfg)
+    expect(cfg.trackers.redacted.coverImageHost).toBe('redacted')
   })
 })

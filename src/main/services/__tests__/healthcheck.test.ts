@@ -175,7 +175,10 @@ describe('provider healthchecks', () => {
       { id: 'img:thesungod', name: 'Ra', group: 'Image Hosts', status: 'disabled' }
     ])
     const cfg = defaultConfig()
-    cfg.imageHosts.redacted.enabled = true
+    cfg.trackers.redacted.enabled = true
+    cfg.trackers.redacted.siteUrl = 'redacted.example'
+    cfg.trackers.redacted.announceUrl = 'announce.redacted.example'
+    cfg.trackers.redacted.apiKey = 'key'
     cfg.imageHosts.catbox.enabled = false
 
     const result = await runHealthcheck(

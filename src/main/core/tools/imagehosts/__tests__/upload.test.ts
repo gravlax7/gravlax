@@ -18,7 +18,6 @@ function cfg(): Config {
   c.imageHosts.thesungod.enabled = true
   c.imageHosts.thesungod.apiKey = 'sun-key'
   c.imageHosts.catbox.enabled = false
-  c.imageHosts.redacted.enabled = true
   c.trackers.redacted.enabled = true
   c.trackers.redacted.siteUrl = 'redacted.example'
   c.trackers.redacted.announceUrl = 'announce.redacted.example'
@@ -186,7 +185,6 @@ describe('uploadImageToHost', () => {
   it('reports an invalid Ra API key without uploading an image', async () => {
     const c = cfg()
     c.imageHosts.imgbb.enabled = false
-    c.imageHosts.redacted.enabled = false
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_url: string, init?: RequestInit) => {
@@ -212,7 +210,6 @@ describe('uploadImageToHost', () => {
     c.imageHosts.thesungod.enabled = false
     c.imageHosts.imgbb.enabled = false
     c.imageHosts.catbox.enabled = true
-    c.imageHosts.redacted.enabled = false
     vi.stubGlobal('fetch', vi.fn(async () => new Response('method not allowed', { status: 405 })))
 
     const rows = await healthcheckImageHosts(c)
@@ -227,7 +224,6 @@ describe('uploadImageToHost', () => {
     c.imageHosts.thesungod.enabled = false
     c.imageHosts.imgbb.enabled = false
     c.imageHosts.catbox.enabled = false
-    c.imageHosts.redacted.enabled = false
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 

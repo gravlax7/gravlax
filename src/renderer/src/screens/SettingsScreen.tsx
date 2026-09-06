@@ -9,10 +9,7 @@ import {
   sanitizeCoverImageHosts
 } from '@shared/config/imageHosts'
 import { sections } from '@shared/config/sections'
-import {
-  canEnableRedactedImageHost,
-  normalizeTrackerHosts
-} from '@shared/config/trackers'
+import { normalizeTrackerHosts } from '@shared/config/trackers'
 import { normalizeTrackerHost } from '@shared/config/network'
 import {
   descriptionTemplateName,
@@ -381,10 +378,6 @@ export function SettingsScreen(props: {
                           issue={issues().find((i) => i.section === current().id && i.field === field.name)}
                           revealed={Boolean(revealed()[`${current().id}.${field.name}`])}
                           disabled={
-                            (current().id === 'imageHosts' &&
-                              field.name === 'redacted.enabled' &&
-                              !canEnableRedactedImageHost(draft()) &&
-                              fieldValue(draft(), current().id, field) !== 'true') ||
                             // qBittorrent derives the location from the category
                             // under ATM. The stored value is left untouched so
                             // turning ATM back off restores what was typed.
@@ -986,14 +979,6 @@ async function applyField(
     const nested = { ...(target[group!] as Record<string, unknown>) }
     nested[key!] = value
     target[group!] = nested
-    if (section === 'imageHosts' && field.name === 'redacted.enabled' && value === true) {
-      if (!canEnableRedactedImageHost(next)) {
-        next.imageHosts.redacted.enabled = false
-      }
-    }
-    if (section === 'trackers' && !canEnableRedactedImageHost(next)) {
-      next.imageHosts.redacted.enabled = false
-    }
     if (section === 'trackers' || section === 'imageHosts') {
       sanitizeCoverImageHosts(next)
     }

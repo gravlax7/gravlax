@@ -161,8 +161,7 @@ function configWith(overrides: Partial<Record<'redacted' | 'orpheus', Partial<Tr
     imageHosts: {
       thesungod: { enabled: false, apiKey: '' },
       imgbb: { enabled: false, apiKey: '' },
-      catbox: { enabled: true },
-      redacted: { enabled: false }
+      catbox: { enabled: true }
     }
   } as unknown as Config
 }

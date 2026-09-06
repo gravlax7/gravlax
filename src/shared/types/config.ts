@@ -20,12 +20,7 @@ export const CONFIG_SECTION_IDS = [
 
 export type SectionID = (typeof CONFIG_SECTION_IDS)[number]
 
-export const COVER_IMAGE_HOST_IDS = [
-  'thesungod',
-  'imgbb',
-  'catbox',
-  'redacted'
-] as const satisfies readonly (keyof ImageHostsConfig)[]
+export const COVER_IMAGE_HOST_IDS = ['thesungod', 'imgbb', 'catbox', 'redacted'] as const
 
 export type CoverImageHostId = (typeof COVER_IMAGE_HOST_IDS)[number]
 
@@ -104,7 +99,6 @@ export interface ImageHostsConfig {
   thesungod: ImageHostAPIKeyConfig
   imgbb: ImageHostAPIKeyConfig
   catbox: ImageHostToggleConfig
-  redacted: ImageHostToggleConfig
 }
 
 export interface ImageHostAPIKeyConfig {

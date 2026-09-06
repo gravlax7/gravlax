@@ -85,19 +85,14 @@ export function sections(): SectionMetadata[] {
     {
       id: 'imageHosts',
       title: 'Image Hosts',
-      description: 'Enable any combination of the supported image hosts.',
+      description:
+        'Enable any combination of the supported image hosts. The Redacted image host is offered as a cover host when Redacted is enabled with an API key.',
       fields: [
         { name: 'thesungod.enabled', label: 'thesungod enabled', type: 'bool' },
         { name: 'thesungod.apiKey', label: 'thesungod API key', type: 'string', sensitive: true },
         { name: 'imgbb.enabled', label: 'imgbb enabled', type: 'bool' },
         { name: 'imgbb.apiKey', label: 'imgbb API key', type: 'string', sensitive: true },
-        { name: 'catbox.enabled', label: 'Catbox enabled', type: 'bool' },
-        {
-          name: 'redacted.enabled',
-          label: 'Redacted Image Host',
-          description: 'Uses your Redacted tracker credentials. Requires Redacted to be enabled and configured.',
-          type: 'bool'
-        }
+        { name: 'catbox.enabled', label: 'Catbox enabled', type: 'bool' }
       ]
     },
     {

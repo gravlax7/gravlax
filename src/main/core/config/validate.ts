@@ -11,7 +11,6 @@ import {
   isValidCoverImageHost
 } from '@shared/config/imageHosts'
 import { isSafeQBittorrentURL, isTrackerHost } from '@shared/config/network'
-import { canEnableRedactedImageHost } from '@shared/config/trackers'
 import { listDescriptionTemplateIds } from '@shared/upload/templates'
 import { SPECTRAL_SELECTION_OPTIONS } from '@shared/upload/spectralIds'
 import { validateMultiDiscFolderTemplate, validateReleaseFolderTemplate, validateTrackFileTemplate } from '@shared/upload/naming'
@@ -80,13 +79,6 @@ export function validate(cfg: Config): ValidationIssue[] {
   }
   if (cfg.imageHosts.imgbb.enabled && cfg.imageHosts.imgbb.apiKey === '') {
     add('imageHosts', 'imgbb.apiKey', 'imgbb API key is required when imgbb is enabled')
-  }
-  if (cfg.imageHosts.redacted.enabled && !canEnableRedactedImageHost(cfg)) {
-    add(
-      'imageHosts',
-      'redacted.enabled',
-      'Redacted Image Host requires an enabled Redacted tracker with an API key'
-    )
   }
 
   if (cfg.torrentClient.enabled && cfg.torrentClient.url === '') {

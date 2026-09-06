@@ -5,7 +5,6 @@ import {
   enabledSpectralImageHostOptions,
   sanitizeCoverImageHosts
 } from '@shared/config/imageHosts'
-import { canEnableRedactedImageHost } from '@shared/config/trackers'
 import { normalizeTrackerHost } from '@shared/config/network'
 import { normalizePath } from './paths'
 
@@ -112,8 +111,6 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return c.imgbb.apiKey
         case 'catbox.enabled':
           return String(c.catbox.enabled)
-        case 'redacted.enabled':
-          return String(c.redacted.enabled)
       }
       break
     }
@@ -256,7 +253,6 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       if (field === 'orpheus.apiKey') next.trackers.orpheus.apiKey = value
       if (field === 'orpheus.sessionCookie') next.trackers.orpheus.sessionCookie = value
       if (field === 'orpheus.coverImageHost') next.trackers.orpheus.coverImageHost = value
-      if (!canEnableRedactedImageHost(next)) next.imageHosts.redacted.enabled = false
       sanitizeCoverImageHosts(next)
       break
     case 'metadataProviders':
@@ -337,7 +333,6 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
     case 'trackers':
       if (field === 'redacted.enabled') next.trackers.redacted.enabled = value
       if (field === 'orpheus.enabled') next.trackers.orpheus.enabled = value
-      if (!canEnableRedactedImageHost(next)) next.imageHosts.redacted.enabled = false
       sanitizeCoverImageHosts(next)
       break
     case 'metadataProviders':
@@ -350,9 +345,6 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
       if (field === 'thesungod.enabled') next.imageHosts.thesungod.enabled = value
       if (field === 'imgbb.enabled') next.imageHosts.imgbb.enabled = value
       if (field === 'catbox.enabled') next.imageHosts.catbox.enabled = value
-      if (field === 'redacted.enabled') {
-        next.imageHosts.redacted.enabled = value && canEnableRedactedImageHost(next)
-      }
       sanitizeCoverImageHosts(next)
       break
     case 'torrentClient':
