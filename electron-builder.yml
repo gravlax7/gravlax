@@ -14,6 +14,11 @@ publish:
 files:
   - out/**/*
   - package.json
+extraResources:
+  - from: node_modules/@fontsource-variable/inter/LICENSE
+    to: licenses/Inter-OFL.txt
+  - from: node_modules/@fontsource-variable/jetbrains-mono/LICENSE
+    to: licenses/JetBrains-Mono-OFL.txt
 asarUnpack:
   - node_modules/sharp/**
   - node_modules/@img/**

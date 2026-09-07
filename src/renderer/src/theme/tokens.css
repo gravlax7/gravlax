@@ -31,8 +31,8 @@
   --border-focus: var(--accent);
   --focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
 
-  --font-ui: ui-sans-serif, -apple-system, 'Segoe UI', Inter, sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  --font-ui: 'Inter Variable', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', monospace;
 
   --text-xs: 11px;
   --text-sm: 12px;
