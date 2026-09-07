@@ -25,6 +25,7 @@ import {
   pendingSeparatorArtists,
   setFieldEditorValue,
   setTrackFieldEditorValue,
+  sortArtists,
   type ArtistEditRow
 } from '@shared/tags/editor'
 import { invalidReleaseDateFields } from '@shared/tags/dates'
@@ -221,7 +222,7 @@ export function UploadScreen(props: {
           : (props.state.tags.proposed?.tracks?.[trackIndex]?.artists ?? [])
       setEditArtistRows(
         artists.length > 0
-          ? artists.map((artist) => ({
+          ? sortArtists(artists).map((artist) => ({
               artist: {
                 name: artist.name ?? '',
                 role: normalizeArtistRole(artist.role ?? '')
@@ -288,7 +289,9 @@ export function UploadScreen(props: {
     if (field === FIELD_ARTISTS && !hasNamedMainArtist(editArtists())) return
     suppressFieldBlur = suppressBlur
     const trackIndex = editingTrackIndex()
-    const value = field === FIELD_ARTISTS ? formatArtists(editArtists()).join('\n') : editValue()
+    const value = field === FIELD_ARTISTS
+      ? formatArtists(sortArtists(editArtists())).join('\n')
+      : editValue()
     let next =
       trackIndex == null
         ? setFieldEditorValue(props.state.tags.proposed ?? {}, field, value)

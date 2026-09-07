@@ -113,7 +113,9 @@ export function displayValueLines(r: Release, field: string): string[] {
   if (isMixed(r, field)) {
     return [DISPLAY_MIXED]
   }
-  const lines = editorValueLines(r, field)
+  const lines = field === FIELD_ARTISTS
+    ? formatArtists(sortArtists(r.artists ?? []))
+    : editorValueLines(r, field)
   if (lines.length === 0) {
     return [DISPLAY_EMPTY]
   }
@@ -229,7 +231,9 @@ export function setFieldEditorValue(r: Release, field: string, value: string): R
 }
 
 export function displayTrackValueLines(track: Track | undefined, field: string): string[] {
-  const lines = editorTrackValueLines(track ?? {}, field)
+  const lines = field === FIELD_ARTISTS
+    ? formatArtists(sortArtists(track?.artists ?? []))
+    : editorTrackValueLines(track ?? {}, field)
   if (lines.length === 0) {
     return [DISPLAY_EMPTY]
   }
@@ -726,6 +730,25 @@ export function formatArtists(artists: Artist[]): string[] {
     lines.push(`${artist.name} [${normalizeArtistRole(artist.role ?? '')}]`)
   }
   return lines
+}
+
+/** Sorts artist credits in the order used by the Tags page. */
+export function sortArtists(artists: Artist[]): Artist[] {
+  const roleOrder = new Map<string, number>(
+    ARTIST_ROLE_PRESETS.map((role, index) => [role, index])
+  )
+  return [...artists].sort((left, right) => {
+    const leftRole = normalizeArtistRole(left.role ?? '')
+    const rightRole = normalizeArtistRole(right.role ?? '')
+    const byRole = (roleOrder.get(leftRole) ?? ARTIST_ROLE_PRESETS.length) -
+      (roleOrder.get(rightRole) ?? ARTIST_ROLE_PRESETS.length)
+    if (byRole !== 0) return byRole
+    if (!roleOrder.has(leftRole) || !roleOrder.has(rightRole)) {
+      const byUnknownRole = leftRole.localeCompare(rightRole, undefined, { sensitivity: 'base' })
+      if (byUnknownRole !== 0) return byUnknownRole
+    }
+    return (left.name ?? '').localeCompare(right.name ?? '', undefined, { sensitivity: 'base' })
+  })
 }
 
 export function normalizeArtistRole(role: string): string {

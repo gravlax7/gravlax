@@ -23,6 +23,7 @@ import {
   separatorArtistOptions,
   setFieldEditorValue,
   setTrackFieldEditorValue,
+  sortArtists,
   stripFeaturedFromTitle,
   textValueLinesEqual,
   trackHeading
@@ -92,6 +93,23 @@ describe('tags editor', () => {
   it('shows empty and mixed sentinels', () => {
     expect(displayValueLines({}, 'title')).toEqual(['(empty)'])
     expect(displayValueLines({ mixed: { title: true } }, 'title')).toEqual(['mixed'])
+  })
+
+  it('sorts artist credits by role, then name', () => {
+    const artists = [
+      { name: 'Zelda', role: 'guest' },
+      { name: 'beta', role: 'main' },
+      { name: 'Alpha', role: 'main' },
+      { name: 'Amy', role: 'composer' },
+      { name: 'Carl', role: 'guest' }
+    ]
+
+    expect(sortArtists(artists).map((artist) => artist.name)).toEqual([
+      'Alpha', 'beta', 'Carl', 'Zelda', 'Amy'
+    ])
+    expect(displayValueLines({ artists }, 'artists')).toEqual([
+      'Alpha [main]', 'beta [main]', 'Carl [guest]', 'Zelda [guest]', 'Amy [composer]'
+    ])
   })
 
   it('treats equivalent Unicode forms as the same displayed value', () => {
