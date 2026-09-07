@@ -28,7 +28,10 @@ import {
   setTagsProposed,
   type State
 } from '@main/core/uploadflow'
-import { pendingSeparatorArtists } from '@shared/tags/editor'
+import {
+  pendingSeparatorArtists,
+  preserveSeparatorArtistChoices
+} from '@shared/tags/editor'
 import { invalidReleaseDateFields } from '@shared/tags/dates'
 import { buildFilesRenamePlan, nextRenameFlagsForPathLimits } from '@shared/upload/naming'
 import { sourceRestoreUnavailableMessage } from '@shared/upload/sourceRestore'
@@ -238,6 +241,9 @@ export class UploadSessionFileChanges {
         if (writeTags && release.cover) {
           applied.cover = release.cover
         }
+        if (writeTags) {
+          applied = preserveSeparatorArtistChoices(release, applied)
+        }
       } catch {
         applied = writeTags ? release : (state.tags.current ?? release)
       }
@@ -271,6 +277,14 @@ export class UploadSessionFileChanges {
       stillCurrent = this.context.createWorkspaceGuard(result.workspacePath)
       await this.context.persistNow()
       if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
+      if (pendingSeparatorArtists(next.tags.proposed).length > 0) {
+        const error = 'Choose how to read artist names that contain separators.'
+        this.context.notify(
+          'warning',
+          'Files were applied. Choose how to read artist names that contain separators before continuing.'
+        )
+        return { ok: false, error }
+      }
       this.context.startTranscodeInspection()
       this.context.notify('success', fileChangeSuccessMessage(writeTags, renameFiles, stripCover))
       return { ok: true }

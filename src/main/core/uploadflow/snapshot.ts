@@ -1,4 +1,5 @@
 import type { UploadFlowSnapshot } from '@shared/types'
+import { pendingSeparatorArtists } from '@shared/tags/editor'
 import { resetBackgroundTask, withTaskSnapshotStatuses } from './background'
 import { setFileChecks } from './fileChecks'
 import { setFiles, setKeepExistingFileChoices } from './files'
@@ -143,6 +144,22 @@ export function restoreState(
   }
   if (snap.seed) {
     state = resumeSeed(setSeed(state, snap.seed))
+  }
+
+  const tagsStep = stepIndex('tags')
+  const filesLocked =
+    snap.upload?.phase === 'submitting' ||
+    state.upload.phase === 'submitting' ||
+    state.upload.phase === 'done' ||
+    (state.upload.submissions ?? []).some((submission) => submission.status === 'done') ||
+    state.seed.phase !== 'idle'
+  if (
+    tagsStep !== null &&
+    state.currentStep > tagsStep &&
+    pendingSeparatorArtists(state.tags.proposed).length > 0 &&
+    !filesLocked
+  ) {
+    state = setCurrentStep(state, tagsStep)
   }
 
   // A restored session has no work in flight: anything still running would

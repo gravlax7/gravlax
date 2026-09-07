@@ -20,6 +20,7 @@ import {
   pendingSeparatorArtists,
   parseArtists,
   parseArtistCreditValues,
+  preserveSeparatorArtistChoices,
   separatorArtistOptions,
   setFieldEditorValue,
   setTrackFieldEditorValue,
@@ -403,5 +404,35 @@ describe('tags editor', () => {
     expect(keepSeparatorArtists([{ name: 'AC/DC', role: 'main' }])).toEqual([
       { name: 'AC/DC', role: 'main', separatorKept: true }
     ])
+  })
+
+  it('preserves separator choices in reread artist credits by name', () => {
+    const source: Release = {
+      artists: [{ name: 'AC/DC', role: 'main', separatorKept: true }],
+      tracks: [{
+        artists: [{ name: 'Bach, Johann Sebastian', role: 'composer', separatorKept: true }]
+      }]
+    }
+    const reread: Release = {
+      artists: [
+        { name: ' ac/dc ', role: 'guest' },
+        { name: 'New & Unresolved', role: 'main' }
+      ],
+      tracks: [{
+        artists: [{ name: 'Bach,  Johann Sebastian', role: 'arranger' }]
+      }]
+    }
+
+    const preserved = preserveSeparatorArtistChoices(source, reread)
+
+    expect(preserved.artists).toEqual([
+      { name: ' ac/dc ', role: 'guest', separatorKept: true },
+      { name: 'New & Unresolved', role: 'main' }
+    ])
+    expect(preserved.tracks?.[0]?.artists).toEqual([
+      { name: 'Bach,  Johann Sebastian', role: 'arranger', separatorKept: true }
+    ])
+    expect(pendingSeparatorArtists(preserved)).toEqual(['New & Unresolved'])
+    expect(reread.artists?.[0]?.separatorKept).toBeUndefined()
   })
 })

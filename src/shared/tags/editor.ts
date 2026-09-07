@@ -627,6 +627,35 @@ export function pendingSeparatorArtists(release: Release | undefined): string[] 
   return names
 }
 
+export function preserveSeparatorArtistChoices(source: Release, target: Release): Release {
+  const kept = new Set<string>()
+  const collect = (artists: Artist[] | undefined): void => {
+    for (const artist of artists ?? []) {
+      if (!artist.separatorKept) continue
+      const key = artistNameKey(artist.name ?? '')
+      if (key) kept.add(key)
+    }
+  }
+  collect(source.artists)
+  for (const track of source.tracks ?? []) collect(track.artists)
+
+  const next = cloneRelease(target)
+  const preserve = (artists: Artist[] | undefined): Artist[] | undefined =>
+    artists?.map((artist) =>
+      kept.has(artistNameKey(artist.name ?? ''))
+        ? { ...artist, separatorKept: true }
+        : artist
+    )
+  next.artists = preserve(next.artists)
+  if (next.tracks) {
+    next.tracks = next.tracks.map((track) => ({
+      ...track,
+      artists: preserve(track.artists)
+    }))
+  }
+  return next
+}
+
 export function keepSeparatorArtists(artists: Artist[]): Artist[] {
   return artists.map((artist) => {
     if (!artistCreditIsPending(artist)) return artist

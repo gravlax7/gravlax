@@ -526,8 +526,8 @@ describe('UploadSessionFileChanges folder renames', () => {
     expect(getState().tags.proposedDirty).toBe(false)
   })
 
-  it('keeps release credit edits when track credits differ after reading files back', async () => {
-    const { service, getState } = setup()
+  it('keeps separator choices when track credits differ after reading files back', async () => {
+    const { service, getState, startTranscodeInspection } = setup()
     const lead = { name: 'Lead', role: 'main' }
     const trackArtists = [
       lead,
@@ -540,7 +540,11 @@ describe('UploadSessionFileChanges folder renames', () => {
     ]
     const tracks = [{
       title: 'Track',
-      artists: trackArtists.map((artist) => ({ ...artist, separatorKept: true }))
+      artists: [
+        lead,
+        { name: 'Removed', role: 'guest' },
+        { name: 'Bach, Johann Sebastian', role: 'composer', separatorKept: true }
+      ]
     }]
     service.updateTagsProposed({ title: 'New Album', artists, tracks })
     const readBackTracks = [{ title: 'Track', artists: trackArtists }]
@@ -553,7 +557,46 @@ describe('UploadSessionFileChanges folder renames', () => {
 
     expect(getState().tags.current?.artists).toEqual(artists)
     expect(getState().tags.proposed?.artists).toEqual(artists)
-    expect(getState().tags.proposed?.tracks).toEqual(readBackTracks)
+    expect(getState().tags.proposed?.tracks).toEqual([{
+      title: 'Track',
+      artists: [
+        lead,
+        { name: 'Removed', role: 'guest' },
+        { name: 'Bach, Johann Sebastian', role: 'composer', separatorKept: true }
+      ]
+    }])
+    expect(startTranscodeInspection).toHaveBeenCalledOnce()
+  })
+
+  it('stays on tags when rereading finds a new unresolved separator artist', async () => {
+    const { service, getState, startTranscodeInspection, notify } = setup()
+    service.updateTagsProposed({
+      title: 'New Album',
+      tracks: [{ title: 'Track', artists: [{ name: 'Lead', role: 'main' }] }]
+    })
+    mocks.extractAlbumReleaseWithEmbeddedCoverArt.mockResolvedValueOnce({
+      release: {
+        title: 'New Album',
+        tracks: [{ title: 'Track', artists: [{ name: 'New & Unresolved', role: 'main' }] }]
+      },
+      embeddedCoverArtCount: 0
+    })
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({
+      ok: false,
+      error: 'Choose how to read artist names that contain separators.'
+    })
+
+    expect(getState().files.apply.phase).toBe('applied')
+    expect(getState().files.apply.error).toBeUndefined()
+    expect(getState().tags.proposed?.tracks?.[0]?.artists).toEqual([
+      { name: 'New & Unresolved', role: 'main' }
+    ])
+    expect(startTranscodeInspection).not.toHaveBeenCalled()
+    expect(notify).toHaveBeenCalledWith(
+      'warning',
+      'Files were applied. Choose how to read artist names that contain separators before continuing.'
+    )
   })
 
   it('keeps a successful restore current after it restores the folder name', async () => {

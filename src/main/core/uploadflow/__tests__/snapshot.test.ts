@@ -206,6 +206,112 @@ describe('snapshot round-trip', () => {
     expect(currentStep(restoreState('/workspace/upload-abc123', snap)).id).toBe('upload')
   })
 
+  it.each(['transcode', 'upload'] as const)(
+    'returns an editable %s snapshot with unresolved separator artists to tags',
+    (step) => {
+      let state = selectSourcePath(newState(), '/music/album')
+      state = setCurrentStep(state, stepIndex(step)!)
+      state.tags.proposed = {
+        title: 'Album',
+        artists: [{ name: 'New & Unresolved', role: 'main' }]
+      }
+
+      const restored = restoreState('/workspace/upload-abc123', snapshot(state))
+
+      expect(currentStep(restored).id).toBe('tags')
+    }
+  )
+
+  it('keeps a resolved separator choice at the saved step', () => {
+    let state = selectSourcePath(newState(), '/music/album')
+    state = setCurrentStep(state, stepIndex('transcode')!)
+    state.tags.proposed = {
+      title: 'Album',
+      artists: [{ name: 'AC/DC', role: 'main', separatorKept: true }]
+    }
+
+    const restored = restoreState('/workspace/upload-abc123', snapshot(state))
+
+    expect(currentStep(restored).id).toBe('transcode')
+  })
+
+  it('does not return an upload with a successful submission to tags', () => {
+    let state = selectSourcePath(newState(), '/music/album')
+    state = setCurrentStep(state, stepIndex('upload')!)
+    state.tags.proposed = {
+      title: 'Album',
+      artists: [{ name: 'New & Unresolved', role: 'main' }]
+    }
+    state = beginSubmit(state, [
+      {
+        id: 'redacted:source',
+        trackerId: 'redacted',
+        formatId: 'source',
+        label: 'Redacted · FLAC',
+        status: 'pending'
+      }
+    ])
+    state = patchSubmission(state, 'redacted:source', { status: 'done' })
+
+    const restored = restoreState('/workspace/upload-abc123', snapshot(state))
+
+    expect(currentStep(restored).id).toBe('upload')
+  })
+
+  it('does not return an interrupted upload to tags', () => {
+    let state = selectSourcePath(newState(), '/music/album')
+    state = setCurrentStep(state, stepIndex('upload')!)
+    state.tags.proposed = {
+      title: 'Album',
+      artists: [{ name: 'New & Unresolved', role: 'main' }]
+    }
+    state = beginSubmit(state, [
+      {
+        id: 'redacted:source',
+        trackerId: 'redacted',
+        formatId: 'source',
+        label: 'Redacted · FLAC',
+        status: 'pending'
+      }
+    ])
+
+    const restored = restoreState('/workspace/upload-abc123', snapshot(state))
+
+    expect(restored.upload.phase).toBe('failed')
+    expect(currentStep(restored).id).toBe('upload')
+  })
+
+  it('does not return a completed upload to tags', () => {
+    let state = selectSourcePath(newState(), '/music/album')
+    state = setCurrentStep(state, stepIndex('upload')!)
+    state.tags.proposed = {
+      title: 'Album',
+      artists: [{ name: 'New & Unresolved', role: 'main' }]
+    }
+    state.upload.phase = 'done'
+
+    const restored = restoreState('/workspace/upload-abc123', snapshot(state))
+
+    expect(currentStep(restored).id).toBe('upload')
+  })
+
+  it('does not return a seeding task to tags', () => {
+    let state = selectSourcePath(newState(), '/music/album')
+    state = setCurrentStep(state, stepIndex('seed')!)
+    state.tags.proposed = {
+      title: 'Album',
+      artists: [{ name: 'New & Unresolved', role: 'main' }]
+    }
+    state = setSeed(state, {
+      phase: 'running',
+      tasks: [{ id: 'copy:source', kind: 'copy', label: 'Copy', status: 'running' }]
+    })
+
+    const restored = restoreState('/workspace/upload-abc123', snapshot(state))
+
+    expect(currentStep(restored).id).toBe('seed')
+  })
+
   it('round-trips submissions and flags an interrupted submit', () => {
     let state = selectSourcePath(newState(), '/music/album')
     state = beginSubmit(state, [
