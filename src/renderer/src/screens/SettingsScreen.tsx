@@ -1,5 +1,6 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import type { Config, FieldMetadata, NotifyPayload, SectionID, ValidationIssue } from '@shared/types/config'
+import type { WorkspaceChange, WorkspaceInfo } from '@shared/ipc'
 import { totalUploads, type UpdateCheckResult, type UploadStats } from '@shared/types'
 import { UPLOAD_TRACKER_IDS, trackerName } from '@shared/trackers'
 import { isThemePreference } from '@shared/theme'
@@ -90,6 +91,7 @@ export function SettingsScreen(props: {
   const [issues, setIssues] = createSignal<ValidationIssue[]>([])
   const [leavePrompt, setLeavePrompt] = createSignal(false)
   const [resetPrompt, setResetPrompt] = createSignal(false)
+  const [workspaceChangePrompt, setWorkspaceChangePrompt] = createSignal<WorkspaceChange>()
   const [revealed, setRevealed] = createSignal<Record<string, boolean>>({})
   const [query, setQuery] = createSignal('')
 
@@ -135,7 +137,10 @@ export function SettingsScreen(props: {
       pane.description.toLowerCase().includes(q) ||
       keywords.includes(q)
     const matchesImport = matchesPane(IMPORT_PANE, 'smoked-salmon toml')
-    const matchesWorkspace = matchesPane(WORKSPACE_PANE, 'clear cache destructive upload files')
+    const matchesWorkspace = matchesPane(
+      WORKSPACE_PANE,
+      'clear cache destructive upload files folder location directory'
+    )
     const matchesStatistics = matchesPane(STATISTICS_PANE, 'uploads formats trackers')
     const matchesUpdates = matchesPane(UPDATES_PANE, 'version release download update')
     if (!q) return [...sections(), IMPORT_PANE, STATISTICS_PANE, WORKSPACE_PANE, UPDATES_PANE]
@@ -157,22 +162,42 @@ export function SettingsScreen(props: {
     ]
   })
 
-  const sectionIssues = createMemo(() => issues().filter((i) => i.section === paneId()))
+  const sectionIssues = createMemo(() =>
+    issues().filter((issue) =>
+      paneId() === 'workspace'
+        ? issue.section === 'directories' && issue.field === 'workspace'
+        : issue.section === paneId()
+    )
+  )
 
   const markDirty = (next: Config): void => {
     setDraft(next)
     setDirty(true)
   }
 
-  const save = async (): Promise<boolean> => {
+  const save = async (confirmedChange?: WorkspaceChange): Promise<boolean> => {
     const normalized = normalizeTrackerHosts(draft())
     setDraft(normalized)
-    const result = await window.gravlax.config.save(normalized)
+    const result = await window.gravlax.config.save(
+      normalized,
+      confirmedChange
+        ? { confirmWorkspaceChange: { from: confirmedChange.from, to: confirmedChange.to } }
+        : undefined
+    )
     if (!result.ok) {
+      if (result.reason === 'workspace-reset-required') {
+        setWorkspaceChangePrompt(result.change)
+        setPaneId('workspace')
+        return false
+      }
       setIssues(result.issues)
       const first = result.issues[0]
       if (first) {
-        setPaneId(first.section)
+        setPaneId(
+          first.section === 'directories' && first.field === 'workspace'
+            ? 'workspace'
+            : first.section
+        )
         props.onNotify({
           level: 'error',
           message: `Save blocked: ${first.message}`
@@ -181,6 +206,7 @@ export function SettingsScreen(props: {
       return false
     }
     setIssues([])
+    setWorkspaceChangePrompt(undefined)
     setDirty(false)
     props.onChange(normalized)
     props.onNotify({ level: 'success', message: 'Settings saved.' })
@@ -197,7 +223,7 @@ export function SettingsScreen(props: {
 
   onMount(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (leavePrompt() || resetPrompt()) return
+      if (leavePrompt() || resetPrompt() || workspaceChangePrompt()) return
       if (hasPrimaryModifier(event) && event.key.toLowerCase() === 's') {
         event.preventDefault()
         event.stopPropagation()
@@ -360,7 +386,19 @@ export function SettingsScreen(props: {
                     </Show>
                   }
                 >
-                  <WorkspacePanel />
+                  <WorkspacePanel
+                    workspace={draft().directories.workspace}
+                    savedWorkspace={props.config.directories.workspace}
+                    issue={issues().find(
+                      (issue) => issue.section === 'directories' && issue.field === 'workspace'
+                    )}
+                    onChange={(workspace) => {
+                      const next = structuredClone(draft())
+                      next.directories.workspace = workspace
+                      markDirty(next)
+                    }}
+                    onNotify={props.onNotify}
+                  />
                 </Show>
               }
             >
@@ -517,6 +555,22 @@ export function SettingsScreen(props: {
           }}
         />
       </Show>
+      <Show when={workspaceChangePrompt()}>
+        {(change) => (
+          <Modal
+            title="Change workspace folder?"
+            description={`Gravlax will cancel active work and permanently delete ${formatByteSize(change().bytes)} from the old workspace at ${change().from}. Saved working copies will no longer be available to resume. Original release folders and files already sent to a torrent client or seedbox will not be deleted. The new workspace will be ${change().to}.`}
+            options={['Change folder and clear old workspace', 'Cancel']}
+            destructiveIndex={0}
+            defaultIndex={1}
+            onChoose={async (index) => {
+              const pending = change()
+              setWorkspaceChangePrompt(undefined)
+              if (index === 0) await save(pending)
+            }}
+          />
+        )}
+      </Show>
     </div>
   )
 }
@@ -594,21 +648,98 @@ function UpdatesPanel(props: {
   )
 }
 
-function WorkspacePanel() {
-  const [workspaceSize, setWorkspaceSize] = createSignal<number | null>(null)
+function WorkspacePanel(props: {
+  workspace: string
+  savedWorkspace: string
+  issue?: ValidationIssue
+  onChange: (path: string) => void
+  onNotify: (payload: NotifyPayload) => void
+}) {
+  const [info, setInfo] = createSignal<WorkspaceInfo>()
   const [clearPrompt, setClearPrompt] = createSignal(false)
 
-  const refreshWorkspaceSize = async (): Promise<void> => {
-    setWorkspaceSize(await window.gravlax.cache.size())
+  const refreshWorkspaceInfo = async (): Promise<void> => {
+    try {
+      setInfo(await window.gravlax.workspace.info())
+    } catch (err) {
+      props.onNotify({ level: 'error', message: `Could not read workspace: ${String(err)}` })
+    }
   }
 
-  onMount(() => void refreshWorkspaceSize())
+  createEffect(() => {
+    props.savedWorkspace
+    void refreshWorkspaceInfo()
+  })
 
   const sizeLabel = (): string =>
-    workspaceSize() === null ? 'calculating…' : formatByteSize(workspaceSize()!)
+    info() === undefined ? 'calculating…' : formatByteSize(info()!.size)
 
   return (
     <>
+      <div style={{ 'padding-bottom': 'var(--space-5)' }}>
+        <div class="settings-field-label" style={{ 'margin-bottom': '6px' }}>
+          Workspace folder
+        </div>
+        <div style={{ color: 'var(--fg-muted)', 'font-size': 'var(--text-sm)', 'margin-bottom': '8px' }}>
+          Choose a new or empty folder used only by Gravlax. Leave this empty to use the default folder.
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input
+            class="mono"
+            style={{ flex: 1 }}
+            value={props.workspace}
+            placeholder={info() ? `Default: ${info()!.defaultPath}` : 'Default app data folder'}
+            onInput={(event) => props.onChange(event.currentTarget.value)}
+          />
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              const path = await window.gravlax.dialog.pickDirectory()
+              if (path) props.onChange(path)
+            }}
+          >
+            Browse
+          </Button>
+          <Show when={props.workspace !== ''}>
+            <Button variant="ghost" onClick={() => props.onChange('')}>
+              Use default
+            </Button>
+          </Show>
+        </div>
+        <Show when={props.issue}>
+          <div style={{ color: 'var(--error)', 'font-size': 'var(--text-sm)', 'margin-top': '6px' }}>
+            {props.issue!.message}
+          </div>
+        </Show>
+        <Show when={info()}>
+          {(current) => (
+            <div class="mono" style={{ color: 'var(--fg-secondary)', 'font-size': 'var(--text-sm)', 'margin-top': '8px' }}>
+              Current: {current().effectivePath}
+            </div>
+          )}
+        </Show>
+      </div>
+      <Divider />
+      <div style={{ 'padding-top': 'var(--space-5)', 'margin-bottom': 'var(--space-4)' }}>
+        <div style={{ 'font-weight': 700, 'font-size': 'var(--text-lg)' }}>
+          Workspace cleanup
+        </div>
+        <div
+          style={{
+            color: 'var(--fg-secondary)',
+            'font-size': 'var(--text-sm)',
+            'margin-top': '4px'
+          }}
+        >
+          Remove working files from the current workspace folder.
+        </div>
+      </div>
+      <Show when={info() && !info()!.available}>
+        <Callout tone="warning">
+          <Icon name="alert-triangle" size={16} />
+          <div>{info()!.error ?? 'The workspace folder is not available.'}</div>
+        </Callout>
+      </Show>
       <Callout tone="warning">
         <Icon name="alert-triangle" size={16} />
         <div>
@@ -635,7 +766,11 @@ function WorkspacePanel() {
             Permanently remove {sizeLabel()} of local workspace files.
           </div>
         </div>
-        <Button variant="danger" onClick={() => setClearPrompt(true)} disabled={workspaceSize() === null}>
+        <Button
+          variant="danger"
+          onClick={() => setClearPrompt(true)}
+          disabled={info() === undefined || !info()!.available}
+        >
           Clear workspace
         </Button>
       </div>
@@ -648,8 +783,8 @@ function WorkspacePanel() {
           defaultIndex={1}
           onChoose={async (index) => {
             if (index === 0) {
-              await window.gravlax.cache.clear()
-              setWorkspaceSize(0)
+              await window.gravlax.workspace.clear()
+              await refreshWorkspaceInfo()
             }
             setClearPrompt(false)
           }}

@@ -26,7 +26,10 @@ function on<C extends IpcEventChannel>(
 const api = {
   config: {
     load: () => invoke('config:load'),
-    save: (cfg: IpcInvokeArgs<'config:save'>[0]) => invoke('config:save', cfg),
+    save: (
+      cfg: IpcInvokeArgs<'config:save'>[0],
+      options?: IpcInvokeArgs<'config:save'>[1]
+    ) => options ? invoke('config:save', cfg, options) : invoke('config:save', cfg),
     resetSection: (section: IpcInvokeArgs<'config:resetSection'>[0]) =>
       invoke('config:resetSection', section),
     validate: (cfg: IpcInvokeArgs<'config:validate'>[0]) => invoke('config:validate', cfg),
@@ -99,9 +102,9 @@ const api = {
     onState: (callback: (state: IpcEventMap['upload:state']) => void) => on('upload:state', callback),
     onNotify: (callback: (payload: IpcEventMap['upload:notify']) => void) => on('upload:notify', callback)
   },
-  cache: {
-    size: () => invoke('cache:size'),
-    clear: () => invoke('cache:clear')
+  workspace: {
+    info: () => invoke('workspace:info'),
+    clear: () => invoke('workspace:clear')
   },
   dialog: {
     pickDirectory: () => invoke('dialog:pickDirectory'),

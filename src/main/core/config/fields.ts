@@ -33,6 +33,8 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return c.torrents
         case 'seeding':
           return c.seeding
+        case 'workspace':
+          return c.workspace
       }
       break
     }
@@ -239,6 +241,7 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       if (field === 'source') next.directories.source = value
       if (field === 'torrents') next.directories.torrents = value
       if (field === 'seeding') next.directories.seeding = value
+      if (field === 'workspace') next.directories.workspace = value
       break
     case 'tools':
       if (field === 'sox') next.tools.sox = value
@@ -317,7 +320,12 @@ function normalizeFieldString(section: SectionID, field: string, value: string):
 function isPathField(section: SectionID, field: string): boolean {
   switch (section) {
     case 'directories':
-      return field === 'source' || field === 'torrents' || field === 'seeding'
+      return (
+        field === 'source' ||
+        field === 'torrents' ||
+        field === 'seeding' ||
+        field === 'workspace'
+      )
     case 'cleanup':
       return field === 'archiveDirectory'
     // torrentClient.savePath is deliberately absent: it is a path on whichever

@@ -36,6 +36,7 @@ async function exists(path: string): Promise<boolean> {
 export async function listUploadStartEntries(options: {
   userDataPath: string
   sourceDirectory: string
+  workspaceDirectory?: string
 }): Promise<UploadStartEntries> {
   const sourceFolders: Array<{ path: string; updatedAt: number }> = []
   let sourceError = ''
@@ -56,7 +57,7 @@ export async function listUploadStartEntries(options: {
   }
 
   const [workspaces, history] = await Promise.all([
-    listUploadWorkspaces(options.userDataPath),
+    listUploadWorkspaces(options.userDataPath, options.workspaceDirectory),
     readUploadHistory(options.userDataPath)
   ])
   const historyByPath = new Map(history.map((item) => [pathKey(item.sourcePath), item]))

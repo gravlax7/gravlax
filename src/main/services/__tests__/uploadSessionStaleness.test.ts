@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import type { Config } from '@shared/types/config'
-
 import { UploadSession } from '@main/services/uploadSession'
 import { automaticToolResolver } from '@main/core/tools/binaries'
+import { defaultConfig } from '@main/core/config/defaults'
 
 function newSession(): UploadSession {
   return new UploadSession({
     appVersion: 'test',
     userDataPath: '/userdata',
-    getConfig: () => ({}) as Config,
+    getConfig: () => defaultConfig(),
     trashItem: async () => undefined,
     tools: automaticToolResolver,
     send: () => {}
@@ -28,7 +27,7 @@ describe('workspace staleness', () => {
   it('rejects a resume path outside app data', async () => {
     const session = newSession()
     await expect(session.resume('/elsewhere/upload-a/Album')).rejects.toThrow(
-      'outside Gravlax app data'
+      'outside the current Gravlax workspace'
     )
   })
 })

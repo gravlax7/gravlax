@@ -3,10 +3,16 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  clearWorkspace,
   copyFolderToUploadWorkspace,
+  prepareWorkspaceRoot,
   replaceWorkingCopyFromSource,
   sourceRestoreStatus,
-  uploadWorkspaceRootForPath
+  uploadWorkspaceRootForPath,
+  validateWorkspaceTarget,
+  workspaceAvailable,
+  workspaceRoot,
+  workspaceSize
 } from '../workspace'
 
 let root = ''
@@ -96,5 +102,49 @@ describe('upload workspace copy', () => {
     expect(await readFile(join(restored, 'CD1', 'a.flac'), 'utf8')).toBe('original')
     expect(await readFile(join(restored, 'notes.txt'), 'utf8')).toBe('keep')
     expect(await sourceRestoreStatus(uploadWorkspaceRootForPath(restored))).toEqual({ available: true })
+  })
+})
+
+describe('custom workspace root', () => {
+  it('uses the exact marked folder and keeps its marker when cleared', async () => {
+    const custom = join(root, 'custom-workspace')
+    await mkdir(custom)
+    await expect(validateWorkspaceTarget(userDataPath, custom)).resolves.toBeNull()
+    await prepareWorkspaceRoot(userDataPath, custom)
+
+    const source = join(root, 'Custom Album')
+    await mkdir(source)
+    await writeFile(join(source, '01.flac'), 'audio')
+    const workspace = await copyFolderToUploadWorkspace(userDataPath, source, custom)
+
+    expect(uploadWorkspaceRootForPath(workspace).startsWith(custom)).toBe(true)
+    expect(workspaceRoot(userDataPath, custom)).toBe(custom)
+    expect(await workspaceSize(userDataPath, custom)).toBeGreaterThan(0)
+
+    await clearWorkspace(userDataPath, custom)
+    expect(await readdir(custom)).toEqual(['.gravlax-workspace'])
+    await expect(workspaceAvailable(userDataPath, custom)).resolves.toEqual({ available: true })
+  })
+
+  it('rejects a non-empty folder that Gravlax does not own', async () => {
+    const custom = join(root, 'music')
+    await mkdir(custom)
+    await writeFile(join(custom, 'keep.txt'), 'mine')
+
+    await expect(validateWorkspaceTarget(userDataPath, custom)).resolves.toBe(
+      'Choose a new or empty folder used only by Gravlax.'
+    )
+    await expect(clearWorkspace(userDataPath, custom)).rejects.toThrow(
+      'Choose a new or empty folder used only by Gravlax.'
+    )
+    await expect(readFile(join(custom, 'keep.txt'), 'utf8')).resolves.toBe('mine')
+  })
+
+  it('reports a saved custom folder as unavailable when it is missing', async () => {
+    const custom = join(root, 'missing-workspace')
+    await expect(workspaceAvailable(userDataPath, custom)).resolves.toEqual({
+      available: false,
+      error: 'Workspace folder is not available.'
+    })
   })
 })

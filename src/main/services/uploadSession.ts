@@ -3,6 +3,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { isDeepStrictEqual } from 'node:util'
 import { validateLossyMasterReport } from '@shared/upload/lossyReport'
 import type { Config } from '@shared/types/config'
+import type { WorkspaceInfo } from '@shared/ipc'
 import type {
   MetadataSelection,
   MetadataUrlResolution,
@@ -114,7 +115,9 @@ import {
   uploadWorkspaceBelongsToUserData,
   uploadWorkspaceRootForPath,
   clearWorkspace,
+  workspaceRoot,
   workspaceSize,
+  workspaceAvailable,
   sourceRestoreStatus
 } from '@main/core/appdata/workspace'
 import { expandPath } from '@main/core/config/paths'
@@ -863,9 +866,11 @@ export class UploadSession {
 
   async listStartEntries(): Promise<UploadStartEntries> {
     await this.persistNow()
+    const cfg = this.deps.getConfig()
     return listUploadStartEntries({
       userDataPath: this.deps.userDataPath,
-      sourceDirectory: this.deps.getConfig().directories.source
+      sourceDirectory: cfg.directories.source,
+      workspaceDirectory: cfg.directories.workspace
     })
   }
 
@@ -879,8 +884,9 @@ export class UploadSession {
   }
 
   async resume(workspacePath: string): Promise<void> {
-    if (!uploadWorkspaceBelongsToUserData(this.deps.userDataPath, workspacePath)) {
-      throw new Error('Upload workspace is outside Gravlax app data.')
+    const workspaceDirectory = this.deps.getConfig().directories.workspace
+    if (!uploadWorkspaceBelongsToUserData(this.deps.userDataPath, workspacePath, workspaceDirectory)) {
+      throw new Error('Upload workspace is outside the current Gravlax workspace.')
     }
     await assertToolHealth(this.deps.tools)
     await this.persistNow()
@@ -929,7 +935,12 @@ export class UploadSession {
     // rather than running inside one — so it checks the generation directly.
     let workspacePath: string
     try {
-      workspacePath = await copyFolderToUploadWorkspace(this.deps.userDataPath, sourcePath)
+      const workspaceDirectory = this.deps.getConfig().directories.workspace
+      workspacePath = await copyFolderToUploadWorkspace(
+        this.deps.userDataPath,
+        sourcePath,
+        workspaceDirectory
+      )
     } catch (err) {
       // The old workspace is deliberately still here: a failed copy must not
       // leave the user with neither the new copy nor the one they had.
@@ -947,7 +958,8 @@ export class UploadSession {
       await removeOtherUploadWorkspacesForSource(
         this.deps.userDataPath,
         sourcePath,
-        workspacePath
+        workspacePath,
+        this.deps.getConfig().directories.workspace
       )
     } catch {
       this.notify('warning', 'Could not remove the previous working copy.')
@@ -1477,15 +1489,25 @@ export class UploadSession {
     return pairs
   }
 
-  async cacheSize(): Promise<number> {
-    return workspaceSize(this.deps.userDataPath)
+  async workspaceInfo(): Promise<WorkspaceInfo> {
+    const workspaceDirectory = this.deps.getConfig().directories.workspace
+    const status = await workspaceAvailable(this.deps.userDataPath, workspaceDirectory)
+    return {
+      defaultPath: workspaceRoot(this.deps.userDataPath),
+      effectivePath: workspaceRoot(this.deps.userDataPath, workspaceDirectory),
+      size: status.available ? await workspaceSize(this.deps.userDataPath, workspaceDirectory) : 0,
+      ...status
+    }
   }
 
-  async clearCache(): Promise<void> {
+  async clearCache(options: { removeRoot?: boolean; notify?: boolean } = {}): Promise<void> {
+    const workspaceDirectory = this.deps.getConfig().directories.workspace
     this.cancelAll()
-    await clearWorkspace(this.deps.userDataPath)
+    await clearWorkspace(this.deps.userDataPath, workspaceDirectory, {
+      removeRoot: options.removeRoot
+    })
     this.apply(newState())
-    this.notify('success', 'Workspace cleared.')
+    if (options.notify !== false) this.notify('success', 'Workspace cleared.')
   }
 
   private scheduleReadyTasks(): void {

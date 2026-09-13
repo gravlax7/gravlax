@@ -1,5 +1,13 @@
 import { homedir } from 'os'
-import { normalize, resolve, sep } from 'path'
+import { isAbsolute, normalize, relative, resolve, sep } from 'path'
+
+export function pathsOverlap(left: string, right: string): boolean {
+  return isInside(relative(left, right)) || isInside(relative(right, left))
+}
+
+function isInside(path: string): boolean {
+  return path === '' || (!isAbsolute(path) && path !== '..' && !path.startsWith(`..${sep}`))
+}
 
 export function pathKey(path: string): string {
   const key = normalize(resolve(path))

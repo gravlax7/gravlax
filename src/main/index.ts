@@ -1,11 +1,11 @@
 import { app, BrowserWindow, clipboard, dialog, protocol, shell } from 'electron'
-import { readFile } from 'node:fs/promises'
-import { extname, join, relative, resolve, isAbsolute } from 'node:path'
+import { readFile, realpath } from 'node:fs/promises'
+import { extname, join, relative, isAbsolute } from 'node:path'
 import { registerIpc } from './ipc'
 import { UploadSession } from './services/uploadSession'
 import { ConfigService } from './services/configService'
 import { UploadStatsService } from './services/uploadStatsService'
-import { workspaceRoot } from './core/appdata/workspace'
+import { workspaceAvailable, workspaceRoot } from './core/appdata/workspace'
 import { SystemToolResolver } from './core/tools/binaries'
 import { checkForUpdate } from './services/updateCheck'
 import { TorrentExportService } from './services/torrentExportService'
@@ -82,6 +82,12 @@ app.whenReady().then(async () => {
     arch: process.arch
   })
 
+  const userDataPath = app.getPath('userData')
+  const appVersion = app.getVersion()
+  const configService = new ConfigService(userDataPath)
+  await configService.ensureLoaded()
+  await runStartupTasks(STARTUP_TASKS, { appVersion, userDataPath, configService })
+
   protocol.handle('gravlax-spectral', async (request) => {
     try {
       const url = new URL(request.url)
@@ -91,9 +97,13 @@ app.whenReady().then(async () => {
       }
       // Spectrals and cover art both live inside the workspace. Without this the
       // scheme is a general-purpose file reader for anything the renderer asks.
-      const resolved = resolve(filePath)
-      const root = workspaceRoot(app.getPath('userData'))
-      const rel = relative(root, resolved)
+      const workspaceDirectory = configService.get().directories.workspace
+      const status = await workspaceAvailable(userDataPath, workspaceDirectory)
+      if (!status.available) return new Response('workspace unavailable', { status: 403 })
+      const root = workspaceRoot(userDataPath, workspaceDirectory)
+      if (!root) return new Response('workspace unavailable', { status: 403 })
+      const [resolved, resolvedRoot] = await Promise.all([realpath(filePath), realpath(root)])
+      const rel = relative(resolvedRoot, resolved)
       if (rel.startsWith('..') || isAbsolute(rel)) {
         return new Response('path outside workspace', { status: 403 })
       }
@@ -112,23 +122,18 @@ app.whenReady().then(async () => {
     }
   })
 
-  const userDataPath = app.getPath('userData')
-  const appVersion = app.getVersion()
-  const configService = new ConfigService(userDataPath)
-  await configService.ensureLoaded()
-  await runStartupTasks(STARTUP_TASKS, { appVersion, userDataPath, configService })
   const toolResolver = new SystemToolResolver(() => configService.get().tools)
   const send = (channel: string, payload: unknown): void => {
     if (!mainWindow || mainWindow.isDestroyed()) return
     mainWindow.webContents.send(channel, payload)
   }
-  const uploadStatsService = new UploadStatsService(app.getPath('userData'), (stats) => {
+  const uploadStatsService = new UploadStatsService(userDataPath, (stats) => {
     send('stats:changed', stats)
   })
 
   const uploadSession = new UploadSession({
-    appVersion: app.getVersion(),
-    userDataPath: app.getPath('userData'),
+    appVersion,
+    userDataPath,
     getConfig: () => configService.get(),
     trashItem: (path) => shell.trashItem(path),
     tools: toolResolver,
@@ -162,6 +167,7 @@ app.whenReady().then(async () => {
   })
 
   registerIpc({
+    userDataPath,
     configService,
     uploadStatsService,
     uploadSession,
@@ -171,8 +177,8 @@ app.whenReady().then(async () => {
     saveTorrents: () => torrentExportService.saveAll(),
     pickDirectory: async () => {
       const result = mainWindow
-        ? await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] })
-        : await dialog.showOpenDialog({ properties: ['openDirectory'] })
+        ? await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory', 'createDirectory'] })
+        : await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })
       return result.canceled ? null : (result.filePaths[0] ?? null)
     },
     pickFile: async (options) => {

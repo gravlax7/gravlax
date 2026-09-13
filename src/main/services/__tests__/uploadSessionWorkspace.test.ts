@@ -7,6 +7,7 @@ import { defaultConfig } from '@main/core/config/defaults'
 import { newState, type State } from '@main/core/uploadflow'
 import {
   copyFolderToUploadWorkspace,
+  prepareWorkspaceRoot,
   uploadWorkspaceRootForPath,
   workspaceRoot
 } from '@main/core/appdata/workspace'
@@ -90,6 +91,22 @@ describe('source selection', () => {
 })
 
 describe('workspace lifecycle', () => {
+  it('creates, lists, and clears uploads in the configured workspace', async () => {
+    const custom = join(userDataPath, 'custom-workspace')
+    await mkdir(custom)
+    await prepareWorkspaceRoot(userDataPath, custom)
+    const config = defaultConfig()
+    config.directories.workspace = custom
+    const session = newSession(config)
+
+    await session.startNew(await makeSource('custom-album'))
+
+    expect(session.getState().draft.workspacePath.startsWith(custom)).toBe(true)
+    expect((await session.listStartEntries()).resumeEntries).toHaveLength(1)
+    await session.clearCache()
+    expect(await readdir(custom)).toEqual(['.gravlax-workspace'])
+  })
+
   it('keeps each workspace when switching uploads and resumes the selected one', async () => {
     const album = await makeSource('album')
     const other = await makeSource('other')

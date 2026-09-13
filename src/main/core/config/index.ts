@@ -22,5 +22,6 @@ export {
   normalizeMetadataProviders,
   normalizeTrackers,
   normalizeTools,
+  normalizeDirectories,
   gravlaxConfigPath
 } from './store'

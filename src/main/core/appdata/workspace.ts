@@ -1,4 +1,5 @@
 import {
+  access,
   copyFile,
   cp,
   mkdir,
@@ -13,13 +14,16 @@ import {
   symlink,
   writeFile
 } from 'node:fs/promises'
+import { constants } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { SourceFingerprint, SourceFingerprintFile, UploadFlowSnapshot } from '@shared/types'
 import { sourceRestoreUnavailableMessage } from '@shared/upload/sourceRestore'
-import { pathKey } from '@main/core/config/paths'
+import { expandPath, pathKey } from '@main/core/config/paths'
 import { QUARANTINE_DIRECTORY } from '@main/core/fileChecks/structure'
 
 const WORKSPACE_DIR_NAME = 'workspace'
+const WORKSPACE_MARKER_FILE = '.gravlax-workspace'
+const WORKSPACE_MARKER = 'Gravlax workspace\n'
 const UPLOAD_WORKSPACE_METADATA_FILE = '.gravlax-upload.json'
 const UPLOAD_FLOW_STATE_FILE = 'upload-flow.json'
 
@@ -44,12 +48,22 @@ export interface UploadWorkspaceEntry {
   snapshot?: UploadFlowSnapshot
 }
 
-export function workspaceRoot(userDataPath: string): string {
-  return join(userDataPath, WORKSPACE_DIR_NAME)
+export function workspaceRoot(userDataPath: string, workspaceDirectory = ''): string {
+  if (workspaceDirectory === '') return join(userDataPath, WORKSPACE_DIR_NAME)
+  const expanded = expandPath(workspaceDirectory)
+  if (!expanded.ok || expanded.path === '') return ''
+  return resolve(expanded.path)
 }
 
-export async function workspaceSize(userDataPath: string): Promise<number> {
-  const root = workspaceRoot(userDataPath)
+function usesDefaultWorkspace(userDataPath: string, workspaceDirectory: string): boolean {
+  return (
+    workspaceDirectory === '' ||
+    pathKey(workspaceRoot(userDataPath, workspaceDirectory)) === pathKey(workspaceRoot(userDataPath))
+  )
+}
+
+export async function workspaceSize(userDataPath: string, workspaceDirectory = ''): Promise<number> {
+  const root = workspaceRoot(userDataPath, workspaceDirectory)
   let total = 0
   async function walk(dir: string): Promise<void> {
     let entries
@@ -60,6 +74,7 @@ export async function workspaceSize(userDataPath: string): Promise<number> {
       throw err
     }
     for (const entry of entries) {
+      if (dir === root && entry.name === WORKSPACE_MARKER_FILE) continue
       const path = join(dir, entry.name)
       if (entry.isDirectory()) {
         await walk(path)
@@ -84,21 +99,28 @@ export async function workspaceSize(userDataPath: string): Promise<number> {
   return total
 }
 
-export async function createUploadWorkspace(userDataPath: string): Promise<string> {
-  const root = workspaceRoot(userDataPath)
-  await mkdir(root, { recursive: true, mode: 0o755 })
+export async function createUploadWorkspace(
+  userDataPath: string,
+  workspaceDirectory = ''
+): Promise<string> {
+  const root = workspaceRoot(userDataPath, workspaceDirectory)
+  await assertWorkspaceReady(userDataPath, workspaceDirectory)
+  if (usesDefaultWorkspace(userDataPath, workspaceDirectory)) {
+    await mkdir(root, { recursive: true, mode: 0o755 })
+  }
   return mkdtemp(join(root, 'upload-'))
 }
 
 export async function copyFolderToUploadWorkspace(
   userDataPath: string,
-  sourcePath: string
+  sourcePath: string,
+  workspaceDirectory = ''
 ): Promise<string> {
   const info = await stat(sourcePath)
   if (!info.isDirectory()) {
     throw new Error(`source folder "${sourcePath}" is not a directory`)
   }
-  const workspace = await createUploadWorkspace(userDataPath)
+  const workspace = await createUploadWorkspace(userDataPath, workspaceDirectory)
   try {
     const destination = join(workspace, basename(sourcePath))
     const files = await copyDirectory(sourcePath, destination)
@@ -147,8 +169,11 @@ export async function replaceWorkingCopyFromSource(
 }
 
 /** Lists every saved upload without choosing one as the app-wide session. */
-export async function listUploadWorkspaces(userDataPath: string): Promise<UploadWorkspaceEntry[]> {
-  const root = workspaceRoot(userDataPath)
+export async function listUploadWorkspaces(
+  userDataPath: string,
+  workspaceDirectory = ''
+): Promise<UploadWorkspaceEntry[]> {
+  const root = workspaceRoot(userDataPath, workspaceDirectory)
   let entries
   try {
     entries = await readdir(root, { withFileTypes: true })
@@ -187,8 +212,12 @@ export async function readUploadWorkspaceSource(workspaceRootPath: string): Prom
   return (await readUploadWorkspaceMetadata(workspaceRootPath)).sourcePath
 }
 
-export function uploadWorkspaceBelongsToUserData(userDataPath: string, workspacePath: string): boolean {
-  const root = workspaceRoot(userDataPath)
+export function uploadWorkspaceBelongsToUserData(
+  userDataPath: string,
+  workspacePath: string,
+  workspaceDirectory = ''
+): boolean {
+  const root = workspaceRoot(userDataPath, workspaceDirectory)
   const candidateRoot = dirname(workspacePath)
   return dirname(candidateRoot) === root
 }
@@ -201,11 +230,12 @@ export async function removeUploadWorkspace(path: string): Promise<void> {
 export async function removeOtherUploadWorkspacesForSource(
   userDataPath: string,
   sourcePath: string,
-  keepWorkspacePath: string
+  keepWorkspacePath: string,
+  workspaceDirectory = ''
 ): Promise<void> {
   const keepRoot = uploadWorkspaceRootForPath(keepWorkspacePath)
   const sourceKey = pathKey(sourcePath)
-  const workspaces = await listUploadWorkspaces(userDataPath)
+  const workspaces = await listUploadWorkspaces(userDataPath, workspaceDirectory)
   for (const workspace of workspaces) {
     if (pathKey(workspace.workspaceRootPath) === pathKey(keepRoot)) continue
     if (pathKey(workspace.sourcePath) !== sourceKey) continue
@@ -294,9 +324,111 @@ export function uploadWorkspaceRootForPath(path: string): string {
   return dirname(path)
 }
 
-export async function clearWorkspace(userDataPath: string): Promise<void> {
-  const root = workspaceRoot(userDataPath)
-  await rm(root, { recursive: true, force: true })
+export async function clearWorkspace(
+  userDataPath: string,
+  workspaceDirectory = '',
+  options: { removeRoot?: boolean } = {}
+): Promise<void> {
+  const root = workspaceRoot(userDataPath, workspaceDirectory)
+  try {
+    await lstat(root)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw err
+  }
+  await assertWorkspaceReady(userDataPath, workspaceDirectory)
+  if (options.removeRoot) {
+    await rm(root, { recursive: true, force: true })
+    return
+  }
+  const isDefault = usesDefaultWorkspace(userDataPath, workspaceDirectory)
+  const entries = await readdir(root, { withFileTypes: true })
+  await Promise.all(
+    entries
+      .filter((entry) => isDefault || entry.name !== WORKSPACE_MARKER_FILE)
+      .map((entry) => rm(join(root, entry.name), { recursive: true, force: true }))
+  )
+}
+
+export async function validateWorkspaceTarget(
+  userDataPath: string,
+  workspaceDirectory: string
+): Promise<string | null> {
+  if (usesDefaultWorkspace(userDataPath, workspaceDirectory)) return null
+  const root = workspaceRoot(userDataPath, workspaceDirectory)
+  if (!root) return 'Workspace folder is invalid.'
+  try {
+    const info = await lstat(root)
+    if (info.isSymbolicLink()) return 'Workspace folder cannot be a symbolic link.'
+    if (!info.isDirectory()) return 'Workspace path is not a folder.'
+    await access(root, constants.W_OK)
+    const entries = await readdir(root)
+    if (entries.length === 0) return null
+    if (!entries.includes(WORKSPACE_MARKER_FILE)) {
+      return 'Choose a new or empty folder used only by Gravlax.'
+    }
+    const marker = await readFile(join(root, WORKSPACE_MARKER_FILE), 'utf8').catch(() => '')
+    if (marker !== WORKSPACE_MARKER) return 'Workspace ownership marker is invalid.'
+    return null
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      return `Workspace folder cannot be used: ${String(err)}`
+    }
+  }
+
+  try {
+    const parent = await stat(dirname(root))
+    if (!parent.isDirectory()) return 'Workspace parent path is not a folder.'
+    await access(dirname(root), constants.W_OK)
+    return null
+  } catch (err) {
+    return `Workspace parent folder cannot be used: ${String(err)}`
+  }
+}
+
+export async function prepareWorkspaceRoot(
+  userDataPath: string,
+  workspaceDirectory: string
+): Promise<string> {
+  const issue = await validateWorkspaceTarget(userDataPath, workspaceDirectory)
+  if (issue) throw new Error(issue)
+  const root = workspaceRoot(userDataPath, workspaceDirectory)
+  await mkdir(root, { recursive: true, mode: 0o755 })
+  if (usesDefaultWorkspace(userDataPath, workspaceDirectory)) return root
+  const issueAfterCreate = await validateWorkspaceTarget(userDataPath, workspaceDirectory)
+  if (issueAfterCreate) throw new Error(issueAfterCreate)
+  const markerPath = join(root, WORKSPACE_MARKER_FILE)
+  try {
+    await writeFile(markerPath, WORKSPACE_MARKER, { flag: 'wx', mode: 0o600 })
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+  }
+  return root
+}
+
+export async function workspaceAvailable(
+  userDataPath: string,
+  workspaceDirectory: string
+): Promise<{ available: true } | { available: false; error: string }> {
+  if (usesDefaultWorkspace(userDataPath, workspaceDirectory)) return { available: true }
+  try {
+    await lstat(workspaceRoot(userDataPath, workspaceDirectory))
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { available: false, error: 'Workspace folder is not available.' }
+    }
+    return { available: false, error: `Workspace folder cannot be used: ${String(err)}` }
+  }
+  const issue = await validateWorkspaceTarget(userDataPath, workspaceDirectory)
+  return issue ? { available: false, error: issue } : { available: true }
+}
+
+async function assertWorkspaceReady(
+  userDataPath: string,
+  workspaceDirectory: string
+): Promise<void> {
+  const status = await workspaceAvailable(userDataPath, workspaceDirectory)
+  if (!status.available) throw new Error(status.error)
 }
 
 async function verifySourceFingerprint(fingerprint: SourceFingerprint): Promise<SourceRestoreStatus> {

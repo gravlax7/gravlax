@@ -59,6 +59,8 @@ export interface DirectoriesConfig {
   torrents: string
   /** Where releases are placed for a local torrent client when there is no seedbox. */
   seeding: string
+  /** Empty uses the workspace inside Electron's user-data directory. */
+  workspace: string
 }
 
 export interface ToolsConfig {

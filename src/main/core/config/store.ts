@@ -127,6 +127,20 @@ export function normalizeTransfer(raw: unknown, base: Config['transfer']): Confi
   return next
 }
 
+export function normalizeDirectories(
+  raw: unknown,
+  base: Config['directories']
+): Config['directories'] {
+  if (!raw || typeof raw !== 'object') return base
+  const obj = raw as Record<string, unknown>
+  const next = structuredClone(base)
+  if (typeof obj.source === 'string') next.source = obj.source
+  if (typeof obj.torrents === 'string') next.torrents = obj.torrents
+  if (typeof obj.seeding === 'string') next.seeding = obj.seeding
+  if (typeof obj.workspace === 'string') next.workspace = normalizePath(obj.workspace)
+  return next
+}
+
 /**
  * Picks only the keys the section still has.
  *
@@ -252,6 +266,10 @@ export function mergeLoadedConfig(raw: unknown): Config {
   }
   const obj = raw as Record<string, unknown>
   for (const key of Object.keys(cfg) as (keyof Config)[]) {
+    if (key === 'directories') {
+      cfg.directories = normalizeDirectories(obj.directories, cfg.directories)
+      continue
+    }
     if (key === 'metadataProviders') {
       cfg.metadataProviders = normalizeMetadataProviders(obj.metadataProviders, cfg.metadataProviders)
       continue

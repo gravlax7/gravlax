@@ -3,6 +3,7 @@ import {
   defaultConfig,
   gravlaxConfigPath,
   loadConfig,
+  normalizeDirectories,
   normalizeTools,
   resetSection,
   saveConfig,
@@ -39,9 +40,7 @@ export class ConfigService {
   }
 
   async save(cfg: Config): Promise<{ ok: true } | { ok: false; issues: ValidationIssue[] }> {
-    const normalized = normalizeTrackerHosts(cfg)
-    normalized.tools = normalizeTools(cfg.tools, cfg.tools)
-    const issues = validate(normalized)
+    const { config: normalized, issues } = this.prepare(cfg)
     if (issues.length > 0) {
       logDiagnostic('config_save_rejected', { issueCount: issues.length })
       return { ok: false, issues }
@@ -56,6 +55,14 @@ export class ConfigService {
     this.revision += 1
     logDiagnostic('config_save_complete', { configRevision: this.revision })
     return { ok: true }
+  }
+
+  prepare(cfg: Config): { config: Config; issues: ValidationIssue[] } {
+    const normalized = normalizeTrackerHosts(cfg)
+    normalized.directories = normalizeDirectories(cfg.directories, cfg.directories)
+    normalized.tools = normalizeTools(cfg.tools, cfg.tools)
+    const issues = validate(normalized)
+    return { config: normalized, issues }
   }
 
   /**

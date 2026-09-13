@@ -14,7 +14,7 @@ import { isSafeQBittorrentURL, isTrackerHost } from '@shared/config/network'
 import { listDescriptionTemplateIds } from '@shared/upload/templates'
 import { SPECTRAL_SELECTION_OPTIONS } from '@shared/upload/spectralIds'
 import { validateMultiDiscFolderTemplate, validateReleaseFolderTemplate, validateTrackFileTemplate } from '@shared/upload/naming'
-import { expandPath, normalizePath } from './paths'
+import { expandPath, normalizePath, pathsOverlap } from './paths'
 
 export function validate(cfg: Config): ValidationIssue[] {
   const issues: ValidationIssue[] = []
@@ -47,10 +47,38 @@ export function validate(cfg: Config): ValidationIssue[] {
   }
   for (const [field, value] of Object.entries({
     source: cfg.directories.source,
-    torrents: cfg.directories.torrents
+    torrents: cfg.directories.torrents,
+    seeding: cfg.directories.seeding
   })) {
     if (value !== '' && !validCleanPath(value)) {
       add('directories', field, 'directory path must be clean')
+    }
+  }
+
+  if (cfg.directories.workspace !== '') {
+    if (!validAbsoluteCleanPath(cfg.directories.workspace)) {
+      add('directories', 'workspace', 'workspace folder must be an absolute, clean path')
+    } else {
+      const workspace = expandedPath(cfg.directories.workspace)
+      const otherDirectories = [
+        cfg.directories.source,
+        cfg.directories.torrents,
+        cfg.directories.seeding,
+        cfg.cleanup.archiveDirectory
+      ]
+      if (
+        workspace &&
+        otherDirectories.some((value) => {
+          const other = expandedPath(value)
+          return other !== '' && pathsOverlap(workspace, other)
+        })
+      ) {
+        add(
+          'directories',
+          'workspace',
+          'workspace folder must not contain or be inside another configured folder'
+        )
+      }
     }
   }
 
@@ -218,6 +246,12 @@ function validAbsoluteCleanPath(pathValue: string): boolean {
   const { path: expanded, ok } = expandPath(normalized)
   if (!ok || expanded === '' || !path.isAbsolute(expanded)) return false
   return path.normalize(expanded) === expanded
+}
+
+function expandedPath(pathValue: string): string {
+  if (pathValue === '') return ''
+  const expanded = expandPath(normalizePath(pathValue))
+  return expanded.ok ? path.resolve(expanded.path) : ''
 }
 
 function oneOf(value: string, ...options: string[]): boolean {

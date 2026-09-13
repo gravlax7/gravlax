@@ -108,6 +108,19 @@ describe('IPC argument contract', () => {
     expect(parseIpcArguments('config:resetSection', ['tools'])).toEqual(['tools'])
   })
 
+  it('checks workspace save confirmation input', () => {
+    const cfg = configInput()
+    const options = {
+      confirmWorkspaceChange: { from: '/old/workspace', to: '/new/workspace' }
+    }
+    expect(parseIpcArguments('config:save', [cfg, options])).toEqual([cfg, options])
+    expect(parseIpcArguments('workspace:info', [])).toEqual([])
+    expect(parseIpcArguments('workspace:clear', [])).toEqual([])
+    expect(() =>
+      parseIpcArguments('config:save', [cfg, { confirmWorkspaceChange: { from: '', to: '' } }])
+    ).toThrow()
+  })
+
   it('validates qBittorrent API key settings before saving', () => {
     const cfg = configInput()
     cfg.torrentClient.useApiKey = true
@@ -130,7 +143,7 @@ function configInput(): Config {
   }
   return {
     appearance: { theme: 'system' as const },
-    directories: { source: '', torrents: '', seeding: '' },
+    directories: { source: '', torrents: '', seeding: '', workspace: '' },
     tools: { sox: '', flac: '', metaflac: '', lame: '' },
     trackers: { redacted: { ...tracker }, orpheus: { ...tracker } },
     metadataProviders: {

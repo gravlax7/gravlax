@@ -20,7 +20,7 @@ function defaultTrackers(): Config['trackers'] {
 export function defaultConfig(): Config {
   return {
     appearance: { theme: 'system' },
-    directories: { source: '', torrents: '', seeding: '' },
+    directories: { source: '', torrents: '', seeding: '', workspace: '' },
     tools: { sox: '', flac: '', metaflac: '', lame: '' },
     trackers: defaultTrackers(),
     metadataProviders: {
@@ -93,7 +93,7 @@ export function resetSection(cfg: Config, section: SectionID): Config {
       next.appearance = def.appearance
       break
     case 'directories':
-      next.directories = def.directories
+      next.directories = { ...def.directories, workspace: cfg.directories.workspace }
       break
     case 'tools':
       next.tools = def.tools

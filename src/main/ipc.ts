@@ -8,8 +8,10 @@ import { runHealthcheck } from './services/healthcheck'
 import { readSalmonImportSources } from './services/salmonImportService'
 import type { ToolResolver } from './core/tools/binaries'
 import { previewBbcode } from './core/tools/trackers/preview'
+import { saveConfigWithWorkspaceChange } from './services/workspaceConfigService'
 
 export interface IpcDeps {
+  userDataPath: string
   configService: ConfigService
   uploadStatsService: UploadStatsService
   uploadSession: UploadSession
@@ -43,7 +45,17 @@ export function registerIpc(deps: IpcDeps): void {
   const { configService: config, uploadSession: upload, uploadStatsService: stats } = deps
 
   handle('config:load', () => config.ensureLoaded())
-  handle('config:save', (cfg) => config.save(cfg))
+  handle('config:save', (cfg, options) =>
+    saveConfigWithWorkspaceChange(
+      {
+        userDataPath: deps.userDataPath,
+        configService: config,
+        uploadSession: upload
+      },
+      cfg,
+      options
+    )
+  )
   handle('config:resetSection', (section) => config.reset(section))
   handle('config:validate', (cfg) => config.validate(cfg))
   handle('config:readSalmonImportSources', (options) => readSalmonImportSources(options))
@@ -95,8 +107,8 @@ export function registerIpc(deps: IpcDeps): void {
   handle('upload:listSpectrals', () => upload.listSpectrals())
   handle('upload:cancel', () => upload.cancelAll())
 
-  handle('cache:size', () => upload.cacheSize())
-  handle('cache:clear', () => upload.clearCache())
+  handle('workspace:info', () => upload.workspaceInfo())
+  handle('workspace:clear', () => upload.clearCache())
   handle('dialog:pickDirectory', () => deps.pickDirectory())
   handle('dialog:pickFile', (options) => deps.pickFile(options))
   handle('shell:revealPath', (path) => deps.revealPath(path))

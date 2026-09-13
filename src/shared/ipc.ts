@@ -31,9 +31,32 @@ export type StepChangeResult =
   | { ok: true }
   | { ok: false; error: string; needsConfirmation?: boolean }
 
+export interface WorkspaceChange {
+  from: string
+  to: string
+  bytes: number
+}
+
+export interface WorkspaceInfo {
+  defaultPath: string
+  effectivePath: string
+  size: number
+  available: boolean
+  error?: string
+}
+
+export type ConfigSaveResult =
+  | { ok: true }
+  | { ok: false; reason: 'validation'; issues: ValidationIssue[] }
+  | { ok: false; reason: 'workspace-reset-required'; change: WorkspaceChange }
+
+export interface ConfigSaveOptions {
+  confirmWorkspaceChange?: Pick<WorkspaceChange, 'from' | 'to'>
+}
+
 export interface IpcInvokeMap {
   'config:load': { args: []; result: Config }
-  'config:save': { args: [Config]; result: { ok: true } | { ok: false; issues: ValidationIssue[] } }
+  'config:save': { args: [Config, ConfigSaveOptions?]; result: ConfigSaveResult }
   'config:resetSection': { args: [SectionID]; result: Config }
   'config:validate': { args: [Config]; result: ValidationIssue[] }
   'config:readSalmonImportSources': {
@@ -89,8 +112,8 @@ export interface IpcInvokeMap {
   'upload:finish': { args: []; result: { ok: true } | { ok: false; error: string } }
   'upload:listSpectrals': { args: []; result: Array<{ full: string; zoom: string; index: number; filename: string }> }
   'upload:cancel': { args: []; result: void }
-  'cache:size': { args: []; result: number }
-  'cache:clear': { args: []; result: void }
+  'workspace:info': { args: []; result: WorkspaceInfo }
+  'workspace:clear': { args: []; result: void }
   'dialog:pickDirectory': { args: []; result: string | null }
   'dialog:pickFile': { args: [{ filters?: Array<{ name: string; extensions: string[] }> }?]; result: string | null }
   'shell:revealPath': { args: [string]; result: void }
@@ -139,7 +162,12 @@ const configInput: z.ZodType<Config> = z.object({
   appearance: z.object({
     theme: z.enum(THEME_PREFERENCES)
   }),
-  directories: z.object({ source: z.string(), torrents: z.string(), seeding: z.string() }),
+  directories: z.object({
+    source: z.string(),
+    torrents: z.string(),
+    seeding: z.string(),
+    workspace: z.string()
+  }),
   tools: z.object({
     sox: z.string(),
     flac: z.string(),
@@ -213,7 +241,17 @@ export const IPC_ARGUMENT_SCHEMAS: {
   [C in IpcInvokeChannel]: z.ZodType<IpcInvokeArgs<C>>
 } = {
   'config:load': noArgs,
-  'config:save': z.tuple([configInput]),
+  'config:save': z.union([
+    z.tuple([configInput]),
+    z.tuple([
+      configInput,
+      z.object({
+        confirmWorkspaceChange: z
+          .object({ from: z.string().min(1), to: z.string().min(1) })
+          .optional()
+      })
+    ])
+  ]) as z.ZodType<IpcInvokeArgs<'config:save'>>,
   'config:resetSection': z.tuple([sectionID]),
   'config:validate': z.tuple([configInput]),
   'config:readSalmonImportSources': z.tuple([
@@ -268,8 +306,8 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'upload:finish': noArgs,
   'upload:listSpectrals': noArgs,
   'upload:cancel': noArgs,
-  'cache:size': noArgs,
-  'cache:clear': noArgs,
+  'workspace:info': noArgs,
+  'workspace:clear': noArgs,
   'dialog:pickDirectory': noArgs,
   'dialog:pickFile': optionalOneArgument(z.object({ filters: z.array(z.object({ name: z.string(), extensions: z.array(z.string()) })).optional() })),
   'shell:revealPath': z.tuple([z.string().min(1)]),

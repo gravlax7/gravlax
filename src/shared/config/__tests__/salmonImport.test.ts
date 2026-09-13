@@ -23,7 +23,7 @@ function defaultConfig(): Config {
   }
   return {
     appearance: { theme: 'system' },
-    directories: { source: '', torrents: '', seeding: '' },
+    directories: { source: '', torrents: '', seeding: '', workspace: '' },
     tools: { sox: '', flac: '', metaflac: '', lame: '' },
     trackers: { redacted: { ...tracker }, orpheus: { ...tracker } },
     metadataProviders: {
@@ -507,7 +507,12 @@ describe('applySalmonImport', () => {
     const result = buildSalmonImportPlan({ toml }, current)
     const next = applySalmonImport(current, result, new Set(result.rows.map((r) => r.id)))
 
-    expect(next.directories).toEqual({ source: '', seeding: '/srv/seeding', torrents: '/srv/torrents' })
+    expect(next.directories).toEqual({
+      source: '',
+      seeding: '/srv/seeding',
+      torrents: '/srv/torrents',
+      workspace: ''
+    })
     expect(next.trackers.redacted.sessionCookie).toBe('red-cookie')
   })
 

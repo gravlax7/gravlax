@@ -18,7 +18,7 @@ const emptyTracker: TrackerConfig = {
 function cfgWithRedacted(tracker: TrackerConfig): Config {
   return {
     appearance: { theme: 'system' },
-    directories: { source: '', torrents: '', seeding: '' },
+    directories: { source: '', torrents: '', seeding: '', workspace: '' },
     tools: { sox: '', flac: '', metaflac: '', lame: '' },
     trackers: {
       redacted: tracker,

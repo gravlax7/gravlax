@@ -25,6 +25,7 @@ describe('config', () => {
       lame: ''
     })
     expect(cfg.appearance.theme).toBe('system')
+    expect(cfg.directories.workspace).toBe('')
     expect(cfg.workflow.confirmBeforeWrites).toBe(true)
     expect(cfg.workflow.useUpcAsCatNo).toBe(true)
     expect(cfg.workflow.autoRepairFlacIntegrity).toBe(false)
@@ -48,14 +49,19 @@ describe('config', () => {
 
   it('resetSection restores defaults for one section', () => {
     let cfg = defaultConfig()
-    cfg = { ...cfg, directories: { ...cfg.directories, source: '/tmp' } }
+    cfg = {
+      ...cfg,
+      directories: { ...cfg.directories, source: '/tmp', workspace: '/tmp/workspace' }
+    }
     cfg = resetSection(cfg, 'directories')
     expect(cfg.directories.source).toBe('')
+    expect(cfg.directories.workspace).toBe('/tmp/workspace')
   })
 
   it('loads, normalizes, and resets tool overrides without breaking old configs', () => {
     const old = mergeLoadedConfig({ directories: { source: '/music' } })
     expect(old.tools).toEqual(defaultConfig().tools)
+    expect(old.directories.workspace).toBe('')
 
     const loaded = mergeLoadedConfig({
       tools: { sox: '  /opt/tools/sox  ', mp3val: '/old/mp3val', unknown: '/bad' }
@@ -187,6 +193,24 @@ describe('config', () => {
       section: 'cleanup',
       field: 'archiveDirectory',
       message: 'archive folder must be an absolute, clean path'
+    })
+  })
+
+  it('requires a clean workspace path that does not overlap saved folders', () => {
+    const cfg = defaultConfig()
+    cfg.directories.workspace = 'relative/workspace'
+    expect(validate(cfg)).toContainEqual({
+      section: 'directories',
+      field: 'workspace',
+      message: 'workspace folder must be an absolute, clean path'
+    })
+
+    cfg.directories.workspace = '/Music/Workspace'
+    cfg.directories.source = '/Music'
+    expect(validate(cfg)).toContainEqual({
+      section: 'directories',
+      field: 'workspace',
+      message: 'workspace folder must not contain or be inside another configured folder'
     })
   })
 
