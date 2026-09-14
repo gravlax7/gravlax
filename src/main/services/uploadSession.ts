@@ -148,6 +148,20 @@ import type { UploadStatsRecord } from '@main/services/uploadStatsService'
 import type { ToolResolver } from '@main/core/tools/binaries'
 
 const FILE_CHECKS_STEP = stepIndex('file-checks') ?? 0
+const TRANSCODE_PROGRESS_UNITS = 1000
+
+export function transcodeProgressAcrossFormats(
+  completedFormats: number,
+  totalFormats: number,
+  progress: { completed: number; total: number }
+): { current: number; total: number } {
+  const fraction = progress.total > 0 ? progress.completed / progress.total : 0
+  const boundedFraction = Math.min(1, Math.max(0, fraction))
+  return {
+    current: Math.round((completedFormats + boundedFraction) * TRANSCODE_PROGRESS_UNITS),
+    total: totalFormats * TRANSCODE_PROGRESS_UNITS
+  }
+}
 
 function pathIsInside(parent: string, candidate: string): boolean {
   const pathFromParent = relative(parent, candidate)
@@ -1371,14 +1385,17 @@ export class UploadSession {
               currentLabel: string
             }): void => {
               if (!task.fresh()) return
-              const overallCurrent = completedJobs * 1000 + progress.completed
-              const overallTotal = selected.length * Math.max(progress.total, 1)
+              const overall = transcodeProgressAcrossFormats(
+                completedJobs,
+                selected.length,
+                progress
+              )
               this.apply(
                 markBackgroundTaskProgress(
                   this.state,
                   'transcode',
-                  overallCurrent,
-                  overallTotal,
+                  overall.current,
+                  overall.total,
                   `${option.name}: ${progress.currentLabel || 'working'}`
                 )
               )

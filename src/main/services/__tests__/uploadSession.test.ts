@@ -10,7 +10,10 @@ import {
   stepIndex,
   type State
 } from '@main/core/uploadflow'
-import { UploadSession } from '@main/services/uploadSession'
+import {
+  transcodeProgressAcrossFormats,
+  UploadSession
+} from '@main/services/uploadSession'
 import { automaticToolResolver } from '@main/core/tools/binaries'
 import { validatePreparedUploadFormats } from '@shared/upload/validation'
 
@@ -91,6 +94,21 @@ function completedAlternateFormats(): State['transcode'] {
 }
 
 describe('UploadSession', () => {
+  it('tracks each format as one part of multi-format transcode progress', () => {
+    expect(transcodeProgressAcrossFormats(1, 3, { completed: 0, total: 10 })).toEqual({
+      current: 1000,
+      total: 3000
+    })
+    expect(transcodeProgressAcrossFormats(1, 3, { completed: 5, total: 10 })).toEqual({
+      current: 1500,
+      total: 3000
+    })
+    expect(transcodeProgressAcrossFormats(2, 3, { completed: 10, total: 10 })).toEqual({
+      current: 3000,
+      total: 3000
+    })
+  })
+
   it('preselects manual metadata when the metadata step opens', async () => {
     const session = newSession()
     const runtime = runtimeOf(session)
