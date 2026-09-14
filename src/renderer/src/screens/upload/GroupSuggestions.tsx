@@ -9,14 +9,12 @@ import type {
 import { enabledTrackerOptions } from '@shared/config/trackers'
 import { isUploadTrackerId } from '@shared/trackers'
 import { parseTorrentPageRef } from '@shared/upload/dupeSearch'
-import {
-  groupIdForTracker,
-  withGroupIdForTracker
-} from '@shared/upload/groupIds'
+import { withGroupIdForTracker } from '@shared/upload/groupIds'
 import { stepIndexOf } from '@shared/upload/stepGating'
 import { formatByteSize } from '@shared/format'
 import { Badge, Button, Callout, Card, Icon, IconButton } from '../../ui'
 import { TrackerIcon, trackerLabel } from '../../components/TrackerIcon'
+import { createSelectedGroupId } from './groupSelection'
 
 function formatGroupTitle(s: {
   artist: string
@@ -56,7 +54,7 @@ function TrackerGroupPanel(props: {
   status: string | undefined
 }) {
   const upload = () => props.state.upload
-  const groupId = () => groupIdForTracker(upload(), props.trackerId)
+  const groupId = createSelectedGroupId(upload, () => props.trackerId)
   const [manualInput, setManualInput] = createSignal('')
   const [manualError, setManualError] = createSignal('')
   const [detail, setDetail] = createSignal<TrackerGroupDetail | null>(null)
