@@ -51,6 +51,8 @@ export type {
   TranscodeSnapshot,
   FileChecksStatus,
   IntegrityStatus,
+  RepairFlowStage,
+  RepairFlowProgress,
   IntegrityIssue,
   IntegritySummary,
   MQASummary,

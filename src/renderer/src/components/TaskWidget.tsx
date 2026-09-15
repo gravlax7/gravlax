@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js'
 import type { BackgroundTask } from '@shared/types'
-import { ProgressBar, Spinner } from '../ui'
+import { Icon, ProgressBar, Spinner } from '../ui'
 
 export function TaskWidget(props: {
   tasks: BackgroundTask[]
@@ -41,7 +41,19 @@ export function TaskWidget(props: {
                 'text-align': 'left'
               }}
             >
-              <Spinner size="sm" />
+              <Show
+                when={task.status === 'running'}
+                fallback={
+                  <Icon
+                    name="clock"
+                    size={12}
+                    title="Waiting"
+                    class="task-waiting-icon"
+                  />
+                }
+              >
+                <Spinner size="sm" />
+              </Show>
               <div style={{ flex: 1, 'min-width': 0 }}>
                 <div
                   style={{

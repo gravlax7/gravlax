@@ -34,6 +34,7 @@ import {
   setCurrentStep,
   setFileChecks,
   setFileChecksRunning,
+  setFileChecksRepairProgress,
   setLossyComment,
   setLossyMaster,
   setSpectralIds,
@@ -1662,28 +1663,40 @@ export class UploadSession {
           approvedStructurePaths: this.state.fileChecks.structure.approvedPaths,
           quarantinedStructureEntries: this.state.fileChecks.structure.quarantined,
           onRepairStarting: () => this.stopSpectralsForRepair(task),
-          onProgress: (current, total, label) => {
+          onProgress: (current, total, label, repairStage) => {
             if (!task.fresh()) return
-            this.apply(
-              markBackgroundTaskProgress(
-                this.state,
-                'file-checks',
+            let next = markBackgroundTaskProgress(
+              this.state,
+              'file-checks',
+              current,
+              total,
+              label
+            )
+            if (repairStage) {
+              next = setFileChecksRepairProgress(next, {
+                stage: repairStage,
                 current,
                 total,
                 label
-              ),
+              })
+            }
+            this.apply(
+              next,
               { persist: false }
             )
           },
           onIntegrityPassed: (integrity) => {
             if (!task.fresh()) return
+            const repairRan =
+              integrity.repairedPaths.length > 0 || integrity.repairErrors.length > 0
             this.apply(setFileChecks(this.state, {
               status: 'running',
               structure: this.state.fileChecks.structure,
               integrity,
               mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
               upconvert: { checkedCount: 0, results: [], errors: [] },
-              logs: { logFiles: [], checks: [] }
+              logs: { logFiles: [], checks: [] },
+              repair: repairRan ? this.state.fileChecks.repair : undefined
             }))
             this.scheduleReadyTasks()
           }

@@ -236,6 +236,10 @@
   border-width: 2.5px;
 }
 
+.task-waiting-icon {
+  color: var(--fg-muted);
+}
+
 @keyframes ui-spin {
   to {
     transform: rotate(360deg);
@@ -1213,6 +1217,50 @@ button.toggle.toggle-on .toggle-thumb {
   gap: var(--space-2);
   min-width: 0;
   flex: 1;
+}
+
+.file-checks-repair-stages {
+  display: grid;
+  gap: 5px;
+  margin: 2px 0;
+}
+
+.file-checks-repair-stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.file-checks-repair-stage.is-current {
+  color: var(--fg-primary);
+  font-weight: 600;
+}
+
+.file-checks-repair-stage.is-done {
+  color: var(--success);
+}
+
+.file-checks-repair-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: var(--text-xs);
+}
+
+.file-checks-repair-stage.is-current .file-checks-repair-marker {
+  border-color: var(--progress);
+  color: var(--progress);
+}
+
+.file-checks-repair-stage.is-done .file-checks-repair-marker {
+  border-color: var(--success);
 }
 
 .file-checks-headline {

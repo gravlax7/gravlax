@@ -264,4 +264,63 @@ describe('runFileChecks', () => {
     expect(allJobs.checkIntegrity).not.toHaveBeenCalled()
     expect(onRepairStarting).toHaveBeenCalledOnce()
   })
+
+  it('reports each repair and follow-up stage', async () => {
+    const repairIntegrity = vi.fn<FileChecksJobs['repairIntegrity']>(
+      async (_workspacePath, options) => {
+        options?.onProgress?.(0, 1, 'Finding failures…', 'scan')
+        options?.onProgress?.(0, 1, 'Repairing…', 'repair')
+        options?.onProgress?.(0, 1, 'Verifying…', 'verify')
+        return { ...passedIntegrity, repairedPaths: ['01.flac'] }
+      }
+    )
+    const checkMqa = vi.fn<FileChecksJobs['checkMqa']>(async (_workspacePath, options) => {
+      options?.onProgress?.(0, 1, 'Checking MQA…')
+      return { checkedCount: 1, mqaPaths: [], errors: [] }
+    })
+    const checkUpconvert = vi.fn<FileChecksJobs['checkUpconvert']>(
+      async (_workspacePath, options) => {
+        options?.onProgress?.(0, 1, 'Checking upconverts…')
+        return { checkedCount: 0, results: [], errors: [] }
+      }
+    )
+    const stages: Array<string | undefined> = []
+
+    await runFileChecks({
+      workspacePath: '/workspace',
+      sourceMedia: 'WEB',
+      trackers: [],
+      repairRequested: true,
+      jobs: jobs({ repairIntegrity, checkMqa, checkUpconvert }),
+      onProgress: (_current, _total, _label, stage) => {
+        if (stage !== undefined && stages.at(-1) !== stage) stages.push(stage)
+      }
+    })
+
+    expect(stages).toEqual(['scan', 'repair', 'verify', 'mqa', 'upconvert'])
+  })
+
+  it('stops repair progress after a clean scan', async () => {
+    const repairIntegrity = vi.fn<FileChecksJobs['repairIntegrity']>(
+      async (_workspacePath, options) => {
+        options?.onProgress?.(0, 1, 'Finding failures…', 'scan')
+        return passedIntegrity
+      }
+    )
+    const stages: Array<string | undefined> = []
+
+    await runFileChecks({
+      workspacePath: '/workspace',
+      sourceMedia: 'WEB',
+      trackers: [],
+      autoRepair: true,
+      repairAllowed: true,
+      jobs: jobs({ repairIntegrity }),
+      onProgress: (_current, _total, _label, stage) => {
+        if (stage !== undefined && stages.at(-1) !== stage) stages.push(stage)
+      }
+    })
+
+    expect(stages).toEqual(['scan'])
+  })
 })

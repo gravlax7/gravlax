@@ -1,6 +1,6 @@
 import { chmod, mkdtemp, rename, rm, stat, utimes } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import type { IntegrityIssue, IntegritySummary } from '@shared/types'
+import type { IntegrityIssue, IntegritySummary, RepairFlowStage } from '@shared/types'
 import { automaticToolResolver, type ToolResolver } from '../tools/binaries'
 import { discoverFLACFiles } from '../tools/flacFiles'
 import { runCommand } from '../tools/runCommand'
@@ -11,7 +11,12 @@ interface IntegrityOptions {
   signal?: AbortSignal
   tools?: ToolResolver
   run?: CommandRunner
-  onProgress?: (current: number, total: number, label: string) => void
+  onProgress?: (
+    current: number,
+    total: number,
+    label: string,
+    repairStage?: RepairFlowStage
+  ) => void
 }
 
 interface RepairOptions extends IntegrityOptions {
@@ -111,7 +116,13 @@ export async function repairFLACIntegrityWorkspace(
   root: string,
   options: RepairOptions = {}
 ): Promise<IntegritySummary> {
-  const before = await checkFLACIntegrityWorkspace(root, options)
+  const progress = (stage: RepairFlowStage) =>
+    (current: number, total: number, label: string) =>
+      options.onProgress?.(current, total, label, stage)
+  const before = await checkFLACIntegrityWorkspace(root, {
+    ...options,
+    onProgress: progress('scan')
+  })
   if (before.status === 'passed' || before.failures.length === 0) return before
 
   const files = await discoverFLACFiles(root)
@@ -121,11 +132,11 @@ export async function repairFLACIntegrityWorkspace(
   const repair = options.repair ?? repairFLACIntegrity
   await options.onRepairStarting?.()
   options.signal?.throwIfAborted()
-  options.onProgress?.(0, before.failures.length, 'Repairing failed FLACs…')
+  options.onProgress?.(0, before.failures.length, 'Repairing failed FLACs…', 'repair')
   for (let index = 0; index < before.failures.length; index++) {
     options.signal?.throwIfAborted()
     const failure = before.failures[index]!
-    options.onProgress?.(index, before.failures.length, failure.relativePath)
+    options.onProgress?.(index, before.failures.length, failure.relativePath, 'repair')
     const absolutePath = byRelativePath.get(failure.relativePath)
     if (!absolutePath) {
       repairErrors.push({
@@ -141,10 +152,13 @@ export async function repairFLACIntegrityWorkspace(
         repairErrors.push({ relativePath: failure.relativePath, message: messageFrom(error) })
       }
     }
-    options.onProgress?.(index + 1, before.failures.length, failure.relativePath)
+    options.onProgress?.(index + 1, before.failures.length, failure.relativePath, 'repair')
   }
 
-  const after = await checkFLACIntegrityWorkspace(root, options)
+  const after = await checkFLACIntegrityWorkspace(root, {
+    ...options,
+    onProgress: progress('verify')
+  })
   return { ...after, repairedPaths, repairErrors }
 }
 

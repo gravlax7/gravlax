@@ -82,8 +82,14 @@ describe('workspace FLAC repair', () => {
     })
     const repair = vi.fn(async (_path: string) => { repaired = true })
     const onRepairStarting = vi.fn(async () => undefined)
+    const onProgress = vi.fn()
 
-    const summary = await repairFLACIntegrityWorkspace(root, { run, repair, onRepairStarting })
+    const summary = await repairFLACIntegrityWorkspace(root, {
+      run,
+      repair,
+      onRepairStarting,
+      onProgress
+    })
 
     expect(onRepairStarting).toHaveBeenCalledOnce()
     expect(onRepairStarting.mock.invocationCallOrder[0]).toBeLessThan(
@@ -99,6 +105,11 @@ describe('workspace FLAC repair', () => {
       repairErrors: []
     })
     expect(run).toHaveBeenCalledTimes(4)
+    expect([...new Set(onProgress.mock.calls.map((call) => call[3]))]).toEqual([
+      'scan',
+      'repair',
+      'verify'
+    ])
   })
 
   it('does not announce repair when every FLAC passes', async () => {

@@ -3,6 +3,7 @@ import type {
   IntegritySummary,
   LogcheckerSummary,
   MQASummary,
+  RepairFlowProgress,
   UpconvertSummary
 } from '@shared/types'
 import type { State } from './state'
@@ -65,6 +66,10 @@ export function setFileChecksRunning(s: State): State {
   return { ...s, fileChecks: { ...emptyFileChecks(), status: 'running' } }
 }
 
+export function setFileChecksRepairProgress(s: State, repair: RepairFlowProgress): State {
+  return { ...s, fileChecks: { ...s.fileChecks, repair: { ...repair } } }
+}
+
 /** Fills the gaps in a snapshot read back off disk, which may predate any field. */
 export function restoreFileChecks(snapshot: FileChecksSnapshot | undefined): FileChecksSnapshot {
   if (!snapshot) return emptyFileChecks()
@@ -118,6 +123,7 @@ export function restoreFileChecks(snapshot: FileChecksSnapshot | undefined): Fil
       })),
       skippedReason: logs?.skippedReason
     },
+    repair: snapshot.repair ? { ...snapshot.repair } : undefined,
     error: snapshot.error
   }
 }

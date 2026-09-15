@@ -325,6 +325,15 @@ export type FileChecksStatus = 'idle' | 'running' | 'ok' | 'failed'
 
 export type IntegrityStatus = 'idle' | 'passed' | 'failed'
 
+export type RepairFlowStage = 'scan' | 'repair' | 'verify' | 'mqa' | 'upconvert'
+
+export interface RepairFlowProgress {
+  stage: RepairFlowStage
+  current: number
+  total: number
+  label: string
+}
+
 export interface IntegrityIssue {
   relativePath: string
   message: string
@@ -412,6 +421,8 @@ export interface FileChecksSnapshot {
   mqa: MQASummary
   upconvert: UpconvertSummary
   logs: LogcheckerSummary
+  /** Present only while an integrity repair and its follow-up checks are running. */
+  repair?: RepairFlowProgress
   /** Set only when the check itself broke, as opposed to finding problems. */
   error?: string
 }

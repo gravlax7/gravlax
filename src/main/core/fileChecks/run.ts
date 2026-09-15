@@ -3,6 +3,7 @@ import type {
   IntegritySummary,
   MQASummary,
   UpconvertSummary,
+  RepairFlowStage,
   SourceMedia
 } from '@shared/types'
 import type { ToolResolver } from '@main/core/tools/binaries'
@@ -37,7 +38,12 @@ export interface RunFileChecksOptions {
   autoRepair?: boolean
   repairAllowed?: boolean
   jobs?: Partial<FileChecksJobs>
-  onProgress?: (current: number, total: number, label: string) => void
+  onProgress?: (
+    current: number,
+    total: number,
+    label: string,
+    repairStage?: RepairFlowStage
+  ) => void
   onRepairStarting?: () => void | Promise<void>
   onIntegrityPassed?: (integrity: IntegritySummary) => void
   approvedStructurePaths?: string[]
@@ -67,9 +73,14 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
     tools,
     onProgress
   } = options
-  const progress = (job: FileChecksJob) =>
-    (current: number, total: number, label: string) =>
-      onProgress?.(current, total, `${JOB_LABELS[job]} — ${label}`)
+  const progress = (job: FileChecksJob, repairStage?: RepairFlowStage) =>
+    (current: number, total: number, label: string, nestedStage?: RepairFlowStage) =>
+      onProgress?.(
+        current,
+        total,
+        `${JOB_LABELS[job]} — ${label}`,
+        nestedStage ?? repairStage
+      )
   const jobs: FileChecksJobs = {
     checkStructure: checkReleaseStructure,
     checkIntegrity: checkFLACIntegrityWorkspace,
@@ -143,17 +154,18 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
     let mqa: MQASummary = { checkedCount: 0, mqaPaths: [], errors: [] }
     let upconvert: UpconvertSummary = { checkedCount: 0, results: [], errors: [] }
     if (integrity.status === 'passed') {
+      const repairRan = integrity.repairedPaths.length > 0 || integrity.repairErrors.length > 0
       options.onIntegrityPassed?.(integrity)
       mqa = await jobs.checkMqa(workspacePath, {
         signal: checkSignal,
         tools,
-        onProgress: progress('mqa')
+        onProgress: progress('mqa', repairRan ? 'mqa' : undefined)
       })
       checkSignal.throwIfAborted()
       upconvert = await jobs.checkUpconvert(workspacePath, {
         signal: checkSignal,
         tools,
-        onProgress: progress('upconvert')
+        onProgress: progress('upconvert', repairRan ? 'upconvert' : undefined)
       })
     }
     checkSignal.throwIfAborted()

@@ -218,6 +218,13 @@ export default function App() {
     if (index != null) void window.gravlax.upload.setCurrentStep(index)
   }
 
+  const sidebarTasks = (uploadState: UploadFlowStateJSON) => {
+    const tasks = activeBackgroundTasks(uploadState.background.tasks)
+    if (screen() !== 'upload' || uploadView().kind !== 'flow') return tasks
+    const currentStep = UPLOAD_STEPS[uploadState.currentStep]?.id
+    return tasks.filter((task) => task.step !== currentStep || task.id === 'metadata')
+  }
+
   const samePath = (a: string, b: string): boolean => {
     const clean = (path: string) => path.replace(/\\/g, '/').replace(/\/+$/, '')
     return clean(a) === clean(b)
@@ -356,7 +363,7 @@ export default function App() {
             {(s) => (
               <TaskWidget
                 compact
-                tasks={activeBackgroundTasks(s().background.tasks)}
+                tasks={sidebarTasks(s())}
                 onJump={jumpToTaskStep}
               />
             )}

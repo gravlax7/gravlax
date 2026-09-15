@@ -1,7 +1,12 @@
-import { Show, createSignal } from 'solid-js'
-import type { SourceMedia, UploadFlowStateJSON } from '@shared/types'
+import { For, Show, createSignal } from 'solid-js'
+import type {
+  RepairFlowProgress,
+  RepairFlowStage,
+  SourceMedia,
+  UploadFlowStateJSON
+} from '@shared/types'
 import { SOURCE_MEDIA_OPTIONS } from '@shared/upload/sourceMedia'
-import { Card, Icon, ProgressBar, Section, SegmentedControl } from '../../../ui'
+import { Card, Icon, ProgressBar, Section, SegmentedControl, Spinner } from '../../../ui'
 import {
   FileChecksResult,
   IntegrityResult,
@@ -10,6 +15,75 @@ import {
   StructureResult,
   UpconvertResult
 } from '../fileChecks'
+
+const REPAIR_STAGES: Array<{ id: RepairFlowStage; label: string }> = [
+  { id: 'scan', label: 'Confirm failures' },
+  { id: 'repair', label: 'Repair FLACs' },
+  { id: 'verify', label: 'Verify integrity' },
+  { id: 'mqa', label: 'Check MQA' },
+  { id: 'upconvert', label: 'Check upconverts' }
+]
+
+function repairStageIndex(stage: RepairFlowStage): number {
+  return REPAIR_STAGES.findIndex((item) => item.id === stage)
+}
+
+function repairProgressLabel(label: string): string {
+  const separator = label.indexOf(' — ')
+  return separator < 0 ? label : label.slice(separator + 3)
+}
+
+function RepairProgress(props: { progress: RepairFlowProgress; sourceMedia: SourceMedia }) {
+  const currentStage = () => repairStageIndex(props.progress.stage)
+  return (
+    <FileChecksResult tone="info" icon="activity">
+      <div class="file-checks-headline">Checking FLACs and repairing issues…</div>
+      <div class="file-checks-repair-stages" aria-label="Repair stages">
+        <For each={REPAIR_STAGES}>
+          {(stage, index) => {
+            const status = () =>
+              index() < currentStage()
+                ? 'done'
+                : index() === currentStage()
+                  ? 'current'
+                  : 'upcoming'
+            return (
+              <div class={`file-checks-repair-stage is-${status()}`}>
+                <span class="file-checks-repair-marker">
+                  <Show
+                    when={status() === 'done'}
+                    fallback={
+                      <Show when={status() === 'current'} fallback={index() + 1}>
+                        <Spinner size="sm" />
+                      </Show>
+                    }
+                  >
+                    <Icon name="check" size={14} />
+                  </Show>
+                </span>
+                <span>{stage.label}</span>
+              </div>
+            )
+          }}
+        </For>
+      </div>
+      <div class="file-checks-sub">
+        Stage {currentStage() + 1} of {REPAIR_STAGES.length}
+        {props.progress.label ? ` — ${repairProgressLabel(props.progress.label)}` : ''}
+      </div>
+      <Show when={props.sourceMedia === 'CD'}>
+        <div class="file-checks-sub">Rip logs are checked at the same time.</div>
+      </Show>
+      <Show when={props.progress.total > 0}>
+        <ProgressBar
+          value={props.progress.current}
+          max={props.progress.total}
+          label={`${REPAIR_STAGES[currentStage()]?.label ?? 'Repair'} progress`}
+        />
+      </Show>
+    </FileChecksResult>
+  )
+}
 
 export function FileChecksStep(props: { state: UploadFlowStateJSON }) {
   const [expanded, setExpanded] = createSignal(false)
@@ -61,7 +135,19 @@ export function FileChecksStep(props: { state: UploadFlowStateJSON }) {
         </FileChecksResult>
       </Show>
 
-      <Show when={task() && (status() === 'running' || status() === 'queued')}>
+      <Show when={
+        task() &&
+        (status() === 'running' || status() === 'queued') &&
+        fileChecks().repair
+      }>
+        <RepairProgress progress={fileChecks().repair!} sourceMedia={media() || 'WEB'} />
+      </Show>
+
+      <Show when={
+        task() &&
+        (status() === 'running' || status() === 'queued') &&
+        !fileChecks().repair
+      }>
         <FileChecksResult tone="info" icon="activity">
           <div class="file-checks-headline">Checking files…</div>
           <div class="file-checks-sub">

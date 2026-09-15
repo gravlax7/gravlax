@@ -28,6 +28,7 @@ export type IconName =
   | 'user'
   | 'users'
   | 'arrow-left-right'
+  | 'clock'
 
 const paths: Record<IconName, () => JSX.Element> = {
   folder: () => (
@@ -184,6 +185,12 @@ const paths: Record<IconName, () => JSX.Element> = {
       <path d="M4 7h16" />
       <path d="m16 21 4-4-4-4" />
       <path d="M20 17H4" />
+    </>
+  ),
+  clock: () => (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
     </>
   )
 }
