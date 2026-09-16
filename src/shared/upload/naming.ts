@@ -418,13 +418,14 @@ export function isMultiDisc(discNumbers: Array<string | undefined>): boolean {
 }
 
 function sanitize(value: string): string {
-  return value
+  const name = value
     .normalize('NFC')
     .replace(UNICODE_FORMAT_CHARACTERS, '')
     .replace(/[\u0000-\u001f:?<>\\*|"/]/g, '_')
     .replace(/\s+/g, ' ')
     .replace(/[. ]+$/g, '')
     .trim()
+  return isReservedWindowsName(name) ? `_${name}` : name
 }
 
 function validateManualName(value: string): string | undefined {
@@ -433,9 +434,13 @@ function validateManualName(value: string): string | undefined {
   if (name === '.' || name === '..') return 'Name is reserved by the filesystem.'
   if (/[\u0000-\u001f:?<>\\*|"/]/.test(name)) return 'Name contains a character which is not allowed.'
   if (/[. ]$/.test(name)) return 'Name cannot end with a dot or space.'
-  const stem = name.replace(/\.flac$/i, '').split('.')[0]?.toUpperCase() ?? ''
-  if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/.test(stem)) return 'Name is reserved by the filesystem.'
+  if (isReservedWindowsName(name)) return 'Name is reserved by the filesystem.'
   return undefined
+}
+
+function isReservedWindowsName(name: string): boolean {
+  const stem = name.split('.')[0]?.trimEnd() ?? ''
+  return /^(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])$/i.test(stem)
 }
 
 function normalizeManualName(value: string): string {

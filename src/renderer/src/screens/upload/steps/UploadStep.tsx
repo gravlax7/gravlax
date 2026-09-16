@@ -461,6 +461,16 @@ export function UploadStep(props: {
   const detailsVisible = createMemo(() =>
     submissions().length > 0 || Boolean(upload().error)
   )
+  const [workspaceOpenError, setWorkspaceOpenError] = createSignal('')
+
+  const openWorkspace = async (): Promise<void> => {
+    setWorkspaceOpenError('')
+    try {
+      await window.gravlax.shell.openPath(`${props.state.draft.workspacePath}/..`)
+    } catch (error) {
+      setWorkspaceOpenError(`Could not open workspace: ${String(error)}`)
+    }
+  }
 
   return (
     <Section title="Upload" description="Review what will be uploaded and where.">
@@ -473,12 +483,15 @@ export function UploadStep(props: {
           variant="secondary"
           size="sm"
           disabled={!props.state.draft.workspacePath}
-          onClick={() => void window.gravlax.shell.openPath(`${props.state.draft.workspacePath}/..`)}
+          onClick={() => void openWorkspace()}
         >
           <Icon name="folder" size={14} />
           Open Workspace
         </Button>
       </Callout>
+      <Show when={workspaceOpenError()}>
+        <Callout tone="error">{workspaceOpenError()}</Callout>
+      </Show>
 
       <Show when={props.state.transcode?.phase === 'running'}>
         <Callout tone="info">Transcoding is still running in the background.</Callout>

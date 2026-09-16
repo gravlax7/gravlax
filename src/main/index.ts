@@ -8,6 +8,7 @@ import { UploadStatsService } from './services/uploadStatsService'
 import { workspaceAvailable, workspaceRoot } from './core/appdata/workspace'
 import { SystemToolResolver } from './core/tools/binaries'
 import { checkForUpdate } from './services/updateCheck'
+import { openPathInShell } from './services/openPath'
 import { TorrentExportService } from './services/torrentExportService'
 import {
   configureDiagnosticLog,
@@ -194,10 +195,7 @@ app.whenReady().then(async () => {
     revealPath: async (path) => {
       shell.showItemInFolder(path)
     },
-    openPath: async (path) => {
-      const error = await shell.openPath(path)
-      if (error) throw new Error(error)
-    },
+    openPath: (path) => openPathInShell(path, shell.openPath),
     openExternal: async (url) => {
       const trimmed = String(url ?? '').trim()
       const parsed = new URL(trimmed)

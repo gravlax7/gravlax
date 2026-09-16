@@ -1,5 +1,5 @@
 import { homedir } from 'os'
-import { isAbsolute, normalize, relative, resolve, sep } from 'path'
+import { isAbsolute, normalize, relative, resolve, sep, win32 } from 'path'
 
 export function pathsOverlap(left: string, right: string): boolean {
   return isInside(relative(left, right)) || isInside(relative(right, left))
@@ -43,12 +43,12 @@ export function normalizePath(path: string): string {
   if (path === '') {
     return ''
   }
-  while (path.length > 1 && (path.endsWith('/') || path.endsWith('\\'))) {
-    const trimmed = path.replace(/[/\\]+$/, '')
-    if (trimmed === '') {
-      return sep
-    }
-    path = trimmed
+  const trimmed = path.replace(/[/\\]+$/, '')
+  if (trimmed === '') return sep
+
+  const root = win32.parse(path).root
+  if (root.length > 1 && win32.isAbsolute(root) && trimmed === root.replace(/[/\\]+$/, '')) {
+    return win32.normalize(root)
   }
-  return path
+  return trimmed
 }
