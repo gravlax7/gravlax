@@ -2,7 +2,7 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount }
 import type { Config, FieldMetadata, NotifyPayload, SectionID, ValidationIssue } from '@shared/types/config'
 import type { WorkspaceChange, WorkspaceInfo } from '@shared/ipc'
 import { totalUploads, type UpdateCheckResult, type UploadStats } from '@shared/types'
-import { UPLOAD_TRACKER_IDS, trackerName } from '@shared/trackers'
+import { UPLOAD_TRACKER_IDS, trackerName, type UploadTrackerId } from '@shared/trackers'
 import { isThemePreference } from '@shared/theme'
 import {
   coverImageHostOptions,
@@ -84,8 +84,10 @@ export function SettingsScreen(props: {
   onBack: () => void
   onNotify: (payload: NotifyPayload) => void
   onCheckUpdates: () => void
+  initialPane?: SectionID
+  initialTrackerId?: UploadTrackerId
 }) {
-  const [paneId, setPaneId] = createSignal<PaneID>(sections()[0]!.id)
+  const [paneId, setPaneId] = createSignal<PaneID>(props.initialPane ?? sections()[0]!.id)
   const [draft, setDraft] = createSignal(structuredClone(props.config))
   const [dirty, setDirty] = createSignal(false)
   const [issues, setIssues] = createSignal<ValidationIssue[]>([])
@@ -94,6 +96,13 @@ export function SettingsScreen(props: {
   const [workspaceChangePrompt, setWorkspaceChangePrompt] = createSignal<WorkspaceChange>()
   const [revealed, setRevealed] = createSignal<Record<string, boolean>>({})
   const [query, setQuery] = createSignal('')
+
+  onMount(() => {
+    if (!props.initialTrackerId) return
+    requestAnimationFrame(() => {
+      document.getElementById(`settings-tracker-${props.initialTrackerId}`)?.scrollIntoView({ block: 'start' })
+    })
+  })
 
   createEffect(() => {
     const theme = props.config.appearance.theme
@@ -942,7 +951,12 @@ function FieldRow(props: {
     (trackerId() != null || providerName() != null || imageHostId() != null)
 
   return (
-    <div style={{ 'margin-bottom': '18px' }}>
+    <div
+      id={props.section === 'trackers' && props.field.name.endsWith('.enabled')
+        ? `settings-tracker-${props.field.name.split('.')[0]}`
+        : undefined}
+      style={{ 'margin-bottom': '18px' }}
+    >
       <div
         style={{
           display: 'flex',

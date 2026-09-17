@@ -11,7 +11,7 @@ function uploadUrl(siteUrl: string): string {
 export const redactedProvider: ImageHostProvider = {
   id: 'redacted',
 
-  async upload(cfg, filePath) {
+  async upload(cfg, filePath, beforeRequest) {
     const tracker = cfg.trackers.redacted
     const siteHost = normalizeTrackerHost(tracker.siteUrl)
     if (!siteHost) return null
@@ -27,6 +27,11 @@ export const redactedProvider: ImageHostProvider = {
     const form = new FormData()
     form.append('file', await imageFileBlob(filePath), path.basename(filePath))
 
+    try {
+      beforeRequest?.()
+    } catch (error) {
+      throw new ImageHostUploadError(error instanceof Error ? error.message : String(error))
+    }
     const response = await fetch(uploadUrl(siteUrl), {
       method: 'POST',
       headers: { Authorization: apiKey, 'User-Agent': DEFAULT_USER_AGENT },

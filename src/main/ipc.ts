@@ -94,7 +94,11 @@ export function registerIpc(deps: IpcDeps): void {
   handle('upload:runTranscode', () => upload.runTranscode())
   handle('upload:ensureUploadReport', () => upload.ensureUploadReport())
   handle('upload:updateUploadReport', (patch) => upload.updateUploadReport(patch))
-  handle('upload:previewBbcode', (source) => previewBbcode(config.get(), source))
+  handle('upload:previewBbcode', ({ trackerId, source }) => {
+    const cfg = config.get()
+    upload.assertTrackerRequest(trackerId, cfg)
+    return previewBbcode(cfg, trackerId, source, undefined, (id) => upload.assertTrackerRequest(id, cfg))
+  })
   handle('upload:searchTrackerGroups', async (options) => upload.searchTrackerGroups(options ?? {}))
   handle('upload:fetchTorrentGroup', (trackerId, groupId) => upload.fetchTorrentGroup(trackerId, groupId))
   handle('upload:resolveTorrentGroupId', (trackerId, torrentId) => upload.resolveTorrentGroupId(trackerId, torrentId))

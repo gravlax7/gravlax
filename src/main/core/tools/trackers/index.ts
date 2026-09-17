@@ -53,16 +53,16 @@ export function trackerDefinitions(cfg: Config): TrackerDefinition[] {
   }))
 }
 
-export function createTrackers(cfg: Config): Tracker[] {
+export function createTrackers(cfg: Config, beforeRequest?: (id: TrackerId) => void): Tracker[] {
   const timeoutMs = Math.max(1, cfg.metadataProviders.requestTimeoutSeconds || 10) * 1000
   return [
-    createRedactedTracker(cfg.trackers.redacted, timeoutMs),
-    createOrpheusTracker(cfg.trackers.orpheus, timeoutMs)
+    createRedactedTracker(cfg.trackers.redacted, timeoutMs, () => beforeRequest?.('redacted')),
+    createOrpheusTracker(cfg.trackers.orpheus, timeoutMs, () => beforeRequest?.('orpheus'))
   ]
 }
 
-export function createEnabledTrackers(cfg: Config): Tracker[] {
+export function createEnabledTrackers(cfg: Config, beforeRequest?: (id: TrackerId) => void): Tracker[] {
   const definitions = trackerDefinitions(cfg)
-  const byId = new Map(createTrackers(cfg).map((t) => [t.id, t]))
+  const byId = new Map(createTrackers(cfg, beforeRequest).map((t) => [t.id, t]))
   return definitions.filter((d) => d.enabled).map((d) => byId.get(d.id)!).filter(Boolean)
 }

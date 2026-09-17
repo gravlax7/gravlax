@@ -80,6 +80,7 @@ import {
   fetchTorrentGroupDetail,
   resolveTorrentIdToGroupId,
   groupSearchRequest,
+  emptyGroupSearch,
   setSeed,
   initializeFiles,
   reconcilePayloadPaths,
@@ -100,7 +101,10 @@ import {
   validateUploadTargets
 } from '@shared/upload/validation'
 import { healthcheckTrackers } from '@main/core/tools/trackers/health'
-import { assertToolHealth } from '@main/services/healthcheck'
+import { trackerHealthStore } from '@main/services/trackerHealthStore'
+import { reconcileUploadTrackerSelection } from '@main/services/uploadTrackerSelection'
+import { trackerName } from '@shared/trackers'
+import { assertToolHealth, publishPreSubmitTrackerHealth } from '@main/services/healthcheck'
 import {
   convertFolder,
   inspectTranscode,
@@ -151,6 +155,13 @@ import type { ToolResolver } from '@main/core/tools/binaries'
 const FILE_CHECKS_STEP = stepIndex('file-checks') ?? 0
 const TRANSCODE_PROGRESS_UNITS = 1000
 
+function sameTrackerAuthSettings(a: Config, b: Config, id: UploadTrackerId): boolean {
+  const left = a.trackers[id]
+  const right = b.trackers[id]
+  return left.enabled === right.enabled && left.siteUrl === right.siteUrl &&
+    left.apiKey === right.apiKey && left.sessionCookie === right.sessionCookie
+}
+
 export function transcodeProgressAcrossFormats(
   completedFormats: number,
   totalFormats: number,
@@ -198,6 +209,15 @@ export class UploadSession {
 
   constructor(private readonly deps: UploadSessionDeps) {
     this.runtime = new UploadSessionRuntime(deps)
+    trackerHealthStore.onChange(() => {
+      if (this.state.currentStep !== stepIndex('upload')) return
+      this.apply(this.state)
+      const current = this.state.upload.groupSearch
+      if (current?.fingerprint && current.fingerprint !== this.healthFilteredGroupSearchRequest().fingerprint) {
+        this.groupSearch.cancel()
+        this.apply(setGroupSearch(this.state, emptyGroupSearch()))
+      }
+    })
     this.fileChangesService = new UploadSessionFileChanges(
       {
         getState: () => this.state,
@@ -256,7 +276,29 @@ export class UploadSession {
   }
 
   private apply(next: State, options: { persist?: boolean } = {}): void {
+    if (next.currentStep === stepIndex('upload')) {
+      const upload = reconcileUploadTrackerSelection(next.upload, this.deps.getConfig())
+      if (upload !== next.upload) next = setUpload(next, upload)
+    }
+    const before = this.state.upload.selectedTrackerIds ?? []
+    const after = next.upload.selectedTrackerIds ?? []
+    if (before.join('|') !== after.join('|')) {
+      this.groupSearch.cancel()
+      next = setGroupSearch(next, emptyGroupSearch())
+    }
+    if (next === this.state) return
     this.runtime.apply(next, options)
+  }
+
+  assertTrackerRequest(id: UploadTrackerId, expectedConfig?: Config): void {
+    const cfg = this.deps.getConfig()
+    if (expectedConfig && !sameTrackerAuthSettings(cfg, expectedConfig, id)) {
+      throw new Error(`${trackerName(id)} settings changed. Wait for its health checks to finish.`)
+    }
+    if (!(this.state.upload.selectedTrackerIds ?? []).includes(id) ||
+        !trackerHealthStore.ready(cfg, id)) {
+      throw new Error(`${trackerName(id)} is not selected or its health checks have not passed.`)
+    }
   }
 
   cancelAll(): void {
@@ -378,14 +420,25 @@ export class UploadSession {
   }
 
   updateUploadReport(patch: Partial<UploadSnapshot>): void {
+    // The renderer may edit selections, but only health can mark one for restoration.
+    delete patch.healthDeselectedTrackerIds
     this.apply(updateUploadReport(this.state, patch))
+  }
+
+  private healthFilteredGroupSearchRequest() {
+    const cfg = this.deps.getConfig()
+    const selectedTrackerIds = (this.state.upload.selectedTrackerIds ?? []).filter((id) =>
+      trackerHealthStore.ready(cfg, id)
+    )
+    return groupSearchRequest({ ...this.state.upload, selectedTrackerIds }, cfg)
   }
 
   async searchTrackerGroups(options: { force?: boolean } = {}): Promise<void> {
     const cfg = this.deps.getConfig()
     const upload = this.state.upload
-    const request = groupSearchRequest(upload, cfg)
+    const request = this.healthFilteredGroupSearchRequest()
     const { trackerIds, queryStrings, fingerprint } = request
+    for (const id of trackerIds) this.assertTrackerRequest(id, cfg)
 
     const current = upload.groupSearch
     if (
@@ -409,7 +462,7 @@ export class UploadSession {
 
     await this.groupSearch.run(
       async (task) => {
-        const result = await searchTrackerGroups(cfg, request, task.signal)
+        const result = await searchTrackerGroups(cfg, request, task.signal, (id) => this.assertTrackerRequest(id, cfg))
         if (!task.fresh()) return
         this.apply(setGroupSearch(this.state, result))
       },
@@ -435,14 +488,18 @@ export class UploadSession {
     trackerId: UploadTrackerId,
     groupId: number
   ): Promise<TrackerGroupDetail> {
-    return fetchTorrentGroupDetail(this.deps.getConfig(), trackerId, groupId)
+    const cfg = this.deps.getConfig()
+    this.assertTrackerRequest(trackerId, cfg)
+    return fetchTorrentGroupDetail(cfg, trackerId, groupId, undefined, (id) => this.assertTrackerRequest(id, cfg))
   }
 
   async resolveTorrentGroupId(
     trackerId: UploadTrackerId,
     torrentId: number
   ): Promise<number | null> {
-    return resolveTorrentIdToGroupId(this.deps.getConfig(), trackerId, torrentId)
+    const cfg = this.deps.getConfig()
+    this.assertTrackerRequest(trackerId, cfg)
+    return resolveTorrentIdToGroupId(cfg, trackerId, torrentId, undefined, (id) => this.assertTrackerRequest(id, cfg))
   }
 
   async submitUpload(): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -485,8 +542,24 @@ export class UploadSession {
 
     await this.submit.run(
       async (task) => {
-        const trackerRows = await healthcheckTrackers(cfg, pendingTrackerIds, 'upload')
+        const trackerRows = await healthcheckTrackers(cfg, pendingTrackerIds, 'upload', (row) => {
+          const id = pendingTrackerIds.find((candidate) => row.id.startsWith(`trackers:${candidate}:`))
+          if (!id || !sameTrackerAuthSettings(cfg, this.deps.getConfig(), id)) return
+          this.deps.send('health:updated', publishPreSubmitTrackerHealth(cfg, [row]))
+        })
         if (!task.fresh()) return
+        const latestCfg = this.deps.getConfig()
+        const changedTracker = pendingTrackerIds.find((id) => !sameTrackerAuthSettings(cfg, latestCfg, id))
+        if (changedTracker) {
+          const error = `${trackerName(changedTracker)} settings changed. Wait for its health checks to finish.`
+          this.apply(failUploadReport(this.state, error))
+          outcome = { ok: false, error }
+          return
+        }
+        for (const id of pendingTrackerIds) {
+          trackerHealthStore.recordResult(cfg, id, trackerRows.filter((row) => row.id.startsWith(`trackers:${id}:`)))
+        }
+        this.deps.send('health:updated', publishPreSubmitTrackerHealth(cfg, trackerRows))
         const trackerHealthError = validateTrackerHealth(trackerRows, pendingTrackerIds)
         if (trackerHealthError) {
           this.apply(failUploadReport(this.state, trackerHealthError))
@@ -555,7 +628,8 @@ export class UploadSession {
               }),
               { persist: false }
             )
-          }
+          },
+          beforeTrackerRequest: (id) => this.assertTrackerRequest(id, cfg)
         })
         if (!task.fresh()) return
 
@@ -597,7 +671,8 @@ export class UploadSession {
     trackerIds: readonly UploadTrackerId[],
     task: TaskHandle
   ): Promise<string | null> {
-    const hosted = await hostCoverImagesForSubmit(this.state, cfg, trackerIds)
+    const hosted = await hostCoverImagesForSubmit(this.state, cfg, trackerIds,
+      (id) => this.assertTrackerRequest(id, cfg))
     if (!task.fresh()) return null
     if (!isDeepStrictEqual(hosted.hostedCoverImages, this.state.upload.hostedCoverImages ?? {})) {
       this.apply(

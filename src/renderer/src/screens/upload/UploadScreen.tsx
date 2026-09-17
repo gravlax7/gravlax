@@ -4,7 +4,8 @@ import type {
   Artist,
   HealthResult,
   MetadataSelection,
-  UploadFlowStateJSON
+  UploadFlowStateJSON,
+  UploadTrackerId
 } from '@shared/types'
 import {
   FIELD_ARTISTS,
@@ -67,6 +68,7 @@ export function UploadScreen(props: {
   health: HealthResult | null
   healthLoading: boolean
   onExit: () => void
+  onOpenTrackerSettings: (id: UploadTrackerId) => void
 }) {
   const [spectrals, setSpectrals] = createSignal<
     Array<{ full: string; zoom: string; index: number; filename: string }>
@@ -487,6 +489,7 @@ export function UploadScreen(props: {
               config={props.config}
               health={props.health}
               healthLoading={props.healthLoading}
+              onOpenTrackerSettings={props.onOpenTrackerSettings}
             />
           </Show>
           <Show when={stepId() === 'seed'}>

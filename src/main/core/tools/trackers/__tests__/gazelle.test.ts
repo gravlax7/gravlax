@@ -424,6 +424,26 @@ describe('release types', () => {
 })
 
 describe('rate limits', () => {
+  it('stops a queued request when its destination becomes unavailable', async () => {
+    let allowed = true
+    stubFetch(async () => ({ status: 200, text: '<strong>preview</strong>' }))
+    const c = client({
+      apiKey: 'key',
+      beforeRequest: () => {
+        if (!allowed) throw new Error('Tracker is unavailable')
+      },
+      rateLimits: {
+        apiKey: { maxRequests: 1, windowMs: 40 },
+        session: { maxRequests: 1, windowMs: 40 }
+      }
+    })
+    await c.previewBbcode('first')
+    const pending = c.previewBbcode('second')
+    allowed = false
+    await expect(pending).rejects.toThrow('Tracker is unavailable')
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
   it('uses RED and OPS documented burst windows', () => {
     expect(REDACTED_RATE_LIMITS.session).toEqual({ maxRequests: 5, windowMs: 10_000 })
     expect(REDACTED_RATE_LIMITS.apiKey).toEqual({ maxRequests: 10, windowMs: 10_000 })

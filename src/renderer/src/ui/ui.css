@@ -2453,8 +2453,12 @@ button.toggle.toggle-on .toggle-thumb {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-subtle);
+}
+
+.group-suggestions-tracker + .group-suggestions-tracker {
+  border-top: 1px solid var(--border-strong);
+  padding-top: var(--space-4);
+  margin-top: var(--space-1);
 }
 
 .group-suggestions-tracker-header {
@@ -2527,14 +2531,40 @@ button.toggle.toggle-on .toggle-thumb {
 
 .upload-report-trackers {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
 }
 
 .upload-report-tracker {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.upload-report-tracker-main {
+  display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+.upload-report-tracker-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  color: var(--fg-secondary);
+  font-size: var(--text-sm);
+}
+
+.upload-report-tracker-status-message {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.upload-report-tracker-status-warning .upload-report-tracker-status-message {
+  color: var(--warning);
 }
 
 .upload-report-tracker-name {

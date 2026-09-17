@@ -25,7 +25,7 @@ export class OrpheusClient extends GazelleClient {
   }
 }
 
-export function createOrpheusTracker(cfg: TrackerConfig, timeoutMs = 10_000) {
+export function createOrpheusTracker(cfg: TrackerConfig, timeoutMs = 10_000, beforeRequest?: () => void) {
   const client = new OrpheusClient({
     trackerId: 'orpheus',
     siteUrl: cfg.siteUrl,
@@ -34,7 +34,8 @@ export function createOrpheusTracker(cfg: TrackerConfig, timeoutMs = 10_000) {
     sessionCookie: cfg.sessionCookie,
     releaseTypes: ORPHEUS_RELEASE_TYPES,
     rateLimits: ORPHEUS_RATE_LIMITS,
-    timeoutMs
+    timeoutMs,
+    beforeRequest
   })
 
   return createGazelleTracker('orpheus', cfg, client)

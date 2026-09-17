@@ -12,6 +12,7 @@ import {
   type TrackerDefinition
 } from './index'
 import { diagnosticError, logDiagnostic } from '@main/core/diagnosticLog'
+import { trackerHealthStore } from '@main/services/trackerHealthStore'
 
 const TRACKER_HEALTH_TIMEOUT_MS = 30_000
 let nextHealthRunId = 0
@@ -31,9 +32,17 @@ export async function healthcheckTrackers(
 
   const groups = await Promise.all(
     definitions.map(async (definition) => {
+      if (source === 'settings-save' && trackerHealthStore.complete(cfg, definition.id)) {
+        const cached = trackerHealthStore.rows(cfg, definition.id)
+        cached.forEach((row) => onRow?.(row))
+        return cached
+      }
+      const revision = trackerHealthStore.begin(cfg, definition.id)
       const tracker = byId.get(definition.id)
       for (const mode of TRACKER_AUTH_MODES) {
-        onRow?.(pendingTrackerRow(definition, mode))
+        const row = pendingTrackerRow(definition, mode)
+        trackerHealthStore.record(cfg, definition.id, revision, row)
+        onRow?.(row)
       }
       const rows: HealthRow[] = []
       for (const mode of TRACKER_AUTH_MODES) {
@@ -45,6 +54,7 @@ export async function healthcheckTrackers(
           runId,
           source
         })
+        trackerHealthStore.record(cfg, definition.id, revision, row)
         onRow?.(row)
         rows.push(row)
       }

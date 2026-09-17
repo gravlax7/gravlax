@@ -7,10 +7,11 @@ export type { CoverImageHostId } from './provider'
 export async function uploadImageToHost(
   cfg: Config,
   hostId: CoverImageHostId,
-  filePath: string
+  filePath: string,
+  beforeRequest?: () => void
 ): Promise<string | null> {
   try {
-    return await imageHostProviderById[hostId].upload(cfg, filePath)
+    return await imageHostProviderById[hostId].upload(cfg, filePath, beforeRequest)
   } catch (error) {
     if (error instanceof ImageHostUploadError) throw error
     return null

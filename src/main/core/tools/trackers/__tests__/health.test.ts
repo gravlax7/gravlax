@@ -2,9 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defaultConfig } from '@main/core/config/defaults'
 import { resetTrackerRateLimiter } from '../gazelle'
 import { healthcheckTrackers, trackerHealthRowsReady } from '../health'
+import { trackerHealthStore } from '@main/services/trackerHealthStore'
 
 afterEach(() => {
   resetTrackerRateLimiter()
+  trackerHealthStore.reset()
   vi.unstubAllGlobals()
 })
 
@@ -44,6 +46,18 @@ function config() {
 }
 
 describe('healthcheckTrackers', () => {
+  it('reuses unchanged tracker results after settings save without a new request', async () => {
+    const cfg = config()
+    const fetch = stubFetch(() => ({ status: 200, text: okIndex() }))
+    await healthcheckTrackers(cfg, undefined, 'manual')
+    expect(fetch).toHaveBeenCalledTimes(2)
+    const rows = await healthcheckTrackers(cfg, undefined, 'settings-save')
+    expect(rows[0]?.status).toBe('available')
+    expect(fetch).toHaveBeenCalledTimes(2)
+    cfg.trackers.redacted.apiKey = 'changed'
+    await healthcheckTrackers(cfg, undefined, 'settings-save')
+    expect(fetch).toHaveBeenCalledTimes(4)
+  })
   it('checks API and session independently without auth fallback', async () => {
     const calls = stubFetch((headers) => {
       if (headers.get('Authorization') === 'api-key') return { status: 200, text: okIndex() }

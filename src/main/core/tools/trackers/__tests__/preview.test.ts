@@ -48,12 +48,19 @@ function stubPreviewFetch(
 }
 
 describe('previewBbcode', () => {
+  it('rejects a destination that becomes unavailable before sending', async () => {
+    const fetch = stubPreviewFetch(() => ({ text: '<strong>unused</strong>' }))
+    await expect(previewBbcode(config(), 'redacted', 'x', undefined, () => {
+      throw new Error('Health check failed')
+    })).rejects.toThrow('Health check failed')
+    expect(fetch).not.toHaveBeenCalled()
+  })
   it('prefers enabled Redacted and returns sanitized HTML', async () => {
     const fetch = stubPreviewFetch(() => ({
       text: '<a href="artist.php?artistname=Artist" onclick="bad()">Artist</a>'
     }))
 
-    await expect(previewBbcode(config(), '[artist]Artist[/artist]')).resolves.toBe(
+    await expect(previewBbcode(config(), 'redacted', '[artist]Artist[/artist]')).resolves.toBe(
       '<a href="https://redacted.example/artist.php?artistname=Artist" target="_blank" rel="noreferrer noopener">Artist</a>'
     )
     expect(String(fetch.mock.calls[0]?.[0])).toContain('https://redacted.example/ajax.php')
@@ -64,7 +71,7 @@ describe('previewBbcode', () => {
     cfg.trackers.redacted.enabled = false
     const fetch = stubPreviewFetch(() => ({ text: '<strong>OPS</strong>' }))
 
-    await expect(previewBbcode(cfg, '[b]OPS[/b]')).resolves.toBe('<strong>OPS</strong>')
+    await expect(previewBbcode(cfg, 'orpheus', '[b]OPS[/b]')).resolves.toBe('<strong>OPS</strong>')
     expect(String(fetch.mock.calls[0]?.[0])).toContain('https://orpheus.example/ajax.php')
   })
 
@@ -73,7 +80,7 @@ describe('previewBbcode', () => {
     cfg.trackers.redacted.siteUrl = ''
     const fetch = stubPreviewFetch(() => ({ text: '<strong>unused</strong>' }))
 
-    await expect(previewBbcode(cfg, 'x')).rejects.toThrow(
+    await expect(previewBbcode(cfg, 'redacted', 'x')).rejects.toThrow(
       'Redacted preview requires a site URL.'
     )
     expect(fetch).not.toHaveBeenCalled()
@@ -84,7 +91,7 @@ describe('previewBbcode', () => {
     cfg.trackers.redacted.apiKey = ''
     cfg.trackers.redacted.sessionCookie = ''
 
-    await expect(previewBbcode(cfg, 'x')).rejects.toThrow(
+    await expect(previewBbcode(cfg, 'redacted', 'x')).rejects.toThrow(
       'Redacted preview requires an API key or session cookie.'
     )
   })
@@ -95,7 +102,7 @@ describe('previewBbcode', () => {
       text: input.includes('https://redacted.example') ? '{"error":"invalid key"}' : '<b>OPS</b>'
     }))
 
-    await expect(previewBbcode(config(), 'x')).rejects.toThrow('Redacted preview failed')
+    await expect(previewBbcode(config(), 'redacted', 'x')).rejects.toThrow('Redacted preview failed')
     expect(fetch).toHaveBeenCalledTimes(1)
     expect(String(fetch.mock.calls[0]?.[0])).toContain('https://redacted.example')
   })
@@ -105,9 +112,7 @@ describe('previewBbcode', () => {
     cfg.trackers.redacted.enabled = false
     cfg.trackers.orpheus.enabled = false
 
-    await expect(previewBbcode(cfg, 'x')).rejects.toThrow(
-      'Enable Redacted or Orpheus to preview BBCode.'
-    )
+    await expect(previewBbcode(cfg, 'redacted', 'x')).rejects.toThrow('Redacted preview')
   })
 })
 

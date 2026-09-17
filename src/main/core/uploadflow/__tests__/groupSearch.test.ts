@@ -1,9 +1,21 @@
 import { describe, expect, it } from 'vitest'
+import { defaultConfig } from '@main/core/config/defaults'
 import {
+  resolveGroupSearchTrackerIds,
   mapBrowseResults,
   mapTorrentGroupDetail,
   suggestionKey
 } from '../groupSearch'
+
+describe('group search destinations', () => {
+  it('never falls back to enabled trackers when selection is empty', () => {
+    const cfg = defaultConfig()
+    cfg.trackers.redacted.enabled = true
+    cfg.trackers.orpheus.enabled = true
+    expect(resolveGroupSearchTrackerIds({ selectedTrackerIds: [] }, cfg)).toEqual([])
+    expect(resolveGroupSearchTrackerIds({ selectedTrackerIds: ['orpheus'] }, cfg)).toEqual(['orpheus'])
+  })
+})
 
 describe('mapBrowseResults', () => {
   it('maps browse payload into suggestions and skips bad rows', () => {

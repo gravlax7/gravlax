@@ -284,7 +284,8 @@ export interface HostCoverImagesResult {
 export async function hostCoverImagesForSubmit(
   s: State,
   cfg: Config,
-  trackerIds: readonly UploadTrackerId[]
+  trackerIds: readonly UploadTrackerId[],
+  beforeTrackerRequest?: (id: UploadTrackerId) => void
 ): Promise<HostCoverImagesResult> {
   const upload = s.upload
   const hostedCoverImages = structuredClone(upload.hostedCoverImages ?? {})
@@ -331,7 +332,13 @@ export async function hostCoverImagesForSubmit(
 
   for (const [host, trackers] of trackersByHost) {
     try {
-      const url = await uploadImageToHost(cfg, host, coverPath)
+      trackers.forEach((id) => beforeTrackerRequest?.(id))
+      const url = await uploadImageToHost(
+        cfg,
+        host,
+        coverPath,
+        host === 'redacted' ? () => trackers.forEach((id) => beforeTrackerRequest?.(id)) : undefined
+      )
       if (!url) {
         errors.push(coverHostError(trackers, host))
         continue

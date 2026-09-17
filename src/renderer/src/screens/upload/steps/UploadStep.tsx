@@ -10,6 +10,7 @@ import type {
   UploadArtist
 } from '@shared/types'
 import { enabledTrackerOptions } from '@shared/config/trackers'
+import { UPLOAD_TRACKER_IDS } from '@shared/trackers'
 import { formatByteSize } from '@shared/format'
 import { DEFAULT_ARTIST_ROLE } from '@shared/types/upload'
 import {
@@ -61,9 +62,18 @@ import {
   validateUploadTargets
 } from '@shared/upload/validation'
 
-const requestBbcodePreview = createBbcodePreviewBatcher((source) =>
-  window.gravlax.upload.previewBbcode(source)
-)
+const previewBatchers = new Map<string, ReturnType<typeof createBbcodePreviewBatcher>>()
+
+function requestBbcodePreview(trackerId: UploadTrackerId, key: string, source: string): Promise<string> {
+  let batcher = previewBatchers.get(key)
+  if (!batcher) {
+    batcher = createBbcodePreviewBatcher((body) =>
+      window.gravlax.upload.previewBbcode({ trackerId, source: body })
+    )
+    previewBatchers.set(key, batcher)
+  }
+  return batcher(source)
+}
 
 function displayOrEmpty(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '—'
@@ -141,6 +151,9 @@ function BbcodeDescriptionField(props: {
   value: string
   previewValue?: string
   previewReady: boolean
+  previewTrackerId: UploadTrackerId | null
+  previewKey: string
+  previewWaiting: boolean
   rows: number
   badge?: 'groupId'
   onChange: (value: string) => void
@@ -150,14 +163,31 @@ function BbcodeDescriptionField(props: {
   const [loading, setLoading] = createSignal(false)
   const [previewError, setPreviewError] = createSignal<string | null>(null)
   const previewSource = () => props.previewValue ?? props.value
-  const preview = createBbcodePreview(requestBbcodePreview, (state) => {
+  const onPreviewChange = (state: { html: string; loading: boolean; error: string | null }) => {
     setHtml(state.html)
     setLoading(state.loading)
     setPreviewError(state.error)
-  })
+  }
+  let preview = createBbcodePreview(() => Promise.resolve(''), onPreviewChange)
+  let activeKey = ''
 
   createEffect(() => {
-    preview.update(previewSource(), editing(), props.previewReady)
+    const trackerId = props.previewTrackerId
+    const key = props.previewKey
+    if (key !== activeKey) {
+      preview.dispose()
+      activeKey = key
+      setHtml('')
+      setPreviewError(null)
+      setLoading(false)
+      preview = createBbcodePreview(
+        (source) => trackerId
+          ? requestBbcodePreview(trackerId, key, source)
+          : Promise.reject(new Error('Select a destination to preview.')),
+        onPreviewChange
+      )
+    }
+    if (trackerId) preview.update(previewSource(), editing(), props.previewReady)
   })
 
   onCleanup(() => preview.dispose())
@@ -179,28 +209,37 @@ function BbcodeDescriptionField(props: {
         when={editing()}
         fallback={
           <Show
-            when={!loading()}
+            when={props.previewTrackerId}
             fallback={
-              <div class="upload-report-bbcode-state" aria-live="polite">
-                <Spinner size="sm" />
-                <span>Loading preview…</span>
+              <div class="upload-report-bbcode-state">
+                {props.previewWaiting ? 'Waiting for tracker health checks…' : 'Select a destination to preview.'}
               </div>
             }
           >
             <Show
-              when={!previewError()}
+              when={!loading()}
               fallback={
-                <Callout tone="warning">
-                  <div class="upload-report-bbcode-error">
-                    <span>{previewError()}</span>
-                    <Button variant="secondary" onClick={() => preview.retry(previewSource())}>
-                      Retry
-                    </Button>
-                  </div>
-                </Callout>
+                <div class="upload-report-bbcode-state" aria-live="polite">
+                  <Spinner size="sm" />
+                  <span>Loading preview…</span>
+                </div>
               }
             >
-              <div class="mono upload-report-bbcode-preview" innerHTML={html()} />
+              <Show
+                when={!previewError()}
+                fallback={
+                  <Callout tone="warning">
+                    <div class="upload-report-bbcode-error">
+                      <span>{previewError()}</span>
+                      <Button variant="secondary" onClick={() => preview.retry(previewSource())}>
+                        Retry
+                      </Button>
+                    </div>
+                  </Callout>
+                }
+              >
+                <div class="mono upload-report-bbcode-preview" innerHTML={html()} />
+              </Show>
             </Show>
           </Show>
         }
@@ -411,9 +450,34 @@ export function UploadStep(props: {
   config: Config
   health: HealthResult | null
   healthLoading: boolean
+  onOpenTrackerSettings: (id: UploadTrackerId) => void
 }) {
   const upload = () => props.state.upload
   const enabledTrackers = createMemo(() => enabledTrackerOptions(props.config))
+  const healthProblem = (id: UploadTrackerId): { kind: 'failed' | 'waiting'; detail: string } | null => {
+    const rows = props.health?.rows ?? []
+    const relevant = rows.filter((row) => row.id === `trackers:${id}:api` || row.id === `trackers:${id}:session`)
+    const failed = relevant.filter((row) => row.status === 'failing' || row.status === 'missing')
+    if (failed.length) return {
+      kind: 'failed',
+      detail: failed.map((row) => `${row.id.endsWith(':api') ? 'API' : 'Session'} check failed: ${row.detail ?? row.status}`).join('; ')
+    }
+    if (relevant.length < 2 || relevant.some((row) => row.status !== 'available')) {
+      return { kind: 'waiting', detail: 'Waiting for tracker health checks…' }
+    }
+    return null
+  }
+  const previewTrackerId = createMemo(() =>
+    UPLOAD_TRACKER_IDS.find((id) => (upload().selectedTrackerIds ?? []).includes(id) && !healthProblem(id)) ?? null
+  )
+  const previewKey = createMemo(() => {
+    const id = previewTrackerId()
+    return id ? JSON.stringify([id, props.health?.runId, props.config.trackers[id].siteUrl]) : ''
+  })
+  onCleanup(() => previewBatchers.clear())
+  const previewWaiting = createMemo(() =>
+    (upload().selectedTrackerIds ?? []).some((id) => healthProblem(id)?.kind === 'waiting')
+  )
   const derivedFromTags = createMemo(() =>
     derivedUploadFieldsFromTags(props.state.tags.proposed, {
       useUpcAsCatNo: props.config.workflow.useUpcAsCatNo
@@ -435,6 +499,7 @@ export function UploadStep(props: {
   }
 
   const toggleTracker = (id: UploadTrackerId): void => {
+    if (healthProblem(id)) return
     const current = new Set(upload().selectedTrackerIds ?? [])
     if (current.has(id)) current.delete(id)
     else current.add(id)
@@ -534,15 +599,37 @@ export function UploadStep(props: {
                 const selected = () => (upload().selectedTrackerIds ?? []).includes(id)
                 return (
                   <Card
-                    interactive
+                    interactive={!healthProblem(id)}
                     selected={selected()}
                     class="upload-report-tracker"
                     onClick={() => toggleTracker(id)}
                   >
-                    <TrackerIcon trackerId={id} size={20} />
-                    <div class="upload-report-tracker-name">{trackerLabel(id)}</div>
-                    <Show when={selected()}>
-                      <Icon name="check" size={16} class="upload-report-tracker-check" />
+                    <div class="upload-report-tracker-main">
+                      <TrackerIcon trackerId={id} size={20} />
+                      <div class="upload-report-tracker-name">{trackerLabel(id)}</div>
+                      <Show when={selected() && healthProblem(id)?.kind !== 'failed'}>
+                        <Icon name="check" size={16} class="upload-report-tracker-check" />
+                      </Show>
+                    </div>
+                    <Show when={healthProblem(id)}>
+                      {(problem) => (
+                        <div class="upload-report-tracker-status" classList={{ 'upload-report-tracker-status-warning': problem().kind === 'failed' }}>
+                          <span class="upload-report-tracker-status-message">
+                            <Show when={problem().kind === 'failed'}>
+                              <Icon name="alert-triangle" size={16} />
+                            </Show>
+                            <span>{problem().kind === 'failed'
+                              ? `${(upload().healthDeselectedTrackerIds ?? []).includes(id) ? 'Deselected' : 'Unavailable'} — ${problem().detail}`
+                              : problem().detail}</span>
+                          </span>
+                          <Show when={problem().kind === 'failed'}>
+                            <Button variant="secondary" size="sm" onClick={(event) => {
+                              event.stopPropagation()
+                              props.onOpenTrackerSettings(id)
+                            }}>Go to Settings</Button>
+                          </Show>
+                        </div>
+                      )}
                     </Show>
                   </Card>
                 )
@@ -552,7 +639,11 @@ export function UploadStep(props: {
         </Show>
       </Card>
 
-      <GroupSuggestions state={props.state} config={props.config} />
+      <GroupSuggestions
+        state={props.state}
+        config={props.config}
+        eligibleTrackerIds={UPLOAD_TRACKER_IDS.filter((id) => !healthProblem(id))}
+      />
 
       <Card class="upload-report-card">
         <div class="upload-report-heading">Shared release fields</div>
@@ -703,6 +794,9 @@ export function UploadStep(props: {
           <BbcodeDescriptionField
             label="Album description"
             previewReady={previewReady()}
+            previewTrackerId={previewTrackerId()}
+            previewKey={previewKey()}
+            previewWaiting={previewWaiting()}
             value={upload().albumDesc ?? ''}
             rows={10}
             badge={anySelectedTrackerHasGroupId(upload()) ? 'groupId' : undefined}
@@ -747,6 +841,9 @@ export function UploadStep(props: {
           <BbcodeDescriptionField
             label="Report comment"
             previewReady={previewReady()}
+            previewTrackerId={previewTrackerId()}
+            previewKey={previewKey()}
+            previewWaiting={previewWaiting()}
             value={lossyComment()}
             previewValue={buildLossyMasterComment({
               comment: lossyComment(),
@@ -805,6 +902,9 @@ export function UploadStep(props: {
                 <BbcodeDescriptionField
                   label="Release description"
                   previewReady={previewReady()}
+                  previewTrackerId={previewTrackerId()}
+                  previewKey={previewKey()}
+                  previewWaiting={previewWaiting()}
                   value={format().releaseDesc}
                   previewValue={spectralDescriptionPreview(
                     format().releaseDesc,

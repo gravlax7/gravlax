@@ -52,11 +52,12 @@ describe('IPC argument contract', () => {
   })
 
   it('accepts BBCode preview text, including an empty description', () => {
-    expect(parseIpcArguments('upload:previewBbcode', ['[b]Album[/b]'])).toEqual([
-      '[b]Album[/b]'
+    expect(parseIpcArguments('upload:previewBbcode', [{ trackerId: 'redacted', source: '[b]Album[/b]' }])).toEqual([
+      { trackerId: 'redacted', source: '[b]Album[/b]' }
     ])
-    expect(parseIpcArguments('upload:previewBbcode', [''])).toEqual([''])
+    expect(parseIpcArguments('upload:previewBbcode', [{ trackerId: 'orpheus', source: '' }])).toEqual([{ trackerId: 'orpheus', source: '' }])
     expect(() => parseIpcArguments('upload:previewBbcode', [42])).toThrow()
+    expect(() => parseIpcArguments('upload:previewBbcode', [{ trackerId: 'other', source: 'x' }])).toThrow()
   })
 
   it('accepts an update check without renderer-supplied input', () => {

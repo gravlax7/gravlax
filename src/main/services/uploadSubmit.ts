@@ -64,11 +64,12 @@ export interface RunSubmissionsOptions {
   /** Records the confirmed tracker upload in durable application statistics. */
   onSuccess: (submission: UploadSubmission) => Promise<void>
   onGroupId: (trackerId: UploadTrackerId, groupId: number) => void
+  beforeTrackerRequest?: (trackerId: UploadTrackerId) => void
 }
 
 export async function runSubmissions(options: RunSubmissionsOptions): Promise<void> {
   const { cfg, upload, submissions, signal, fresh, onPatch, onCommit, onGroupId } = options
-  const trackers = new Map(createTrackers(cfg).map((t) => [t.id, t]))
+  const trackers = new Map(createTrackers(cfg, options.beforeTrackerRequest).map((t) => [t.id, t]))
   const formats = new Map((upload.formats ?? []).map((f) => [f.id, f]))
   const groupIds = new Map<UploadTrackerId, number>()
   const sourceUrls = new Map<UploadTrackerId, string>()

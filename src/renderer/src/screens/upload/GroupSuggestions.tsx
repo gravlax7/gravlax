@@ -308,6 +308,7 @@ function TrackerGroupPanel(props: {
 export function GroupSuggestions(props: {
   state: UploadFlowStateJSON
   config: Config
+  eligibleTrackerIds: readonly UploadTrackerId[]
 }) {
   const upload = () => props.state.upload
   const groupSearch = () => upload().groupSearch
@@ -316,7 +317,7 @@ export function GroupSuggestions(props: {
 
   const destinationTrackers = createMemo(() => {
     const selected = (upload().selectedTrackerIds ?? []).filter(isUploadTrackerId)
-    return selected.filter((id) => enabledTrackers().includes(id))
+    return selected.filter((id) => enabledTrackers().includes(id) && props.eligibleTrackerIds.includes(id))
   })
 
   const queryLabel = createMemo(() => {
@@ -343,7 +344,7 @@ export function GroupSuggestions(props: {
     void upload().selectedTrackerIds
     void enabledTrackers()
     if (!title) return
-    if (destinationTrackers().length === 0 && enabledTrackers().length === 0) return
+    if (destinationTrackers().length === 0) return
     if (searched()) return
     void window.gravlax.upload.searchTrackerGroups()
   })

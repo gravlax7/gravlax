@@ -32,7 +32,7 @@ export function resolveGroupSearchTrackerIds(
 ): UploadTrackerId[] {
   const enabled = enabledTrackerOptions(cfg)
   const selected = (upload.selectedTrackerIds ?? []).filter(isUploadTrackerId)
-  const chosen = selected.length > 0 ? selected.filter((id) => enabled.includes(id)) : enabled
+  const chosen = selected.filter((id) => enabled.includes(id))
   return [...new Set(chosen)]
 }
 
@@ -184,18 +184,18 @@ export function mapTorrentGroupDetail(
 export async function searchTrackerGroups(
   cfg: Config,
   request: GroupSearchRequest,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  beforeRequest?: (id: UploadTrackerId) => void
 ): Promise<TrackerGroupSearchSnapshot> {
   const { trackerIds, queryStrings, fingerprint } = request
 
   if (trackerIds.length === 0) {
     return {
-      status: 'failed',
+      status: 'done',
       queryStrings,
       trackerIds,
       fingerprint,
       results: [],
-      error: 'No trackers enabled.',
       searchedAt: Date.now()
     }
   }
@@ -211,7 +211,7 @@ export async function searchTrackerGroups(
     }
   }
 
-  const trackers = createEnabledTrackers(cfg).filter((t) =>
+  const trackers = createEnabledTrackers(cfg, beforeRequest).filter((t) =>
     trackerIds.includes(t.id)
   )
   const byKey = new Map<string, TrackerGroupSuggestion>()
@@ -270,9 +270,10 @@ export async function fetchTorrentGroupDetail(
   cfg: Config,
   trackerId: UploadTrackerId,
   groupId: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  beforeRequest?: (id: UploadTrackerId) => void
 ): Promise<TrackerGroupDetail> {
-  const tracker = createEnabledTrackers(cfg).find((t) => t.id === trackerId)
+  const tracker = createEnabledTrackers(cfg, beforeRequest).find((t) => t.id === trackerId)
   if (!tracker) throw new Error(`Tracker ${trackerId} is not enabled.`)
   const raw = await tracker.client.torrentGroup(groupId, signal)
   return mapTorrentGroupDetail(trackerId, tracker.client.siteUrl, groupId, raw)
@@ -282,9 +283,10 @@ export async function resolveTorrentIdToGroupId(
   cfg: Config,
   trackerId: UploadTrackerId,
   torrentId: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  beforeRequest?: (id: UploadTrackerId) => void
 ): Promise<number | null> {
-  const tracker = createEnabledTrackers(cfg).find((t) => t.id === trackerId)
+  const tracker = createEnabledTrackers(cfg, beforeRequest).find((t) => t.id === trackerId)
   if (!tracker) throw new Error(`Tracker ${trackerId} is not enabled.`)
   return tracker.client.torrentGroupIdFromTorrentId(torrentId, signal)
 }

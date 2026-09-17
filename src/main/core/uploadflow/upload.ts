@@ -30,6 +30,7 @@ export function emptyUpload(): UploadSnapshot {
   return {
     phase: 'idle',
     selectedTrackerIds: [],
+    healthDeselectedTrackerIds: [],
     artists: [],
     title: '',
     year: undefined,
@@ -102,6 +103,7 @@ export function restoreUpload(snapshot: UploadSnapshot | undefined): UploadSnaps
       : undefined,
     formats: copyFormats(cloned.formats) ?? [],
     selectedTrackerIds: [...(cloned.selectedTrackerIds ?? [])],
+    healthDeselectedTrackerIds: [...(cloned.healthDeselectedTrackerIds ?? [])],
     groupIds: { ...(cloned.groupIds ?? emptyGroupIds()) },
     hostedCoverImages: copyHostedCoverImages(cloned.hostedCoverImages),
     groupSearch: copyGroupSearch(cloned.groupSearch)
@@ -129,6 +131,7 @@ function carryUserSelections(next: UploadSnapshot, previous: UploadSnapshot): Up
     derivedFromTags,
     selectedTrackerIds:
       hasPreviousReport ? [...selectedTrackerIds] : next.selectedTrackerIds,
+    healthDeselectedTrackerIds: [...(previous.healthDeselectedTrackerIds ?? [])],
     groupIds: { ...(previous.groupIds ?? emptyGroupIds()) },
     image: previous.image ?? next.image,
     hostedCoverImages:
@@ -165,6 +168,7 @@ export function mergeConcurrentUploadReport(
   const liveFields = [
     'phase',
     'selectedTrackerIds',
+    'healthDeselectedTrackerIds',
     'orpheusSplit',
     'unknown',
     'scene',
@@ -304,6 +308,9 @@ export function updateUploadReport(s: State, patch: Partial<UploadSnapshot>): St
       selectedTrackerIds: patch.selectedTrackerIds
         ? [...patch.selectedTrackerIds]
         : s.upload.selectedTrackerIds,
+      healthDeselectedTrackerIds: patch.healthDeselectedTrackerIds
+        ? [...patch.healthDeselectedTrackerIds]
+        : s.upload.healthDeselectedTrackerIds,
       groupIds: patch.groupIds ? { ...patch.groupIds } : s.upload.groupIds,
       hostedCoverImages: patch.hostedCoverImages
         ? copyHostedCoverImages(patch.hostedCoverImages)
@@ -352,7 +359,11 @@ export function failUploadReport(s: State, error: string): State {
  */
 export function beginSubmit(s: State, submissions: UploadSubmission[]): State {
   const previous = new Map((s.upload.submissions ?? []).map((sub) => [sub.id, sub]))
-  const next = submissions.map((submission) => {
+  const plannedIds = new Set(submissions.map((submission) => submission.id))
+  const completedElsewhere = (s.upload.submissions ?? []).filter(
+    (submission) => submission.status === 'done' && !plannedIds.has(submission.id)
+  )
+  const next = [...completedElsewhere, ...submissions.map((submission) => {
     const before = previous.get(submission.id)
     if (before?.status === 'done') return { ...before }
     return {
@@ -362,7 +373,7 @@ export function beginSubmit(s: State, submissions: UploadSubmission[]): State {
       status: 'pending' as const,
       error: undefined
     }
-  })
+  })]
   return {
     ...s,
     upload: { ...s.upload, phase: 'submitting', submissions: next, error: undefined }

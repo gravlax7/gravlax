@@ -581,6 +581,8 @@ export interface DerivedUploadFields {
 export interface UploadSnapshot {
   phase?: UploadPhase
   selectedTrackerIds?: UploadTrackerId[]
+  /** Destinations removed by a failed health check, eligible for restoration. */
+  healthDeselectedTrackerIds?: UploadTrackerId[]
   artists?: UploadArtist[]
   title?: string
   year?: number

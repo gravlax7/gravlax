@@ -37,6 +37,7 @@ export interface GazelleClientOptions {
   rateLimits: TrackerRateLimits
   timeoutMs?: number
   userAgent?: string
+  beforeRequest?: () => void
 }
 
 export type LogcheckerChecksum = 'checksum_ok' | 'checksum_invalid' | 'checksum_missing'

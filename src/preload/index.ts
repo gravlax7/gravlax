@@ -81,7 +81,7 @@ const api = {
     ensureUploadReport: () => invoke('upload:ensureUploadReport'),
     updateUploadReport: (patch: IpcInvokeArgs<'upload:updateUploadReport'>[0]) =>
       invoke('upload:updateUploadReport', patch),
-    previewBbcode: (source: string) => invoke('upload:previewBbcode', source),
+    previewBbcode: (options: IpcInvokeArgs<'upload:previewBbcode'>[0]) => invoke('upload:previewBbcode', options),
     searchTrackerGroups: (options?: IpcInvokeArgs<'upload:searchTrackerGroups'>[0]) =>
       invoke('upload:searchTrackerGroups', options),
     fetchTorrentGroup: (

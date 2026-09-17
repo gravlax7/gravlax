@@ -10,6 +10,7 @@ import type {
 } from '@shared/types'
 import { totalUploads } from '@shared/types'
 import type { Config } from '@shared/types/config'
+import { UPLOAD_TRACKER_IDS, type UploadTrackerId } from '@shared/trackers'
 import type { UploadStats } from '@shared/types/stats'
 import { activeBackgroundTasks, UPLOAD_STEPS } from '@shared/upload/stepGating'
 import { validateToolHealth } from '@shared/upload/validation'
@@ -38,6 +39,9 @@ export default function App() {
   const [stats, setStats] = createSignal<UploadStats | null>(null)
   const [health, setHealth] = createSignal<HealthResult | null>(null)
   const [healthLoading, setHealthLoading] = createSignal(false)
+  const [settingsFromUpload, setSettingsFromUpload] = createSignal(false)
+  const [settingsInitialPane, setSettingsInitialPane] = createSignal<'trackers' | undefined>()
+  const [settingsTrackerId, setSettingsTrackerId] = createSignal<UploadTrackerId | undefined>()
   const [toasts, setToasts] = createSignal<ToastItem[]>([])
   const [uploadView, setUploadView] = createSignal<UploadView>({ kind: 'menu' })
   const [startEntries, setStartEntries] = createSignal<UploadStartEntries | null>(null)
@@ -64,9 +68,24 @@ export default function App() {
   }
 
   const openUploadMenu = (): void => {
+    setSettingsFromUpload(false)
     setScreen('upload')
     setUploadView({ kind: 'menu' })
     void loadStartEntries()
+  }
+
+  const openTrackerSettings = (id: UploadTrackerId): void => {
+    setSettingsFromUpload(true)
+    setSettingsInitialPane('trackers')
+    setSettingsTrackerId(id)
+    setScreen('settings')
+  }
+
+  const leaveSettings = (): void => {
+    if (settingsFromUpload()) {
+      setSettingsFromUpload(false)
+      setScreen('upload')
+    } else openUploadMenu()
   }
 
   const applyHealth = (result: HealthResult): boolean => {
@@ -79,7 +98,8 @@ export default function App() {
   }
 
   const refreshHealth = async (
-    source: 'startup' | 'settings-save' | 'manual' = 'manual'
+    source: 'startup' | 'settings-save' | 'manual' = 'manual',
+    changedTrackers: readonly UploadTrackerId[] = []
   ): Promise<void> => {
     const requestSeq = ++healthRequestSeq
     waitingForNewHealthRun = true
@@ -89,9 +109,12 @@ export default function App() {
       return {
         ...prev,
         overview: 'Checking dependencies…',
-        rows: prev.rows.map((row) =>
-          row.status === 'disabled' ? row : { ...row, status: 'checking', detail: 'Checking…' }
-        )
+        rows: prev.rows.map((row) => {
+          if (row.status === 'disabled') return row
+          if (source === 'settings-save' && row.group === 'Trackers' &&
+              !changedTrackers.some((id) => row.id.startsWith(`trackers:${id}:`))) return row
+          return { ...row, status: 'checking', detail: 'Checking…' }
+        })
       }
     })
     try {
@@ -133,11 +156,17 @@ export default function App() {
   const onConfigChange = (next: Config): void => {
     const previous = config()
     const trackersChanged = JSON.stringify(previous?.trackers) !== JSON.stringify(next.trackers)
+    const changedTrackers = UPLOAD_TRACKER_IDS.filter((id) => {
+      const before = previous?.trackers[id]
+      const after = next.trackers[id]
+      return !before || JSON.stringify([before.enabled, before.siteUrl, before.apiKey, before.sessionCookie]) !==
+        JSON.stringify([after.enabled, after.siteUrl, after.apiKey, after.sessionCookie])
+    })
     const toolsChanged = JSON.stringify(previous?.tools) !== JSON.stringify(next.tools)
     setConfig(next)
     if (uploadView().kind === 'menu') void loadStartEntries()
     if (trackersChanged || toolsChanged) {
-      void refreshHealth('settings-save')
+      void refreshHealth('settings-save', changedTrackers)
     }
   }
 
@@ -346,7 +375,12 @@ export default function App() {
             <NavButton
               active={screen() === 'settings'}
               icon="settings"
-              onClick={() => setScreen('settings')}
+              onClick={() => {
+                setSettingsFromUpload(false)
+                setSettingsInitialPane(undefined)
+                setSettingsTrackerId(undefined)
+                setScreen('settings')
+              }}
             >
               Settings
             </NavButton>
@@ -394,6 +428,7 @@ export default function App() {
                 health={health()}
                 healthLoading={healthLoading()}
                 onExit={openUploadMenu}
+                onOpenTrackerSettings={openTrackerSettings}
               />
             </Show>
             <Show when={uploadView().kind === 'uploaded'}>
@@ -410,7 +445,9 @@ export default function App() {
               update={update()}
               updateChecking={updateChecking()}
               onChange={onConfigChange}
-              onBack={openUploadMenu}
+              initialPane={settingsInitialPane()}
+              initialTrackerId={settingsTrackerId()}
+              onBack={leaveSettings}
               onNotify={showToast}
               onCheckUpdates={() => void checkForUpdates()}
             />

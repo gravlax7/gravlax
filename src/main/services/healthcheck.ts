@@ -54,6 +54,20 @@ const BINARY_CHECKS: Array<{
 ]
 
 let nextHealthcheckRunId = 0
+let lastHealthResult: HealthResult | null = null
+
+export function publishPreSubmitTrackerHealth(cfg: Config, trackerRows: readonly HealthRow[]): HealthResult {
+  const rows = new Map((lastHealthResult?.rows ?? []).map((row) => [row.id, row]))
+  for (const row of trackerRows) rows.set(row.id, row)
+  const allRows = [...rows.values()]
+  const result = {
+    runId: ++nextHealthcheckRunId,
+    overview: overviewFor(cfg, allRows),
+    rows: allRows
+  }
+  lastHealthResult = result
+  return result
+}
 
 export async function runHealthcheck(
   cfg: Config,
@@ -66,11 +80,12 @@ export async function runHealthcheck(
   const order: string[] = []
   let publishing = false
 
-  const snapshot = (): HealthResult => ({
-    runId,
-    overview: overviewFor(cfg, order.map((id) => rows.get(id)!)),
-    rows: order.map((id) => ({ ...rows.get(id)! }))
-  })
+  const snapshot = (): HealthResult => {
+    const allRows = order.map((id) => ({ ...rows.get(id)! }))
+    const result = { runId, overview: overviewFor(cfg, allRows), rows: allRows }
+    if (!lastHealthResult || result.runId >= lastHealthResult.runId) lastHealthResult = result
+    return result
+  }
 
   const report: HealthRowReporter = (row) => {
     if (!rows.has(row.id)) order.push(row.id)

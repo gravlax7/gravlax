@@ -107,6 +107,16 @@ describe('validate and submit', () => {
     expect(mp3!.error).toBeUndefined()
   })
 
+  it('keeps completed rows when their tracker is no longer selected', () => {
+    let state = beginSubmit(newState(), [submission({ id: 'redacted:source' })])
+    state = patchSubmission(state, 'redacted:source', { status: 'done', torrentId: 42 })
+    state = beginSubmit(state, [submission({ id: 'orpheus:source', trackerId: 'orpheus' })])
+    expect(state.upload.submissions).toMatchObject([
+      { id: 'redacted:source', status: 'done', torrentId: 42 },
+      { id: 'orpheus:source', status: 'pending' }
+    ])
+  })
+
   it('finishSubmit leaves a partial success failed', () => {
     let state = beginSubmit(newState(), [
       submission({ id: 'a' }),

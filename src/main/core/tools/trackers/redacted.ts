@@ -48,7 +48,7 @@ export class RedactedClient extends GazelleClient {
   }
 }
 
-export function createRedactedTracker(cfg: TrackerConfig, timeoutMs = 10_000) {
+export function createRedactedTracker(cfg: TrackerConfig, timeoutMs = 10_000, beforeRequest?: () => void) {
   const client = new RedactedClient({
     trackerId: 'redacted',
     siteUrl: cfg.siteUrl,
@@ -57,7 +57,8 @@ export function createRedactedTracker(cfg: TrackerConfig, timeoutMs = 10_000) {
     sessionCookie: cfg.sessionCookie,
     releaseTypes: REDACTED_RELEASE_TYPES,
     rateLimits: REDACTED_RATE_LIMITS,
-    timeoutMs
+    timeoutMs,
+    beforeRequest
   })
 
   return createGazelleTracker('redacted', cfg, client)

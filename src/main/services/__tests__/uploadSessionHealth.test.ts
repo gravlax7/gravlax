@@ -5,11 +5,13 @@ import { newState, stepIndex, type State } from '@main/core/uploadflow'
 import { workspaceRoot } from '@main/core/appdata/workspace'
 import { UploadSession } from '@main/services/uploadSession'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
+import { trackerHealthStore } from '@main/services/trackerHealthStore'
 
 const mocks = vi.hoisted(() => ({ healthcheckTrackers: vi.fn() }))
 
 vi.mock('@main/core/tools/trackers/health', () => ({
-  healthcheckTrackers: mocks.healthcheckTrackers
+  healthcheckTrackers: mocks.healthcheckTrackers,
+  trackerHealthRowsReady: (rows: Array<{ status: string }>) => rows.length > 0 && rows.every((row) => row.status === 'available')
 }))
 
 function validState(): State {
@@ -88,9 +90,35 @@ describe('UploadSession tracker health gate', () => {
       ok: false,
       error: 'Tracker health checks must pass before uploading: Redacted Session: expired session.'
     })
-    expect(mocks.healthcheckTrackers).toHaveBeenCalledWith(cfg, ['redacted'], 'upload')
+    expect(mocks.healthcheckTrackers).toHaveBeenCalledWith(cfg, ['redacted'], 'upload', expect.any(Function))
     expect(hostImages).not.toHaveBeenCalled()
     expect(session.getState().upload.phase).toBe('failed')
+    expect(session.getState().upload.selectedTrackerIds).toEqual([])
+    expect(session.getState().upload.healthDeselectedTrackerIds).toEqual(['redacted'])
+  })
+
+  it('blocks requests until selected tracker credentials pass the current checks', () => {
+    const cfg = defaultConfig()
+    cfg.trackers.redacted.enabled = true
+    const session = new UploadSession({
+      appVersion: 'test', userDataPath: '', getConfig: () => cfg,
+      trashItem: async () => undefined, tools: automaticToolResolver, send: () => undefined
+    })
+    const runtime = (session as unknown as { runtime: { apply: (next: State) => void } }).runtime
+    runtime.apply(validState())
+    expect(() => session.assertTrackerRequest('redacted')).toThrow()
+    trackerHealthStore.recordResult(cfg, 'redacted', [
+      { id: 'trackers:redacted:api', name: 'Redacted API', status: 'available' },
+      { id: 'trackers:redacted:session', name: 'Redacted Session', status: 'available' }
+    ])
+    expect(() => session.assertTrackerRequest('redacted')).not.toThrow()
+    session.updateUploadReport({ selectedTrackerIds: [] })
+    expect(() => session.assertTrackerRequest('redacted')).toThrow('not selected')
+    session.updateUploadReport({ selectedTrackerIds: ['redacted'] })
+    const oldCfg = structuredClone(cfg)
+    cfg.trackers.redacted.apiKey = 'new key'
+    expect(() => session.assertTrackerRequest('redacted', oldCfg)).toThrow('settings changed')
+    trackerHealthStore.reset()
   })
 
   it('stops before tracker submission when cover hosting fails', async () => {

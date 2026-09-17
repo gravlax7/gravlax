@@ -187,6 +187,7 @@ export class GazelleClient {
   private readonly timeoutMs: number
   private readonly userAgent: string
   private readonly trackerId: string
+  private readonly beforeRequest?: () => void
   private readonly rateLimiters: SiteRateLimiters
   private authkey: string | null = null
   private passkey: string | null = null
@@ -211,6 +212,7 @@ export class GazelleClient {
     this.timeoutMs = options.timeoutMs ?? 10_000
     this.userAgent = options.userAgent ?? GAZELLE_USER_AGENT
     this.trackerId = options.trackerId ?? 'unknown'
+    this.beforeRequest = options.beforeRequest
     this.rateLimiters = rateLimitersForSite(this.siteUrl, options.rateLimits)
   }
 
@@ -587,6 +589,7 @@ export class GazelleClient {
       maxAttempts?: number
     }
   ): Promise<HttpResult> {
+    this.beforeRequest?.()
     if (!options.skipAuth) {
       await this.ensureAuthenticated(options.signal)
     }
@@ -628,6 +631,7 @@ export class GazelleClient {
       ? this.rateLimiters.apiKey
       : this.rateLimiters.session
     ).acquire(options.signal)
+    this.beforeRequest?.()
 
     const parsed = new URL(url)
     for (const [key, value] of Object.entries(options.query ?? {})) {
@@ -648,6 +652,7 @@ export class GazelleClient {
     const signal = signals.length > 1 ? AbortSignal.any(signals) : signals[0]
 
     let response: Response
+    this.beforeRequest?.()
     try {
       response = await fetch(parsed.toString(), {
         method,
