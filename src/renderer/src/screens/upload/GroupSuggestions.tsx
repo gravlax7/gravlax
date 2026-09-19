@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
+import { For, Index, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import type {
   Config,
   TrackerGroupDetail,
@@ -167,7 +167,13 @@ function TrackerGroupPanel(props: {
         </Show>
       </div>
 
-      <Card interactive selected={groupId() == null} onClick={selectNewGroup}>
+      <button
+        type="button"
+        class="ui-card ui-card-interactive group-choice-card"
+        classList={{ 'ui-card-selected': groupId() == null }}
+        aria-pressed={groupId() == null}
+        onClick={selectNewGroup}
+      >
         <div class="metadata-card-row">
           <div class="metadata-card-main">
             <div class="metadata-card-title">New group</div>
@@ -179,7 +185,7 @@ function TrackerGroupPanel(props: {
             <Icon name="check" size={16} class="metadata-check" />
           </Show>
         </div>
-      </Card>
+      </button>
 
       <Show
         when={props.results.length > 0}
@@ -189,45 +195,46 @@ function TrackerGroupPanel(props: {
           </Show>
         }
       >
-        <For each={visibleResults()}>
+        <Index each={visibleResults()}>
           {(result) => {
-            const selected = () => groupId() === result.groupId
+            const selected = () => groupId() === result().groupId
             return (
               <div class="metadata-result-row">
-                <Card
-                  interactive
-                  selected={selected()}
-                  class="metadata-result-card"
-                  onClick={() => selectSuggestion(result)}
+                <button
+                  type="button"
+                  class="ui-card ui-card-interactive group-choice-card metadata-result-card"
+                  classList={{ 'ui-card-selected': selected() }}
+                  aria-pressed={selected()}
+                  onClick={() => selectSuggestion(result())}
                 >
                   <div class="metadata-card-row">
                     <div class="metadata-card-main">
-                      <div class="metadata-card-title">{formatGroupTitle(result)}</div>
+                      <div class="metadata-card-title">{formatGroupTitle(result())}</div>
                       <div class="metadata-card-desc">
-                        <Show when={formatSuggestionMeta(result)}>
+                        <Show when={formatSuggestionMeta(result())}>
                           {(meta) => <span>{meta()}</span>}
                         </Show>
                       </div>
-                      <div class="metadata-result-url mono">#{result.groupId}</div>
+                      <div class="metadata-result-url mono">#{result().groupId}</div>
                     </div>
                     <Show when={selected()}>
                       <Icon name="check" size={16} class="metadata-check" />
                     </Show>
                   </div>
-                </Card>
+                </button>
                 <IconButton
                   icon="external-link"
                   label="Open group on tracker"
                   size="sm"
                   onClick={(event: MouseEvent) => {
                     event.stopPropagation()
-                    void window.gravlax.shell.openExternal(result.url)
+                    void window.gravlax.shell.openExternal(result().url)
                   }}
                 />
               </div>
             )
           }}
-        </For>
+        </Index>
 
         <Show when={hiddenCount() > 0 && !showAll()}>
           <button type="button" class="metadata-show-all" onClick={() => setShowAll(true)}>

@@ -1587,6 +1587,25 @@ button.toggle.toggle-on .toggle-thumb {
   min-width: 0;
 }
 
+.group-choice-card {
+  display: block;
+  width: 100%;
+  color: inherit;
+  text-align: left;
+  -webkit-app-region: no-drag;
+}
+
+.group-choice-card:hover:not(:disabled),
+.group-choice-card:active:not(:disabled) {
+  background: var(--bg-raised);
+}
+
+.group-choice-card.ui-card-selected:hover:not(:disabled),
+.group-choice-card.ui-card-selected:active:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
 .metadata-card-row {
   display: flex;
   align-items: flex-start;
