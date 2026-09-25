@@ -130,6 +130,7 @@ describe('multi-format upload report', () => {
         'transcode-320',
         'transcode-V0'
       ])
+      expect(snapshot.formats?.[0]?.label).toBe('FLAC Lossless')
       expect(snapshot.formats?.map((format) => format.folderPath)).toEqual([
         dir,
         mp3320,
@@ -149,6 +150,7 @@ describe('multi-format upload report', () => {
         'redacted:transcode-320',
         'redacted:transcode-V0'
       ])
+      expect(submissions[0]?.label).toBe('Redacted · FLAC Lossless')
 
       const seeded = seedFormatsFromUpload({
         ...snapshot,
@@ -164,6 +166,7 @@ describe('multi-format upload report', () => {
         'transcode-320',
         'transcode-V0'
       ])
+      expect(seeded[0]?.label).toBe('FLAC Lossless')
     } finally {
       await rm(root, { recursive: true, force: true })
     }

@@ -137,7 +137,7 @@ export async function buildUploadSnapshot(
       id: 'source',
       label: hybrid
         ? 'FLAC · Mixed audio properties'
-        : `FLAC ${inspection?.encoding ?? 'Lossless'}${sampleRate > 0 ? ` · ${(sampleRate / 1000).toFixed(1)} kHz` : ''}`,
+        : `FLAC ${inspection?.encoding ?? 'Lossless'}`,
       folderPath: s.draft.workspacePath,
       format: 'FLAC',
       bitrate: inspection?.encoding ?? 'Lossless',

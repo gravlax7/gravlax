@@ -89,7 +89,7 @@ describe('prepared transcode validation', () => {
 
   it('blocks upload while background transcoding is still running', () => {
     expect(validateSelectedTranscodes({ phase: 'running' })).toBe(
-      'Wait for transcoding to finish before uploading.'
+      'Wait for transcoding to complete.'
     )
   })
 

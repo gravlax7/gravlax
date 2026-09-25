@@ -41,7 +41,10 @@ export function SpectralsStep(props: {
   }
 
   return (
-    <Section title="Spectrals" description="Review spectrals before continuing.">
+    <Section
+      title="Spectrals"
+      description="Click a card to select spectrals for the description. Click an image to enlarge it."
+    >
       <Show when={task()}>
         {(t) => (
           <div class="spectrals-status">
@@ -81,7 +84,8 @@ export function SpectralsStep(props: {
       <Show when={props.spectrals.length > 0}>
         <div class="spectrals-select-header">
           <div class="spectrals-select-title">
-            Hosted for the description: {selectedIds().length} of {props.spectrals.length}
+            Will be hosted and added to the torrent description: {selectedIds().length} of{' '}
+            {props.spectrals.length}
           </div>
           <div class="spectrals-select-actions">
             <button
@@ -124,21 +128,23 @@ export function SpectralsStep(props: {
             {(pair) => {
               return (
                 <Card class="spectral-card" selected={isSelected(pair.index)}>
-                  <div class="spectral-card-header">
-                    <label class="spectral-host-toggle">
-                      <input
-                        type="checkbox"
-                        checked={isSelected(pair.index)}
-                        onChange={() => toggle(pair.index)}
-                      />
-                      Host
-                    </label>
+                  <label class="spectral-host-toggle">
+                    <input
+                      type="checkbox"
+                      aria-label={`Include spectrals for ${pair.filename} in the description`}
+                      checked={isSelected(pair.index)}
+                      onChange={() => toggle(pair.index)}
+                    />
                     <span class="mono spectral-filename">{pair.filename}</span>
-                  </div>
+                    <span class="spectral-selection-status" aria-hidden="true">
+                      {isSelected(pair.index) ? 'Selected' : 'Select'}
+                    </span>
+                  </label>
                   <div class="spectral-thumbs">
                     <button
                       type="button"
                       class="spectral-thumb spectral-thumb-full"
+                      aria-label={`Enlarge full spectral for ${pair.filename}`}
                       onClick={() => props.onOpenLightbox(lightboxIndexFor(pair, false))}
                     >
                       <img src={spectralUrl(pair.full)} alt={`Full spectral for ${pair.filename}`} />
@@ -146,6 +152,7 @@ export function SpectralsStep(props: {
                     <button
                       type="button"
                       class="spectral-thumb spectral-thumb-zoom"
+                      aria-label={`Enlarge zoom spectral for ${pair.filename}`}
                       onClick={() => props.onOpenLightbox(lightboxIndexFor(pair, true))}
                     >
                       <img src={spectralUrl(pair.zoom)} alt={`Zoom spectral for ${pair.filename}`} />

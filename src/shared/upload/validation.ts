@@ -36,7 +36,7 @@ export function validateUploadReport(upload: UploadSnapshot): string | null {
 /** Every selected transcode must finish before the upload payload is fixed. */
 export function validateSelectedTranscodes(transcode: TranscodeSnapshot): string | null {
   if (transcode.phase === 'inspecting' || transcode.phase === 'running') {
-    return 'Wait for transcoding to finish before uploading.'
+    return 'Wait for transcoding to complete.'
   }
 
   const selected = [...new Set(transcode.selectedOptionIds ?? [])]
