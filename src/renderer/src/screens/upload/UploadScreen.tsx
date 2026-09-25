@@ -422,10 +422,14 @@ export function UploadScreen(props: {
     onCleanup(() => window.removeEventListener('keydown', onKey, true))
   })
 
+  // Selection updates must not reload and replace the gallery's checkboxes.
+  const spectralWorkspacePath = createMemo(() => props.state.draft.workspacePath)
+  const spectralTaskStatus = createMemo(
+    () => props.state.background.tasks.find((t) => t.id === 'spectrals')?.status
+  )
   createEffect(() => {
-    const workspacePath = props.state.draft.workspacePath
-    const spectralsTask = props.state.background.tasks.find((t) => t.id === 'spectrals')
-    const spectralsStatus = spectralsTask?.status
+    const workspacePath = spectralWorkspacePath()
+    const spectralsStatus = spectralTaskStatus()
     if (workspacePath && (spectralsStatus === 'succeeded' || spectralsStatus === undefined)) {
       void window.gravlax.upload.listSpectrals().then(setSpectrals)
     } else if (!workspacePath) {

@@ -179,9 +179,14 @@ export function setSpectralIds(s: State, ids: number[]): State {
 /** The settings pre-selection. Ignored once the user has chosen for themselves. */
 export function setDefaultSpectralIds(s: State, ids: number[]): State {
   if (!s.draft.spectralIdsAuto) return s
+  const nextIds = sortedIds(ids)
+  const currentIds = s.draft.spectralIds
+  if (nextIds.length === currentIds.length && nextIds.every((id, i) => id === currentIds[i])) {
+    return s
+  }
   return {
     ...s,
-    draft: { ...s.draft, spectralIds: sortedIds(ids) }
+    draft: { ...s.draft, spectralIds: nextIds }
   }
 }
 
