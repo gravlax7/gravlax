@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { IntegritySummary, LogcheckerSummary } from '@shared/types'
+import type { IntegritySummary, LogcheckerSummary, ReleaseAudioProfile } from '@shared/types'
 import { runFileChecks, type FileChecksJobs } from '../run'
 
 const passedIntegrity: IntegritySummary = {
@@ -10,9 +10,18 @@ const passedIntegrity: IntegritySummary = {
   repairErrors: []
 }
 
+const audioProfile: ReleaseAudioProfile = {
+  tracks: [{ relativePath: '01.flac', bitDepth: 16, sampleRate: 44100 }],
+  highestBitDepth: 16,
+  highestSampleRate: 44100,
+  mixedBitDepth: false,
+  mixedSampleRate: false
+}
+
 function jobs(overrides: Partial<FileChecksJobs> = {}): FileChecksJobs {
   return {
     checkStructure: vi.fn().mockResolvedValue({ ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] }),
+    inspectAudio: vi.fn().mockResolvedValue(audioProfile),
     checkIntegrity: vi.fn().mockResolvedValue(passedIntegrity),
     repairIntegrity: vi.fn().mockResolvedValue(passedIntegrity),
     checkMqa: vi.fn().mockResolvedValue({ checkedCount: 1, mqaPaths: [], errors: [] }),
@@ -38,7 +47,8 @@ describe('runFileChecks', () => {
         approvedPaths: [],
         emptyDirectories: [],
         quarantined: []
-      })
+      }),
+      inspectAudio: vi.fn().mockRejectedValue(new Error('bad FLAC header'))
     })
 
     const result = await runFileChecks({
@@ -49,6 +59,8 @@ describe('runFileChecks', () => {
     })
 
     expect(result.snapshot.structure.ready).toBe(false)
+    expect(result.snapshot.audio.tracks).toEqual([])
+    expect(allJobs.inspectAudio).not.toHaveBeenCalled()
     expect(allJobs.checkIntegrity).not.toHaveBeenCalled()
     expect(allJobs.checkMqa).not.toHaveBeenCalled()
     expect(allJobs.checkLogs).not.toHaveBeenCalled()
@@ -61,7 +73,8 @@ describe('runFileChecks', () => {
       failures: [{ relativePath: 'bad.flac', message: 'MD5 mismatch' }]
     }
     const allJobs = jobs({
-      checkIntegrity: vi.fn().mockResolvedValue(failedIntegrity)
+      checkIntegrity: vi.fn().mockResolvedValue(failedIntegrity),
+      inspectAudio: vi.fn().mockRejectedValue(new Error('bad FLAC header'))
     })
 
     const result = await runFileChecks({
@@ -73,6 +86,8 @@ describe('runFileChecks', () => {
 
     expect(result.snapshot.integrity).toBe(failedIntegrity)
     expect(result.taskFailed).toBe(false)
+    expect(result.snapshot.audio.tracks).toEqual([])
+    expect(allJobs.inspectAudio).not.toHaveBeenCalled()
     expect(allJobs.checkMqa).not.toHaveBeenCalled()
     expect(allJobs.checkUpconvert).not.toHaveBeenCalled()
     expect(allJobs.checkLogs).not.toHaveBeenCalled()
@@ -84,6 +99,10 @@ describe('runFileChecks', () => {
       checkIntegrity: vi.fn(async () => {
         order.push('integrity')
         return passedIntegrity
+      }),
+      inspectAudio: vi.fn(async () => {
+        order.push('audio')
+        return audioProfile
       }),
       checkMqa: vi.fn(async () => {
         order.push('mqa')
@@ -116,7 +135,7 @@ describe('runFileChecks', () => {
       onIntegrityPassed: () => order.push('released')
     })
 
-    expect(order).toEqual(['logchecker', 'integrity', 'released', 'mqa', 'upconvert'])
+    expect(order).toEqual(['logchecker', 'integrity', 'audio', 'released', 'mqa', 'upconvert'])
     expect(result.taskFailed).toBe(true)
     expect(result.snapshot.status).toBe('failed')
   })
@@ -159,8 +178,10 @@ describe('runFileChecks', () => {
     if (first === 'audio') {
       integrity.resolve(passedIntegrity)
       await audioDone.promise
-      expect(onIntegrityPassed).toHaveBeenCalledWith(passedIntegrity)
-      expect(onProgress).toHaveBeenLastCalledWith(0, 1, 'Logchecker — Checking rip logs…')
+      expect(onIntegrityPassed).toHaveBeenCalledWith(passedIntegrity, audioProfile)
+      await vi.waitFor(() => {
+        expect(onProgress).toHaveBeenLastCalledWith(0, 1, 'Logchecker — Checking rip logs…')
+      })
       expect(completed).not.toHaveBeenCalled()
       logs.resolve(summary)
     } else {
@@ -263,6 +284,30 @@ describe('runFileChecks', () => {
     expect(allJobs.repairIntegrity).toHaveBeenCalledOnce()
     expect(allJobs.checkIntegrity).not.toHaveBeenCalled()
     expect(onRepairStarting).toHaveBeenCalledOnce()
+  })
+
+  it('profiles audio only after a successful repair', async () => {
+    const order: string[] = []
+    const allJobs = jobs({
+      repairIntegrity: vi.fn(async () => {
+        order.push('repair')
+        return passedIntegrity
+      }),
+      inspectAudio: vi.fn(async () => {
+        order.push('audio')
+        return audioProfile
+      })
+    })
+
+    await runFileChecks({
+      workspacePath: '/workspace',
+      sourceMedia: 'WEB',
+      trackers: [],
+      repairRequested: true,
+      jobs: allJobs
+    })
+
+    expect(order).toEqual(['repair', 'audio'])
   })
 
   it('reports each repair and follow-up stage', async () => {

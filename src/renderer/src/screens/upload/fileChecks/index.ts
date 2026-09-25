@@ -1,4 +1,5 @@
 export * from './FileChecksResult'
+export * from './AudioSettingsResult'
 export * from './IntegrityResult'
 export * from './LogcheckerResult'
 export * from './MqaResult'

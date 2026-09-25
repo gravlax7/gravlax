@@ -3,7 +3,7 @@ import { extname, join, relative, sep } from 'node:path'
 import type { TranscodeBlocker, TranscodeEncoding, TranscodeInspection } from '@shared/types'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { readFLACStreamInfo } from '@main/core/tools/diagnostics/mqa'
-import { getDownconversionOptions, resolveSampleRateFamily } from './options'
+import { getDownconversionOptions, sampleRateFamily } from './options'
 import { readPreparedFlacTags } from './tags'
 
 export const LOSSY_EXTENSIONS = new Set(['.mp3', '.m4a', '.ogg', '.opus'])
@@ -67,17 +67,14 @@ export function deriveEncoding(tracks: TrackAudioInfo[]): {
   if (tracks.length === 0) {
     return { encoding: 'Lossless', hybrid: false, sampleRate: 0 }
   }
-  const first = tracks[0]!
-  const hybrid = tracks.some(
-    (t) => t.bitsPerSample !== first.bitsPerSample || t.sampleRate !== first.sampleRate
-  )
-  const is24bit = hybrid
-    ? tracks.some((t) => t.bitsPerSample === 24)
-    : first.bitsPerSample === 24
+  const bitDepths = new Set(tracks.map((track) => track.bitsPerSample))
+  const sampleRates = new Set(tracks.map((track) => track.sampleRate))
+  const hybrid = bitDepths.size > 1 || sampleRates.size > 1
+  const is24bit = tracks.some((track) => track.bitsPerSample === 24)
   return {
     encoding: is24bit ? '24bit Lossless' : 'Lossless',
     hybrid,
-    sampleRate: first.sampleRate
+    sampleRate: Math.max(...tracks.map((track) => track.sampleRate))
   }
 }
 
@@ -118,23 +115,22 @@ export async function inspectTranscode(workspacePath: string): Promise<Transcode
 
   const { encoding, hybrid, sampleRate } = deriveEncoding(tracks)
 
-  if (sampleRate > 0) {
-    try {
-      resolveSampleRateFamily(sampleRate)
-    } catch {
-      blockers.push({
-        kind: 'invalid-rate',
-        message: `Unsupported sample rate: ${sampleRate}`
-      })
-    }
+  const unusualRate = tracks.find((track) => !sampleRateFamily(track.sampleRate))
+  if (unusualRate) {
+    blockers.push({
+      kind: 'unusual-rate',
+      message: `${unusualRate.relativePath} uses an unusual ${(unusualRate.sampleRate / 1000).toFixed(1)} kHz sample rate. Check any converted files before upload.`
+    })
   }
 
   let options =
     tracks.length === 0 || blockers.some((b) => b.kind === 'lossy' || b.kind === 'empty')
       ? []
-      : getDownconversionOptions(workspacePath, encoding, sampleRate)
+      : getDownconversionOptions(workspacePath, encoding, sampleRate, hybrid)
 
-  const blockMp3 = blockers.some((b) => b.kind === 'multichannel' || b.kind === 'untagged')
+  const blockMp3 = blockers.some(
+    (b) => b.kind === 'multichannel' || b.kind === 'untagged'
+  )
   if (blockMp3) {
     options = options.filter((o) => o.action !== 'transcode')
   }

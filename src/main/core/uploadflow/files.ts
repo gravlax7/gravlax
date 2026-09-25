@@ -352,6 +352,13 @@ export function finishFilesApply(
     },
     fileChecks: {
       ...s.fileChecks,
+      audio: {
+        ...s.fileChecks.audio,
+        tracks: s.fileChecks.audio.tracks.map((track) => ({
+          ...track,
+          relativePath: pathMap.get(track.relativePath) ?? track.relativePath
+        }))
+      },
       structure: {
         ...s.fileChecks.structure,
         issues: s.fileChecks.structure.issues.map((item) => ({

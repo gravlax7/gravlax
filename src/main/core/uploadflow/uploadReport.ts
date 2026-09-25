@@ -84,6 +84,7 @@ export function fingerprintUploadInputs(s: State, cfg: Config, version: string):
     encoding: s.transcode.inspection?.encoding,
     sampleRate: s.transcode.inspection?.sampleRate,
     hybrid: s.transcode.inspection?.hybrid,
+    audio: s.fileChecks.audio.tracks,
     selected,
     jobs
   })
@@ -98,10 +99,11 @@ export async function buildUploadSnapshot(
   const inspection = s.transcode.inspection
   const trackerIds = enabledTrackerOptions(cfg)
   const sourceUrl = s.metadata.selected?.url?.trim() || undefined
+  const orderedTrackPaths = s.files.apply.files.map((file) => file.currentPath)
   const trackInputs = await collectTrackDescInputs(
     s.draft.workspacePath,
     proposed.tracks,
-    s.files.apply.files.map((file) => file.currentPath)
+    orderedTrackPaths
   )
   const albumDesc = generateAlbumDescription(
     trackInputs,
@@ -133,7 +135,9 @@ export async function buildUploadSnapshot(
   const formats: UploadFormatPayload[] = [
     {
       id: 'source',
-      label: `FLAC ${inspection?.encoding ?? 'Lossless'}`,
+      label: hybrid
+        ? 'FLAC · Mixed audio properties'
+        : `FLAC ${inspection?.encoding ?? 'Lossless'}${sampleRate > 0 ? ` · ${(sampleRate / 1000).toFixed(1)} kHz` : ''}`,
       folderPath: s.draft.workspacePath,
       format: 'FLAC',
       bitrate: inspection?.encoding ?? 'Lossless',
@@ -171,6 +175,11 @@ export async function buildUploadSnapshot(
     if (option.action === 'downconvert') {
       const targetDepth = (option.targetBitDepth ?? 16) as BitDepth
       const targetRate = option.targetSampleRate ?? null
+      const convertedTracks = await collectTrackDescInputs(
+        job.outputPath,
+        proposed.tracks,
+        orderedTrackPaths
+      )
       formats.push({
         id: option.id,
         label: option.name,
@@ -179,7 +188,12 @@ export async function buildUploadSnapshot(
         bitrate: targetDepth === 24 ? '24bit Lossless' : 'Lossless',
         otherBitrate: '',
         vbr: false,
-        releaseDesc: generateConversionDescription(targetRate, targetDepth, options.version),
+        releaseDesc: generateConversionDescription(
+          targetRate,
+          targetDepth,
+          options.version,
+          convertedTracks
+        ),
         logfileNames: []
       })
     }
@@ -369,37 +383,52 @@ async function collectTrackDescInputs(
   orderedPaths: string[] = []
 ): Promise<TrackDescInput[]> {
   if (!workspacePath) {
-    return (tracks ?? []).map((track) => trackToDesc(track, 0))
+    return (tracks ?? []).map((track) => trackToDesc(track, undefined))
   }
-  const files = await discoverFLACFiles(workspacePath)
+  let files
+  try {
+    files = await discoverFLACFiles(workspacePath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    return (tracks ?? []).map((track) => trackToDesc(track, undefined))
+  }
   const orderedFiles =
     orderedPaths.length > 0
       ? orderedPaths
           .map((path) => files.find((file) => file.relativePath === path))
           .filter((file): file is NonNullable<typeof file> => Boolean(file))
       : files
-  const durations: number[] = []
+  const streamInfo: Array<{ durationSeconds: number; bitDepth?: number; sampleRate?: number }> = []
   for (const file of orderedFiles) {
     try {
       const info = await readFLACStreamInfo(file.absolutePath)
-      durations.push(info.durationSeconds)
+      streamInfo.push({
+        durationSeconds: info.durationSeconds,
+        bitDepth: info.bitsPerSample,
+        sampleRate: info.sampleRate
+      })
     } catch {
-      durations.push(0)
+      streamInfo.push({ durationSeconds: 0 })
     }
   }
   if (tracks && tracks.length > 0) {
-    return tracks.map((track, index) => trackToDesc(track, durations[index] ?? 0))
+    return tracks.map((track, index) => trackToDesc(track, streamInfo[index]))
   }
   return orderedFiles.map((file, index) => ({
     discNumber: '1',
     trackNumber: String(index + 1).padStart(2, '0'),
     title: file.relativePath.replace(/\.flac$/i, ''),
     artists: [],
-    durationSeconds: durations[index] ?? 0
+    durationSeconds: streamInfo[index]?.durationSeconds ?? 0,
+    bitDepth: streamInfo[index]?.bitDepth,
+    sampleRate: streamInfo[index]?.sampleRate
   }))
 }
 
-function trackToDesc(track: Track, durationSeconds: number): TrackDescInput {
+function trackToDesc(
+  track: Track,
+  stream: { durationSeconds: number; bitDepth?: number; sampleRate?: number } | undefined
+): TrackDescInput {
   return {
     discNumber: track.discNumber,
     trackNumber: track.trackNumber,
@@ -408,6 +437,8 @@ function trackToDesc(track: Track, durationSeconds: number): TrackDescInput {
       name: artist.name,
       role: artist.role
     })),
-    durationSeconds
+    durationSeconds: stream?.durationSeconds ?? 0,
+    bitDepth: stream?.bitDepth,
+    sampleRate: stream?.sampleRate
   }
 }

@@ -42,7 +42,7 @@ export async function copyExtraFiles(
         results.push({ relativePath: rel, action: 'skip' })
         continue
       }
-      if (essentialOnly && !IMAGE_EXTENSIONS.has(ext)) {
+      if (essentialOnly && ext !== '.flac' && !IMAGE_EXTENSIONS.has(ext)) {
         results.push({ relativePath: rel, action: 'skip' })
         continue
       }

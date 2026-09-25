@@ -14,6 +14,16 @@ describe('file-checks paths', () => {
     state = setFileChecks(state, {
       status: 'ok',
       structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
+      audio: {
+        tracks: [
+          { relativePath: '01.flac', bitDepth: 16, sampleRate: 44100 },
+          { relativePath: '02.flac', bitDepth: 24, sampleRate: 96000 }
+        ],
+        highestBitDepth: 24,
+        highestSampleRate: 96000,
+        mixedBitDepth: true,
+        mixedSampleRate: true
+      },
       integrity: {
         status: 'failed',
         checkedCount: 2,
@@ -49,5 +59,9 @@ describe('file-checks paths', () => {
     expect(state.fileChecks.integrity.failures[0]?.relativePath).toBe('01 - First.flac')
     expect(state.fileChecks.integrity.repairedPaths).toEqual(['02 - Second.flac'])
     expect(state.fileChecks.integrity.repairErrors[0]?.relativePath).toBe('02 - Second.flac')
+    expect(state.fileChecks.audio.tracks.map((track) => track.relativePath)).toEqual([
+      '01 - First.flac',
+      '02 - Second.flac'
+    ])
   })
 })

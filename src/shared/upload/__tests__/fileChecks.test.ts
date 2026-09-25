@@ -19,6 +19,7 @@ function snapshot(overrides: Partial<FileChecksSnapshot> = {}): FileChecksSnapsh
   return {
     status: 'ok',
     structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
+    audio: { tracks: [], highestBitDepth: 0, highestSampleRate: 0, mixedBitDepth: false, mixedSampleRate: false },
     integrity: { status: 'passed', checkedCount: 1, failures: [], repairedPaths: [], repairErrors: [] },
     mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
     upconvert: { checkedCount: 0, results: [], errors: [] },

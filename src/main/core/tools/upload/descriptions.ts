@@ -17,6 +17,8 @@ export interface TrackDescInput {
   title?: string
   artists?: Artist[]
   durationSeconds: number
+  bitDepth?: number
+  sampleRate?: number
 }
 
 export interface AlbumDescMetadata {
@@ -263,20 +265,13 @@ export function generateAlbumDescription(
 export function generateReleaseDescription(input: ReleaseDescInput): string {
   let description = spectralsPlaceholderBbcode()
 
-  if (!input.hybrid) {
-    const sampleRate = (input.sampleRate ?? 0) / 1000
-    if (input.bitDepth && sampleRate > 0) {
-      description += `[b]${input.bitDepth} bit [color=#2E86C1]${sampleRate.toFixed(1)}[/color] kHz[/b]\n`
-    } else if (sampleRate > 0) {
-      description += `${sampleRate.toFixed(1)} kHz\n`
-    }
-  }
+  description += generateAudioDetails(input)
 
   if (input.releaseDate) {
     description += `Released on [b]${input.releaseDate}[/b]\n`
   }
 
-  if (input.includeTracklist || input.hybrid) {
+  if (input.includeTracklist && !input.hybrid) {
     for (const track of input.tracks ?? []) {
       description += `${formatTrackTitle(track)} [i](${formatDuration(track.durationSeconds)})[/i]\n`
     }
@@ -299,4 +294,32 @@ export function generateReleaseDescription(input: ReleaseDescInput): string {
 
   description += `[hr]Uploaded with [b]gravlax[/b] v${input.version}`
   return description
+}
+
+export function generateAudioDetails(
+  input: Pick<ReleaseDescInput, 'bitDepth' | 'sampleRate' | 'hybrid' | 'tracks'>
+): string {
+  const sampleRate = (input.sampleRate ?? 0) / 1000
+  let result = ''
+  if (input.hybrid) {
+    result = '[b]Mixed audio properties[/b]\n'
+  } else if (input.bitDepth && sampleRate > 0) {
+    result += `[b]${input.bitDepth} bit [color=#2E86C1]${sampleRate.toFixed(1)}[/color] kHz[/b]\n`
+  } else if (sampleRate > 0) {
+    result += `${sampleRate.toFixed(1)} kHz\n`
+  }
+  if (!input.hybrid) return result
+
+  for (const track of input.tracks ?? []) {
+    const depth = track.bitDepth ?? 0
+    const rate = (track.sampleRate ?? 0) / 1000
+    const properties = depth > 0 && rate > 0
+      ? ` [${depth} bit / ${rate.toFixed(1)} kHz]`
+      : rate > 0
+        ? ` [${rate.toFixed(1)} kHz]`
+        : ''
+    result += `${formatTrackTitle(track)} [i](${formatDuration(track.durationSeconds)})[/i]${properties}\n`
+  }
+  if ((input.tracks ?? []).length > 0) result += '\n'
+  return result
 }

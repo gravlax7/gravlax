@@ -1,4 +1,5 @@
 import type {
+  ReleaseAudioProfile,
   FileChecksSnapshot,
   IntegritySummary,
   LogcheckerSummary,
@@ -36,10 +37,21 @@ export function emptyFileChecks(): FileChecksSnapshot {
       emptyDirectories: [],
       quarantined: []
     },
+    audio: emptyAudioProfile(),
     integrity: emptyIntegritySummary(),
     mqa: emptyMQASummary(),
     upconvert: emptyUpconvertSummary(),
     logs: { logFiles: [], checks: [] }
+  }
+}
+
+export function emptyAudioProfile(): ReleaseAudioProfile {
+  return {
+    tracks: [],
+    highestBitDepth: 0,
+    highestSampleRate: 0,
+    mixedBitDepth: false,
+    mixedSampleRate: false
   }
 }
 
@@ -78,6 +90,7 @@ export function restoreFileChecks(snapshot: FileChecksSnapshot | undefined): Fil
   const upconvert = snapshot.upconvert
   const logs = snapshot.logs
   const structure = snapshot.structure
+  const audio = snapshot.audio
   return {
     status: snapshot.status ?? 'idle',
     structure: {
@@ -86,6 +99,13 @@ export function restoreFileChecks(snapshot: FileChecksSnapshot | undefined): Fil
       approvedPaths: [...(structure?.approvedPaths ?? [])],
       emptyDirectories: [...(structure?.emptyDirectories ?? [])],
       quarantined: (structure?.quarantined ?? []).map((item) => ({ ...item }))
+    },
+    audio: {
+      tracks: (audio?.tracks ?? []).map((track) => ({ ...track })),
+      highestBitDepth: audio?.highestBitDepth ?? 0,
+      highestSampleRate: audio?.highestSampleRate ?? 0,
+      mixedBitDepth: audio?.mixedBitDepth ?? false,
+      mixedSampleRate: audio?.mixedSampleRate ?? false
     },
     integrity: {
       status: integrity?.status ?? 'idle',

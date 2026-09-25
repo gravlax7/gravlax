@@ -4,7 +4,7 @@ export {
   IMAGE_EXTENSIONS,
   SKIP_EXTENSIONS
 } from './audioInfo'
-export { getDownconversionOptions, resolveSampleRateFamily } from './options'
+export { getDownconversionOptions, sampleRateFamily } from './options'
 export { buildMp3OutputPath, buildDownconvertOutputPath, outputFolderName } from './naming'
 export { prepareTags, readPreparedFlacTags, readFlacPictures, writeMp3Tags } from './tags'
 export { transcodeFolder, generateTranscodeDescription, LAME_COMMAND_MAP } from './mp3'

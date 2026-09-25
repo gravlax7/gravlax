@@ -290,7 +290,7 @@ export interface TranscodeOption {
 }
 
 export interface TranscodeBlocker {
-  kind: 'lossy' | 'multichannel' | 'untagged' | 'empty' | 'invalid-rate'
+  kind: 'lossy' | 'multichannel' | 'untagged' | 'empty' | 'unusual-rate'
   message: string
 }
 
@@ -384,6 +384,20 @@ export interface LogcheckerSummary {
   skippedReason?: string
 }
 
+export interface AudioTrackProfile {
+  relativePath: string
+  bitDepth: number
+  sampleRate: number
+}
+
+export interface ReleaseAudioProfile {
+  tracks: AudioTrackProfile[]
+  highestBitDepth: number
+  highestSampleRate: number
+  mixedBitDepth: boolean
+  mixedSampleRate: boolean
+}
+
 export type ReleaseStructureRule =
   | 'suspicious-extension'
   | 'illegal-directory'
@@ -417,6 +431,7 @@ export interface ReleaseStructureSummary {
 export interface FileChecksSnapshot {
   status: FileChecksStatus
   structure: ReleaseStructureSummary
+  audio: ReleaseAudioProfile
   integrity: IntegritySummary
   mqa: MQASummary
   upconvert: UpconvertSummary

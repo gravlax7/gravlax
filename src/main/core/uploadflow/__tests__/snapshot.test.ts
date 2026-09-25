@@ -133,6 +133,7 @@ describe('snapshot round-trip', () => {
     state = setFileChecks(state, {
       status: 'ok',
       structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
+      audio: { tracks: [], highestBitDepth: 0, highestSampleRate: 0, mixedBitDepth: false, mixedSampleRate: false },
       integrity: { status: 'passed', checkedCount: 2, failures: [], repairedPaths: [], repairErrors: [] },
       mqa: { checkedCount: 2, mqaPaths: ['02.flac'], errors: [] },
       upconvert: {
@@ -197,6 +198,36 @@ describe('snapshot round-trip', () => {
     })
     const restored = restoreState('/workspace/upload-abc123', snap)
     expect(restored.fileChecks.integrity.status).toBe('idle')
+    expect(restored.background.tasks.find((task) => task.id === 'file-checks')?.status).toBe('queued')
+  })
+
+  it('reruns file checks for a snapshot written before audio profiles existed', () => {
+    const state = setSourceMedia(selectSourcePath(newState(), '/music/album'), 'WEB')
+    const snap = snapshot(state)
+    snap.fileChecks = {
+      status: 'ok',
+      structure: {
+        ready: true,
+        issues: [],
+        approvedPaths: [],
+        emptyDirectories: [],
+        quarantined: []
+      },
+      integrity: {
+        status: 'passed',
+        checkedCount: 1,
+        failures: [],
+        repairedPaths: [],
+        repairErrors: []
+      },
+      mqa: { checkedCount: 1, mqaPaths: [], errors: [] },
+      upconvert: { checkedCount: 0, results: [], errors: [] },
+      logs: { logFiles: [], checks: [] }
+    } as never
+
+    const restored = restoreState('/workspace/upload-abc123', snap)
+
+    expect(restored.fileChecks.audio.tracks).toEqual([])
     expect(restored.background.tasks.find((task) => task.id === 'file-checks')?.status).toBe('queued')
   })
 

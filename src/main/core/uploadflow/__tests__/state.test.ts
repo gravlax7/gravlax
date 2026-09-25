@@ -76,6 +76,7 @@ describe('uploadflow', () => {
     let state = setFileChecks(selectSourcePath(newState(), '/tmp/release'), {
       status: 'ok',
       structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
+      audio: { tracks: [], highestBitDepth: 0, highestSampleRate: 0, mixedBitDepth: false, mixedSampleRate: false },
       integrity: { status: 'passed', checkedCount: 2, failures: [], repairedPaths: [], repairErrors: [] },
       mqa: { checkedCount: 2, mqaPaths: ['02.flac'], errors: [] },
       upconvert: { checkedCount: 0, results: [], errors: [] },

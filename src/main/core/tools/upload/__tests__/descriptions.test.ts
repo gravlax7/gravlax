@@ -258,6 +258,23 @@ describe('generateReleaseDescription', () => {
     expect(desc).toContain('Reported as lossy master.')
     expect(desc).toContain('[hr]Uploaded with [b]gravlax[/b] v0.1.0')
   })
+
+  it('labels mixed audio without claiming a bit depth and rate pair no track has', () => {
+    const desc = generateReleaseDescription({
+      bitDepth: 24,
+      sampleRate: 96000,
+      hybrid: true,
+      tracks: [
+        { title: 'First', durationSeconds: 60, bitDepth: 16, sampleRate: 96000 },
+        { title: 'Second', durationSeconds: 90, bitDepth: 24, sampleRate: 44100 }
+      ],
+      version: '0.1.0'
+    })
+    expect(desc).toContain('[b]Mixed audio properties[/b]')
+    expect(desc).not.toContain('[b]24 bit [color=#2E86C1]96.0[/color] kHz[/b]')
+    expect(desc).toContain('First [i](1:00)[/i] [16 bit / 96.0 kHz]')
+    expect(desc).toContain('Second [i](1:30)[/i] [24 bit / 44.1 kHz]')
+  })
 })
 
 describe('generateSourceLinks', () => {

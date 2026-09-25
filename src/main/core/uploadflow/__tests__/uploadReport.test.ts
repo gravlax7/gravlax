@@ -17,6 +17,7 @@ import { SOURCE_TORRENT_PLACEHOLDER } from '@main/core/tools/upload/descriptions
 import { planSubmissions } from '@main/services/uploadSubmit'
 import { seedFormatsFromUpload } from '@main/services/seedService'
 import { ImageHostUploadError } from '@main/core/tools/imagehosts/provider'
+import { writeSyntheticFlac } from '@main/core/tools/__tests__/helpers/audioFixture'
 import {
   JPEG,
   TEST_VERSION,
@@ -237,6 +238,88 @@ describe('multi-format upload report', () => {
       await rm(dir, { recursive: true, force: true })
     }
   })
+
+  it('keeps source track order in mixed converted FLAC descriptions', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-track-order-'))
+    const source = path.join(root, 'Album [24bit FLAC]')
+    const converted = path.join(root, 'Album [FLAC]')
+    try {
+      await Promise.all([source, converted].map((folder) => mkdir(folder)))
+      await Promise.all([
+        writeSyntheticFlac(path.join(source, 'B.flac'), {
+          bitsPerSample: 24,
+          sampleRate: 96_000
+        }),
+        writeSyntheticFlac(path.join(source, 'A.flac'), {
+          bitsPerSample: 24,
+          sampleRate: 88_200
+        }),
+        writeSyntheticFlac(path.join(converted, 'B.flac'), {
+          bitsPerSample: 16,
+          sampleRate: 48_000
+        }),
+        writeSyntheticFlac(path.join(converted, 'A.flac'), {
+          bitsPerSample: 16,
+          sampleRate: 44_100
+        })
+      ])
+
+      const state = newState()
+      state.draft.workspacePath = source
+      state.draft.sourceMedia = 'WEB'
+      state.tags.proposed = {
+        title: 'Album',
+        tracks: [
+          { trackNumber: '1', title: 'First' },
+          { trackNumber: '2', title: 'Second' }
+        ]
+      }
+      state.files.apply.files = [
+        { id: 'first', currentPath: 'B.flac' },
+        { id: 'second', currentPath: 'A.flac' }
+      ]
+      state.transcode = {
+        phase: 'done',
+        inspection: {
+          encoding: '24bit Lossless',
+          sampleRate: 96_000,
+          trackCount: 2,
+          hybrid: true,
+          blockers: [],
+          options: [{
+            id: 'downconvert-16-mixed',
+            name: '16bit FLAC',
+            action: 'downconvert',
+            targetBitDepth: 16,
+            outputFolderName: path.basename(converted)
+          }]
+        },
+        selectedOptionIds: ['downconvert-16-mixed'],
+        jobs: [{
+          optionId: 'downconvert-16-mixed',
+          status: 'succeeded',
+          outputPath: converted
+        }]
+      }
+
+      const snapshot = await buildUploadSnapshot(state, cfgWithTrackers([]), {
+        version: TEST_VERSION
+      })
+      expect(snapshot.formats?.find((format) => format.id === 'source')?.label).toBe(
+        'FLAC · Mixed audio properties'
+      )
+      const description = snapshot.formats?.find(
+        (format) => format.id === 'downconvert-16-mixed'
+      )?.releaseDesc ?? ''
+      const first = description.split('\n').find((line) => line.startsWith('First '))
+      const second = description.split('\n').find((line) => line.startsWith('Second '))
+      expect(first).toContain('[16 bit / 48.0 kHz]')
+      expect(second).toContain('[16 bit / 44.1 kHz]')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
 })
 
 describe('cover image report work', () => {

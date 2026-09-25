@@ -135,7 +135,7 @@ export function restoreState(
   state = setTranscode(state, snap.transcode ?? {})
   if (snap.fileChecks) {
     state = setFileChecks(state, snap.fileChecks)
-    if (!('integrity' in snap.fileChecks)) {
+    if (!('integrity' in snap.fileChecks) || !('audio' in snap.fileChecks)) {
       state = resetBackgroundTask(state, 'file-checks')
     }
   }

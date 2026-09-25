@@ -1489,8 +1489,8 @@ export class UploadSession {
               })
               outputPath = result.outputPath
             } else {
-              if (!option.targetBitDepth || !option.targetSampleRate) {
-                throw new Error(`missing downconvert targets for ${option.id}`)
+              if (!option.targetBitDepth) {
+                throw new Error(`missing downconvert bit depth for ${option.id}`)
               }
               const result = await convertFolder(workspacePath, {
                 bitDepth: option.targetBitDepth,
@@ -1760,13 +1760,14 @@ export class UploadSession {
               { persist: false }
             )
           },
-          onIntegrityPassed: (integrity) => {
+          onIntegrityPassed: (integrity, audio) => {
             if (!task.fresh()) return
             const repairRan =
               integrity.repairedPaths.length > 0 || integrity.repairErrors.length > 0
             this.apply(setFileChecks(this.state, {
               status: 'running',
               structure: this.state.fileChecks.structure,
+              audio,
               integrity,
               mqa: { checkedCount: 0, mqaPaths: [], errors: [] },
               upconvert: { checkedCount: 0, results: [], errors: [] },

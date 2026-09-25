@@ -120,6 +120,51 @@ describe('transcode integration', () => {
       await rm(root, { recursive: true, force: true })
     }
   }, 120_000)
+
+  it('keeps every mixed FLAC and resolves sample rates per track', async () => {
+    const hasSox = await binaryAvailable('sox')
+    const hasFlac = await binaryAvailable('flac')
+    if (!hasSox || !hasFlac) return
+
+    const root = await mkdtemp(join(tmpdir(), 'gravlax-mixed-downconv-'))
+    try {
+      const album = join(root, 'Artist - Album [WEB 24bit FLAC]')
+      await mkdir(album, { recursive: true })
+      await writeSyntheticFlac(join(album, '01 - 16-96.flac'), {
+        bitsPerSample: 16,
+        sampleRate: 96_000
+      })
+      await writeSyntheticFlac(join(album, '02 - 24-44.flac'), {
+        bitsPerSample: 24,
+        sampleRate: 44_100
+      })
+      await writeSyntheticFlac(join(album, '03 - 24-88.flac'), {
+        bitsPerSample: 24,
+        sampleRate: 88_200
+      })
+      await writeSyntheticFlac(join(album, '04 - 24-96.flac'), {
+        bitsPerSample: 24,
+        sampleRate: 96_000
+      })
+
+      const result = await convertFolder(album, {
+        bitDepth: 16,
+        essentialOnly: true,
+        concurrency: 1
+      })
+      const copied = await readFLACStreamInfo(join(result.outputPath, '01 - 16-96.flac'))
+      const converted = await readFLACStreamInfo(join(result.outputPath, '02 - 24-44.flac'))
+      const converted441 = await readFLACStreamInfo(join(result.outputPath, '03 - 24-88.flac'))
+      const converted48 = await readFLACStreamInfo(join(result.outputPath, '04 - 24-96.flac'))
+      expect(copied).toMatchObject({ bitsPerSample: 16, sampleRate: 96_000 })
+      expect(converted).toMatchObject({ bitsPerSample: 16, sampleRate: 44_100 })
+      expect(converted441).toMatchObject({ bitsPerSample: 16, sampleRate: 44_100 })
+      expect(converted48).toMatchObject({ bitsPerSample: 16, sampleRate: 48_000 })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }, 120_000)
+
 })
 
 describe('transcode output reuse', () => {

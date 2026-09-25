@@ -4,6 +4,7 @@ import type {
   MQASummary,
   UpconvertSummary,
   RepairFlowStage,
+  ReleaseAudioProfile,
   SourceMedia
 } from '@shared/types'
 import type { ToolResolver } from '@main/core/tools/binaries'
@@ -17,9 +18,15 @@ import { checkLogsWorkspace, logcheckerSummaryDetail } from './logchecker'
 import { checkMQAWorkspace, mqaSummaryDetail } from './mqa'
 import { checkUpconvertWorkspace, upconvertSummaryDetail } from './upconvert'
 import { checkReleaseStructure, structureSummaryDetail } from './structure'
+import {
+  audioProfileDetail,
+  gatherReleaseAudioProfile,
+  summarizeAudioTracks
+} from '@main/core/tools/audioProfile'
 
 const JOB_LABELS = {
   structure: 'Folder rules',
+  audio: 'Audio properties',
   integrity: 'Integrity',
   mqa: 'MQA',
   upconvert: 'Upconvert',
@@ -45,7 +52,7 @@ export interface RunFileChecksOptions {
     repairStage?: RepairFlowStage
   ) => void
   onRepairStarting?: () => void | Promise<void>
-  onIntegrityPassed?: (integrity: IntegritySummary) => void
+  onIntegrityPassed?: (integrity: IntegritySummary, audio: ReleaseAudioProfile) => void
   approvedStructurePaths?: string[]
   quarantinedStructureEntries?: FileChecksSnapshot['structure']['quarantined']
 }
@@ -58,6 +65,7 @@ export interface FileChecksRunResult {
 
 export interface FileChecksJobs {
   checkStructure: typeof checkReleaseStructure
+  inspectAudio: (workspacePath: string) => Promise<ReleaseAudioProfile>
   checkIntegrity: typeof checkFLACIntegrityWorkspace
   repairIntegrity: typeof repairFLACIntegrityWorkspace
   checkMqa: typeof checkMQAWorkspace
@@ -83,6 +91,7 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
       )
   const jobs: FileChecksJobs = {
     checkStructure: checkReleaseStructure,
+    inspectAudio: gatherReleaseAudioProfile,
     checkIntegrity: checkFLACIntegrityWorkspace,
     repairIntegrity: repairFLACIntegrityWorkspace,
     checkMqa: checkMQAWorkspace,
@@ -102,6 +111,7 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
       snapshot: {
         status: 'ok',
         structure,
+        audio: summarizeAudioTracks([]),
         integrity: {
           status: 'idle',
           checkedCount: 0,
@@ -151,11 +161,15 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
         })
 
     checkSignal.throwIfAborted()
+    let audio = summarizeAudioTracks([])
     let mqa: MQASummary = { checkedCount: 0, mqaPaths: [], errors: [] }
     let upconvert: UpconvertSummary = { checkedCount: 0, results: [], errors: [] }
     if (integrity.status === 'passed') {
       const repairRan = integrity.repairedPaths.length > 0 || integrity.repairErrors.length > 0
-      options.onIntegrityPassed?.(integrity)
+      onProgress?.(0, 1, `${JOB_LABELS.audio} — Reading FLAC settings…`)
+      audio = await jobs.inspectAudio(workspacePath)
+      onProgress?.(1, 1, `${JOB_LABELS.audio} — Complete`)
+      options.onIntegrityPassed?.(integrity, audio)
       mqa = await jobs.checkMqa(workspacePath, {
         signal: checkSignal,
         tools,
@@ -172,10 +186,10 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
     if (!logsComplete) {
       onProgress?.(0, 1, `${JOB_LABELS.logchecker} — Checking rip logs…`)
     }
-    return { integrity, mqa, upconvert }
+    return { audio, integrity, mqa, upconvert }
   })()
 
-  const [{ integrity, mqa, upconvert }, logs] = await Promise.all([audioChecks, logCheck])
+  const [{ audio, integrity, mqa, upconvert }, logs] = await Promise.all([audioChecks, logCheck])
     .catch(async (error) => {
       controller.abort()
       // Drain both jobs before callers can change the workspace or start another run.
@@ -190,6 +204,7 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
   const snapshot: FileChecksSnapshot = {
     status: taskFailed ? 'failed' : 'ok',
     structure,
+    audio,
     integrity,
     mqa,
     upconvert,
@@ -197,6 +212,7 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
   }
   const detail = [
     structureSummaryDetail(structure, 'FLAC'),
+    integrity.status === 'passed' ? audioProfileDetail(audio) : '',
     integritySummaryDetail(integrity),
     integrity.status === 'passed' ? mqaSummaryDetail(mqa) : '',
     integrity.status === 'passed' ? upconvertSummaryDetail(upconvert) : '',

@@ -7,20 +7,21 @@ import type {
 import { MP3_BITRATES, type Bitrate } from '@shared/upload/encodings'
 import { buildDownconvertOutputPath, buildMp3OutputPath, outputFolderName } from './naming'
 
-export function resolveSampleRateFamily(sampleRate: number): number {
+export function sampleRateFamily(sampleRate: number): number | undefined {
   if (sampleRate % 44100 === 0) return 44100
   if (sampleRate % 48000 === 0) return 48000
-  throw new Error(`unsupported sample rate: ${sampleRate}`)
+  return undefined
 }
 
 export function getDownconversionOptions(
   sourcePath: string,
   encoding: TranscodeEncoding,
-  sampleRate: number
+  sampleRate: number,
+  hybrid = false
 ): TranscodeOption[] {
   const options: TranscodeOption[] = []
 
-  if (encoding === '24bit Lossless' && sampleRate >= 176400) {
+  if (!hybrid && encoding === '24bit Lossless' && sampleRate >= 176400) {
     const targetRate = sampleRate % 48000 === 0 ? 96000 : 88200
     const outputPath = buildDownconvertOutputPath(sourcePath, 24, targetRate)
     options.push({
@@ -33,7 +34,16 @@ export function getDownconversionOptions(
     })
   }
 
-  if (encoding === '24bit Lossless' && sampleRate >= 44100) {
+  if (hybrid && encoding === '24bit Lossless') {
+    const outputPath = buildDownconvertOutputPath(sourcePath, 16, null)
+    options.push({
+      id: 'downconvert-16-mixed',
+      name: '16bit FLAC',
+      action: 'downconvert',
+      targetBitDepth: 16,
+      outputFolderName: outputFolderName(outputPath)
+    })
+  } else if (encoding === '24bit Lossless' && sampleRate >= 44100) {
     const targetRate = sampleRate % 48000 === 0 ? 48000 : 44100
     const outputPath = buildDownconvertOutputPath(sourcePath, 16, targetRate)
     options.push({

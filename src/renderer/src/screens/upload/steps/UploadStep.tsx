@@ -38,6 +38,7 @@ import {
   validateLossyMasterReport
 } from '@shared/upload/lossyReport'
 import { anySelectedTrackerHasGroupId } from '@shared/upload/groupIds'
+import { mixedWebTrackerGuidance } from '@shared/upload/mixedAudio'
 import {
   artistRoleToImportance,
   importanceToArtistRole
@@ -527,6 +528,13 @@ export function UploadStep(props: {
     submissions().length > 0 || Boolean(upload().error)
   )
   const [workspaceOpenError, setWorkspaceOpenError] = createSignal('')
+  const mixedGuidance = createMemo(() =>
+    mixedWebTrackerGuidance(
+      props.state.draft.sourceMedia,
+      props.state.fileChecks.audio,
+      upload().selectedTrackerIds ?? []
+    )
+  )
 
   const openWorkspace = async (): Promise<void> => {
     setWorkspaceOpenError('')
@@ -638,6 +646,17 @@ export function UploadStep(props: {
           </div>
         </Show>
       </Card>
+
+      <Show when={mixedGuidance()}>
+        {(guidance) => (
+          <Callout tone="warning">
+            <div class="upload-mixed-guidance">
+              <strong>Mixed audio properties in this WEB release</strong>
+              <div>{guidance()}</div>
+            </div>
+          </Callout>
+        )}
+      </Show>
 
       <GroupSuggestions
         state={props.state}
