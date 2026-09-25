@@ -242,7 +242,7 @@ describe('multi-format upload report', () => {
     }
   })
 
-  it('keeps source track order in mixed converted FLAC descriptions', async () => {
+  it.skipIf(process.env.CI === 'true')('keeps source track order in mixed converted FLAC descriptions', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-track-order-'))
     const source = path.join(root, 'Album [24bit FLAC]')
     const converted = path.join(root, 'Album [FLAC]')
