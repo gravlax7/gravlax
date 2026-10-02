@@ -149,6 +149,7 @@ function uploadBlockedReason(
 
 function BbcodeDescriptionField(props: {
   label: string
+  description?: string
   value: string
   previewValue?: string
   previewReady: boolean
@@ -206,6 +207,9 @@ function BbcodeDescriptionField(props: {
           {editing() ? 'Show preview' : 'Edit'}
         </Button>
       </div>
+      <Show when={props.description}>
+        <div class="upload-report-field-note">{props.description}</div>
+      </Show>
       <Show
         when={editing()}
         fallback={
@@ -825,17 +829,36 @@ export function UploadStep(props: {
       </Card>
 
       <Show when={props.state.draft.lossyMaster}>
-        <Card class="upload-report-card">
-          <div class="upload-report-heading">Lossy master report</div>
-          <div class="upload-report-field-note">
-            This comment is sent with the approval report only. Spectrals you host are included
-            in the report.
+        <Card class="upload-report-card upload-lossy-card">
+          <div class="upload-lossy-header">
+            <div class="upload-report-heading">Lossy master report</div>
+            <div class="upload-report-field-note">
+              Spectrals you selected for hosting are included in the report.
+            </div>
           </div>
-          <div class="upload-report-field-note">
-            {props.state.draft.sourceMedia === 'CD'
-              ? 'Add proof of purchase or borrowing, such as a receipt or a link to supporting evidence.'
-              : 'Add where you obtained these files, ideally with a link to the release.'}
-          </div>
+          <Callout tone="warning" class="upload-lossy-warning">
+            <div class="upload-lossy-warning-copy">
+              <div class="upload-lossy-warning-title">
+                <Icon name="eye" size={16} />
+                <span>This report comment will be visible to other tracker members.</span>
+              </div>
+              <p>
+                If your proof of purchase or borrowing contains personal information, file your lossy master report through
+                the website and use the staff-only proof field. Do not
+                include personal information here.
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="upload-lossy-disable"
+              disabled={upload().phase === 'submitting' || upload().phase === 'done'}
+              onClick={() => void window.gravlax.upload.setLossyMaster(false)}
+            >
+              <Icon name="x" size={14} />
+              Disable report
+            </Button>
+          </Callout>
           <Show when={lossySourceSuggestion()}>
             {(url) => (
               <Callout tone="warning">
@@ -859,6 +882,9 @@ export function UploadStep(props: {
           </Show>
           <BbcodeDescriptionField
             label="Report comment"
+            description={`${props.state.draft.sourceMedia === 'CD'
+              ? 'Describe where you obtained or borrowed the disc.'
+              : 'Add where you obtained these files, ideally with a link to the release.'} You can include proof without personal information in this comment.`}
             previewReady={previewReady()}
             previewTrackerId={previewTrackerId()}
             previewKey={previewKey()}

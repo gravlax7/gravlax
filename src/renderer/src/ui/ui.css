@@ -2540,6 +2540,55 @@ button.toggle.toggle-on .toggle-thumb {
   margin-bottom: var(--space-4);
 }
 
+.upload-lossy-card {
+  gap: var(--space-4);
+}
+
+.upload-lossy-header {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.upload-lossy-warning {
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.upload-lossy-warning-copy {
+  flex: 1 1 30rem;
+  min-width: 0;
+}
+
+.upload-lossy-warning-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--weight-semibold);
+}
+
+.upload-lossy-warning-title svg {
+  flex-shrink: 0;
+  color: var(--warning);
+}
+
+.upload-lossy-warning-copy p {
+  margin: var(--space-2) 0 0;
+  color: var(--fg-secondary);
+  line-height: 1.6;
+}
+
+.ui-btn.upload-lossy-disable {
+  flex-shrink: 0;
+  color: var(--fg-primary);
+  border-color: color-mix(in srgb, var(--warning) 30%, var(--border));
+}
+
+.ui-btn.upload-lossy-disable:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  border-color: var(--warning);
+}
+
 .tracker-icon,
 .provider-icon,
 .image-host-icon {
