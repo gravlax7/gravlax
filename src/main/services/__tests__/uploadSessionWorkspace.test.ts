@@ -20,10 +20,11 @@ vi.mock('@main/services/healthcheck', () => ({
 
 let userDataPath = ''
 let sourceRoot = ''
+const sessions: UploadSession[] = []
 const trashItem = vi.fn(async (_path: string): Promise<void> => undefined)
 
 function newSession(config = defaultConfig()): UploadSession {
-  return new UploadSession({
+  const session = new UploadSession({
     appVersion: 'test',
     userDataPath,
     getConfig: () => config,
@@ -31,6 +32,8 @@ function newSession(config = defaultConfig()): UploadSession {
     tools: automaticToolResolver,
     send: () => {}
   })
+  sessions.push(session)
+  return session
 }
 
 function setState(session: UploadSession, state: State): void {
@@ -58,6 +61,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  // Background tasks keep writing into the workspace after a test ends.
+  await Promise.all(sessions.splice(0).map((session) => session.stop()))
   await rm(userDataPath, { recursive: true, force: true })
   await rm(sourceRoot, { recursive: true, force: true })
   vi.restoreAllMocks()

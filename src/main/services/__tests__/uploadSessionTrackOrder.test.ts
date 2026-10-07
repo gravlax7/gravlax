@@ -50,10 +50,7 @@ function setup(initial?: State) {
 
 const sessions: UploadSession[] = []
 afterEach(async () => {
-  await Promise.all(sessions.splice(0).map(async (session) => {
-    session.cancelAll()
-    await (session as unknown as { runtime: { flushPersist: () => Promise<void> } }).runtime.flushPersist()
-  }))
+  await Promise.all(sessions.splice(0).map((session) => session.stop()))
 })
 beforeEach(() => {
   vi.clearAllMocks()

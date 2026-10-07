@@ -306,6 +306,12 @@ export class UploadSession {
     this.tasks.invalidateAll()
   }
 
+  /** Stop all work and save, so nothing touches the workspace afterwards. */
+  async stop(): Promise<void> {
+    await this.tasks.cancelAndWait()
+    await this.flushPersist()
+  }
+
   /** Guard for tasks that are only meaningful for the workspace they started on. */
   private stillOn(workspacePath: string): () => boolean {
     return () => this.state.draft.workspacePath === workspacePath

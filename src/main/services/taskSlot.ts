@@ -129,4 +129,10 @@ export class TaskScope {
     this.counter++
     for (const slot of this.slots.values()) slot.cancel()
   }
+
+  /** Invalidate everything and wait for every run still winding down to stop. */
+  async cancelAndWait(): Promise<void> {
+    this.counter++
+    await Promise.all([...this.slots.values()].map((slot) => slot.cancelAndWait()))
+  }
 }
