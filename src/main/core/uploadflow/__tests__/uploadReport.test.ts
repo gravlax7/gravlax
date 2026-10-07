@@ -59,6 +59,30 @@ describe('upload report helpers', () => {
 })
 
 describe('multi-format upload report', () => {
+  it.skipIf(process.env.CI === 'true')('pairs durations with saved track paths rather than filename order', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'gravlax-track-durations-'))
+    const album = path.join(root, 'Album')
+    try {
+      await mkdir(album)
+      await writeSyntheticFlac(path.join(album, 'Zoe.flac'), { durationSeconds: 2 })
+      await writeSyntheticFlac(path.join(album, 'Alice.flac'), { durationSeconds: 1 })
+      const state = newState()
+      state.draft.workspacePath = album
+      state.draft.sourceMedia = 'WEB'
+      state.tags.proposed = { title: 'Album', tracks: [
+        { trackNumber: '1', title: 'First' }, { trackNumber: '2', title: 'Second' }
+      ] }
+      state.files.apply.files = [
+        { id: 'first', currentPath: 'Zoe.flac' }, { id: 'second', currentPath: 'Alice.flac' }
+      ]
+      const report = await buildUploadSnapshot(state, cfgWithTrackers([]), { version: TEST_VERSION })
+      expect(report.albumDesc?.split('\n').find((line) => line.includes('First'))).toContain('(0:02)')
+      expect(report.albumDesc?.split('\n').find((line) => line.includes('Second'))).toContain('(0:01)')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('builds and plans FLAC, MP3 320, and MP3 V0 as three uploads', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-formats-'))
     const dir = path.join(root, 'Album [FLAC]')

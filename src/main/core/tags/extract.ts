@@ -28,6 +28,7 @@ import {
   uniqueStringsStable
 } from '@shared/tags/editor'
 import { metadataDate } from '@shared/tags/dates'
+import { numericTrackPositions, sameTrackPaths, TRACK_ORDER_FALLBACK_NOTICE } from '@shared/tags/trackOrder'
 import {
   firstAliasValue,
   mergeAliasValues,
@@ -46,22 +47,53 @@ export async function extractAlbumRelease(path: string): Promise<Release> {
 }
 
 export async function extractAlbumReleaseWithEmbeddedCoverArt(
-  path: string
-): Promise<{ release: Release; embeddedCoverArtCount: number }> {
-  const files = await discoverFLACInput(path)
+  path: string,
+  orderedPaths?: readonly string[]
+): Promise<{
+  release: Release
+  embeddedCoverArtCount: number
+  relativePaths: string[]
+  orderingNotice?: string
+}> {
+  let files = await discoverFLACInput(path)
   if (files.length === 0) {
     throw new Error('no tagged FLAC files were found in the workspace')
   }
 
-  const tagSets: FlacTags[] = []
-  const tracks: Track[] = []
+  if (orderedPaths !== undefined) {
+    if (!sameTrackPaths(orderedPaths, files.map((file) => file.relativePath))) {
+      throw new Error('Saved track paths do not match the FLAC files in the workspace.')
+    }
+    const byPath = new Map(files.map((file) => [file.relativePath, file]))
+    files = orderedPaths.map((relativePath) => byPath.get(relativePath)!)
+  }
+
+  let records: Array<{ file: FlacFile; tagSet: FlacTags; track: Track }> = []
   let embeddedCoverArtCount = 0
   for (const file of files) {
     const tagSet = await readFLACTags(file.absolutePath)
-    tagSets.push(tagSet)
-    tracks.push(buildTrack(tagSet))
+    records.push({ file, tagSet, track: buildTrack(tagSet) })
     embeddedCoverArtCount += tagSet.pictureCount + (tagSet.values.COVERART?.length ?? 0)
   }
+
+  let orderingNotice: string | undefined
+  if (orderedPaths === undefined) {
+    // Use raw number tags here: buildTrack defaults absent disc tags to 1.
+    const positions = numericTrackPositions(records.map(({ tagSet }) => ({
+      discNumber: firstAliasValue(tagSet.values, 'DISCNUMBER'),
+      trackNumber: firstAliasValue(tagSet.values, 'TRACKNUMBER')
+    })))
+    if (positions) {
+      records = records
+        .map((record, index) => ({ record, position: positions[index]! }))
+        .sort((a, b) => a.position.disc - b.position.disc || a.position.track - b.position.track)
+        .map(({ record }) => record)
+    } else {
+      orderingNotice = TRACK_ORDER_FALLBACK_NOTICE
+    }
+  }
+  const tagSets = records.map((record) => record.tagSet)
+  const tracks = records.map((record) => record.track)
 
   const mixed: Record<string, boolean> = {}
   const release: Release = {
@@ -120,7 +152,12 @@ export async function extractAlbumReleaseWithEmbeddedCoverArt(
   if (Object.keys(mixed).length === 0) {
     release.mixed = undefined
   }
-  return { release, embeddedCoverArtCount }
+  return {
+    release,
+    embeddedCoverArtCount,
+    relativePaths: records.map((record) => record.file.relativePath),
+    orderingNotice
+  }
 }
 
 async function discoverFLACInput(path: string): Promise<FlacFile[]> {

@@ -1,4 +1,5 @@
-import type { FilesSnapshot, SourceRestoreUnavailableReason } from '@shared/types'
+import type { FileNameState, FilesSnapshot, SourceRestoreUnavailableReason } from '@shared/types'
+import { sameTrackPaths } from '@shared/tags/trackOrder'
 import type { State } from './state'
 
 export function emptyFiles(): FilesSnapshot {
@@ -76,6 +77,7 @@ export function initializeFiles(
   payload?: { files: string[]; directories: string[] }
 ): State {
   if (s.files.apply.files.length > 0) return s
+  const files = relativePaths.map((currentPath, index) => ({ id: `track-${index + 1}`, currentPath }))
   return {
     ...s,
     files: {
@@ -83,9 +85,23 @@ export function initializeFiles(
       apply: {
         ...s.files.apply,
         currentFolderName: folderName,
-        files: relativePaths.map((currentPath, index) => ({ id: `track-${index + 1}`, currentPath })),
-        payloadPaths: buildPayloadPaths(relativePaths, payload)
+        files,
+        payloadPaths: buildPayloadPaths(files, payload)
       }
+    }
+  }
+}
+
+export function reorderFiles(s: State, relativePaths: string[]): State {
+  const byPath = new Map(s.files.apply.files.map((file) => [file.currentPath, file]))
+  if (!sameTrackPaths(relativePaths, [...byPath.keys()])) {
+    throw new Error('Cannot reorder tracks: the workspace file set has changed.')
+  }
+  return {
+    ...s,
+    files: {
+      ...s.files,
+      apply: { ...s.files.apply, files: relativePaths.map((path) => byPath.get(path)!) }
     }
   }
 }
@@ -437,7 +453,7 @@ export function finishFilesRestore(
   s: State,
   workspacePath: string,
   folderName: string,
-  tracks: string[],
+  tracks: Array<{ id: string; currentPath: string }>,
   payload?: { files: string[]; directories: string[] }
 ): State {
   return {
@@ -451,7 +467,7 @@ export function finishFilesRestore(
         renameReleaseFolder: s.files.apply.renameReleaseFolder,
         renameTrackFiles: s.files.apply.renameTrackFiles,
         currentFolderName: folderName,
-        files: tracks.map((currentPath, index) => ({ id: `track-${index + 1}`, currentPath })),
+        files: tracks.map((file) => ({ ...file })),
         payloadPaths: buildPayloadPaths(tracks, payload),
         phase: s.files.apply.phase
       }
@@ -460,11 +476,11 @@ export function finishFilesRestore(
 }
 
 function buildPayloadPaths(
-  tracks: string[],
+  tracks: Array<Pick<FileNameState, 'id' | 'currentPath'>>,
   payload?: { files: string[]; directories: string[] }
 ): FilesSnapshot['apply']['payloadPaths'] {
-  const trackIds = new Map(tracks.map((path, index) => [path, `track-${index + 1}`]))
-  const files = payload?.files ?? tracks
+  const trackIds = new Map(tracks.map((file) => [file.currentPath, file.id]))
+  const files = payload?.files ?? tracks.map((file) => file.currentPath)
   const directories = payload?.directories ?? []
   return [
     ...directories.map((currentPath) => ({

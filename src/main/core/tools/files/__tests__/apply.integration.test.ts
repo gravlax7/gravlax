@@ -6,6 +6,10 @@ import { writeSyntheticFlac } from '../../__tests__/helpers/audioFixture'
 import { runCommand } from '../../runCommand'
 import { extractAlbumReleaseWithEmbeddedCoverArt } from '../../../tags/extract'
 import { applyTagsAndRenames } from '../apply'
+import { defaultConfig } from '@main/core/config/defaults'
+import { initializeFiles, newState, seedTagsProposed } from '@main/core/uploadflow'
+import { buildFilesRenamePlan } from '@shared/upload/naming'
+import { readFLACStreamInfo } from '../../diagnostics/mqa'
 
 async function binaryAvailable(name: string): Promise<boolean> {
   for (const part of (process.env.PATH ?? '').split(delimiter)) {
@@ -15,6 +19,57 @@ async function binaryAvailable(name: string): Promise<boolean> {
 }
 
 describe('tag and filename writes', () => {
+  it.each([true, false])('writes the right metadata to artist-first files with renaming %s', async (rename) => {
+    if (!(await binaryAvailable('metaflac')) || !(await binaryAvailable('flac'))) return
+    const root = await mkdtemp(join(tmpdir(), 'gravlax-pairing-'))
+    const album = join(root, 'Album')
+    try {
+      await mkdir(album)
+      for (const [filename, number, duration] of [
+        ['Zoe.flac', '1', 2], ['Alice.flac', '2', 1]
+      ] as const) {
+        const path = join(album, filename)
+        await writeSyntheticFlac(path, { durationSeconds: duration })
+        await runCommand('metaflac', [
+          '--remove-tag=TRACKNUMBER', `--set-tag=TRACKNUMBER=${number}`, path
+        ])
+      }
+      const extracted = await extractAlbumReleaseWithEmbeddedCoverArt(album)
+      expect(extracted.relativePaths).toEqual(['Zoe.flac', 'Alice.flac'])
+      const release = seedTagsProposed(extracted.release, {
+        title: 'Compilation', tracks: [
+          { discNumber: '1', trackNumber: '1', title: 'First', artists: [{ name: 'Zoe', role: 'main' }] },
+          { discNumber: '1', trackNumber: '2', title: 'Second', artists: [
+            { name: 'Alice', role: 'main' }, { name: 'Bob', role: 'main' }, { name: 'Writer', role: 'composer' }
+          ] }
+        ]
+      })
+      const state = initializeFiles(newState(), 'Album', extracted.relativePaths)
+      state.files.apply.renameReleaseFolder = false
+      state.files.apply.renameTrackFiles = rename
+      state.files.apply.files[0]!.filenameOverride = 'Z-first'
+      state.files.apply.files[1]!.filenameOverride = 'A-second'
+      const plan = buildFilesRenamePlan({
+        release, files: state.files, naming: defaultConfig().naming, sourceMedia: 'WEB'
+      })
+      expect(plan.errors).toEqual([])
+
+      const result = await applyTagsAndRenames({
+        workspacePath: album, release, plan, writeTags: true, stripEmbeddedCoverArt: false
+      })
+      const byId = new Map(result.currentPaths.map((file) => [file.id, file.currentPath]))
+      const paths = state.files.apply.files.map((file) => byId.get(file.id)!)
+      const readback = await extractAlbumReleaseWithEmbeddedCoverArt(result.workspacePath, paths)
+      expect(paths).toEqual(rename ? ['Z-first.flac', 'A-second.flac'] : ['Zoe.flac', 'Alice.flac'])
+      expect(readback.release.tracks).toEqual(release.tracks)
+      expect((await readFLACStreamInfo(join(result.workspacePath, paths[0]!))).durationSeconds).toBe(2)
+      expect((await readFLACStreamInfo(join(result.workspacePath, paths[1]!))).durationSeconds).toBe(1)
+      for (const path of paths) await runCommand('flac', ['-t', '--silent', join(result.workspacePath, path)])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }, 30_000)
+
   it('writes through metaflac, strips pictures, and renames', async () => {
     if (!(await binaryAvailable('metaflac')) || !(await binaryAvailable('flac'))) return
     const root = await mkdtemp(join(tmpdir(), 'gravlax-tags-'))

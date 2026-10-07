@@ -9,6 +9,7 @@ export async function writeSyntheticFlac(
     sampleRate?: number
     effectiveBits?: 16 | 24
     distinctChannels?: boolean
+    durationSeconds?: number
   } = {}
 ): Promise<void> {
   const bitsPerSample = options.bitsPerSample ?? 16
@@ -16,7 +17,7 @@ export async function writeSyntheticFlac(
   const sampleRate = options.sampleRate ?? 44_100
   const channels = 2
   const bytesPerSample = bitsPerSample / 8
-  const sampleCount = Math.floor(sampleRate / 4)
+  const sampleCount = Math.floor(sampleRate * (options.durationSeconds ?? 0.25))
   const dataSize = sampleCount * channels * bytesPerSample
   const wav = Buffer.alloc(44 + dataSize)
 

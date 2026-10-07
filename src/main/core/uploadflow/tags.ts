@@ -40,12 +40,17 @@ export function setTagsCurrentLoading(s: State): State {
   }
 }
 
-export function setTagsCurrent(s: State, release: Release): State {
+export function setTagsCurrent(
+  s: State,
+  release: Release,
+  ordering?: Pick<TagsSnapshot, 'orderingNotice'>
+): State {
   return {
     ...s,
     tags: {
       ...s.tags,
       current: cloneRelease(release),
+      orderingNotice: ordering ? ordering.orderingNotice : s.tags.orderingNotice,
       currentStatus: 'ready',
       currentError: ''
     }

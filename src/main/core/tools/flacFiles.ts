@@ -10,8 +10,8 @@ export interface FlacFile {
 /**
  * Every .flac under `root`, sorted by relative path (POSIX separators).
  *
- * Sort order here is authoritative for track pairing: it decides tracklist
- * order, spectral numbering, and which duration lines up with which title.
+ * File checks and spectrals use this order. Tag extraction establishes its
+ * own file order from number tags, which the upload session then preserves.
  * Natural comparison keeps "CD2" before "CD10" and "2 - Track" before
  * "10 - Track" — see `compareNatural`.
  */

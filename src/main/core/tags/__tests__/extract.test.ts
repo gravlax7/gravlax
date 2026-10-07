@@ -1,8 +1,8 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
-import { extractAlbumReleaseWithEmbeddedCoverArt } from '../extract'
+import { extractAlbumReleaseWithEmbeddedCoverArt, readFLACTags } from '../extract'
 
 const temporaryPaths: string[] = []
 
@@ -222,6 +222,77 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
       { name: 'Arranger', role: 'arranger' }
     ])
   })
+})
+
+describe('track ordering', () => {
+  async function releaseFolder(): Promise<string> {
+    const directory = await mkdtemp(join(tmpdir(), 'gravlax-order-'))
+    temporaryPaths.push(directory)
+    return directory
+  }
+
+  it('orders artist-first filenames numerically while keeping credits with each file', async () => {
+    const directory = await releaseFolder()
+    await writeFlac(join(directory, 'Alice - Ten.flac'), [
+      'TRACKNUMBER=10/12', 'TITLE=Ten', 'ARTISTS=Alice', 'ARTISTS=Bob', 'COMPOSER=Writer'
+    ], 1)
+    await writeFlac(join(directory, 'Zoe - Two.flac'), ['TRACKNUMBER=02/12', 'TITLE=Two', 'ARTIST=Zoe'], 2)
+
+    const result = await extractAlbumReleaseWithEmbeddedCoverArt(directory)
+
+    expect(result.relativePaths).toEqual(['Zoe - Two.flac', 'Alice - Ten.flac'])
+    expect(result.release.tracks?.map((track) => track.title)).toEqual(['Two', 'Ten'])
+    expect(result.release.tracks?.[1]?.artists).toEqual([
+      { name: 'Alice', role: 'main' }, { name: 'Bob', role: 'main' }, { name: 'Writer', role: 'composer' }
+    ])
+    expect(result.embeddedCoverArtCount).toBe(3)
+    expect(result.orderingNotice).toBeUndefined()
+    expect((await readFLACTags(join(directory, 'Zoe - Two.flac'))).values.TRACKNUMBER).toEqual(['02/12'])
+  })
+
+  it('orders by disc tags before track tags, regardless of folder names', async () => {
+    const directory = await releaseFolder()
+    await mkdir(join(directory, 'A'), { recursive: true })
+    await mkdir(join(directory, 'Z'), { recursive: true })
+    await writeFlac(join(directory, 'A', '01.flac'), ['DISCNUMBER=02/2', 'TRACKNUMBER=01'])
+    await writeFlac(join(directory, 'Z', '10.flac'), ['DISCNUMBER=01', 'TRACKNUMBER=10'])
+    await writeFlac(join(directory, 'Z', '02.flac'), ['DISCNUMBER=1', 'TRACKNUMBER=2'])
+    expect((await extractAlbumReleaseWithEmbeddedCoverArt(directory)).relativePaths)
+      .toEqual(['Z/02.flac', 'Z/10.flac', 'A/01.flac'])
+  })
+
+  it.each([
+    ['TRACKNUMBER='], ['TRACKNUMBER=0'], ['TRACKNUMBER=-1'], ['TRACKNUMBER=A1'],
+    ['TRACKNUMBER=02'], ['TRACKNUMBER=1', 'DISCNUMBER=0'],
+    ['TRACKNUMBER=1', 'DISCNUMBER=2']
+  ])('falls back for the whole release when the second file has %j', async (...comments) => {
+    const directory = await releaseFolder()
+    await writeFlac(join(directory, '2.flac'), ['TRACKNUMBER=2'])
+    await writeFlac(join(directory, '10.flac'), comments)
+    const result = await extractAlbumReleaseWithEmbeddedCoverArt(directory)
+    expect(result.relativePaths).toEqual(['2.flac', '10.flac'])
+    expect(result.orderingNotice).toContain('Using filename order')
+  })
+
+  it('honors saved paths even when tags suggest a different order', async () => {
+    const directory = await releaseFolder()
+    await writeFlac(join(directory, 'A.flac'), ['TRACKNUMBER=1', 'TITLE=First'])
+    await writeFlac(join(directory, 'Z.flac'), ['TRACKNUMBER=2', 'TITLE=Second'])
+    const result = await extractAlbumReleaseWithEmbeddedCoverArt(directory, ['Z.flac', 'A.flac'])
+    expect(result.relativePaths).toEqual(['Z.flac', 'A.flac'])
+    expect(result.release.tracks?.map((track) => track.title)).toEqual(['Second', 'First'])
+    expect(result.orderingNotice).toBeUndefined()
+  })
+
+  it.each([['A.flac'], ['A.flac', 'A.flac'], ['A.flac', 'missing.flac'], ['A.flac', 'Z.flac', 'extra.flac']])(
+    'rejects an incomplete or invalid saved path list %j', async (...paths) => {
+      const directory = await releaseFolder()
+      await writeFlac(join(directory, 'A.flac'), ['TRACKNUMBER=1'])
+      await writeFlac(join(directory, 'Z.flac'), ['TRACKNUMBER=2'])
+      await expect(extractAlbumReleaseWithEmbeddedCoverArt(directory, paths))
+        .rejects.toThrow('Saved track paths do not match')
+    }
+  )
 })
 
 async function writeTestFlac(comments: string[], pictureCount: number): Promise<string> {
