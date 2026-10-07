@@ -612,6 +612,90 @@ describe('UploadSessionFileChanges folder renames', () => {
     expect(test.goToFileChecks).not.toHaveBeenCalled()
   })
 
+  it.each([true, false])('reads applied tracks back by stable IDs with renaming %s', async (rename) => {
+    const { service, getState } = setup()
+    getState().files.apply.files = [
+      { id: 'track-2', currentPath: 'Zoe.flac' },
+      { id: 'track-1', currentPath: 'Alice.flac' }
+    ]
+    getState().files.apply.renameTrackFiles = rename
+    getState().tags.orderingNotice = 'Saved ordering notice'
+    const tracks = [
+      { title: 'First', trackNumber: '1', artists: [{ name: 'Zoe', role: 'main' }] },
+      { title: 'Second', trackNumber: '2', artists: [{ name: 'Alice', role: 'main' }, { name: 'Bob', role: 'main' }] }
+    ]
+    service.updateTagsProposed({ tracks })
+    const paths = rename ? ['Z-first.flac', 'A-second.flac'] : ['Zoe.flac', 'Alice.flac']
+    mocks.buildFilesRenamePlan.mockReturnValue({
+      folderName: 'Old Album',
+      files: getState().files.apply.files.map((file, index) => ({
+        ...file, targetPath: paths[index], targetFilename: paths[index], changed: rename
+      })),
+      errors: [], warnings: [], hash: 'ordered-plan'
+    })
+    mocks.applyTagsAndRenames.mockResolvedValueOnce({
+      workspacePath: '/workspace/Old Album', folderName: 'Old Album',
+      currentPaths: [
+        { id: 'track-1', currentPath: paths[1] }, { id: 'track-2', currentPath: paths[0] }
+      ],
+      payloadPaths: [], changedFileCount: rename ? 2 : 0, strippedPictureCount: 0
+    })
+    mocks.extractAlbumReleaseWithEmbeddedCoverArt.mockResolvedValueOnce({
+      release: { tracks }, embeddedCoverArtCount: 0, relativePaths: paths
+    })
+
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
+    expect(mocks.extractAlbumReleaseWithEmbeddedCoverArt)
+      .toHaveBeenCalledWith('/workspace/Old Album', paths)
+    expect(getState().files.apply.files.map((file) => file.currentPath)).toEqual(paths)
+    expect(getState().tags.proposed?.tracks).toEqual(tracks)
+    expect(getState().tags.orderingNotice).toBe('Saved ordering notice')
+    await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
+    expect(mocks.applyTagsAndRenames).toHaveBeenCalledOnce()
+  })
+
+  it('restores source paths in saved order and keeps IDs and edited proposals', async () => {
+    const { service, getState } = setup()
+    getState().files.apply.onDiskModified = true
+    getState().files.apply.files = [
+      { id: 'track-2', currentPath: 'Z-first.flac' },
+      { id: 'track-1', currentPath: 'A-second.flac' }
+    ]
+    getState().files.apply.payloadPaths = [
+      { id: 'track-1', kind: 'file', currentPath: 'A-second.flac', originalPath: 'Alice.flac' },
+      { id: 'track-2', kind: 'file', currentPath: 'Z-first.flac', originalPath: 'Zoe.flac' }
+    ]
+    getState().tags.orderingNotice = 'Saved notice'
+    const proposed = { tracks: [{ title: 'Edited First' }, { title: 'Edited Second' }] }
+    getState().tags.proposed = proposed
+    mocks.discoverFLACFiles.mockResolvedValueOnce([{ relativePath: 'Alice.flac' }, { relativePath: 'Zoe.flac' }])
+    mocks.enumerateReleasePaths.mockResolvedValueOnce({ files: ['Alice.flac', 'Zoe.flac'], directories: [] })
+
+    await expect(service.revertFiles()).resolves.toEqual({ ok: true })
+    expect(mocks.extractAlbumReleaseWithEmbeddedCoverArt)
+      .toHaveBeenCalledWith('/workspace/Old Album', ['Zoe.flac', 'Alice.flac'])
+    expect(getState().files.apply.files).toEqual([
+      { id: 'track-2', currentPath: 'Zoe.flac' }, { id: 'track-1', currentPath: 'Alice.flac' }
+    ])
+    expect(getState().files.apply.payloadPaths?.find((file) => file.currentPath === 'Alice.flac')?.id)
+      .toBe('track-1')
+    expect(getState().tags.proposed).toBe(proposed)
+    expect(getState().tags.orderingNotice).toBe('Saved notice')
+  })
+
+  it('uses historical filename order to restore a legacy session without original paths', async () => {
+    const { service, getState } = setup()
+    getState().files.apply.onDiskModified = true
+    getState().files.apply.files = [
+      { id: 'old-first', currentPath: 'renamed-a.flac' }, { id: 'old-second', currentPath: 'renamed-b.flac' }
+    ]
+    mocks.discoverFLACFiles.mockResolvedValueOnce([{ relativePath: 'Alice.flac' }, { relativePath: 'Zoe.flac' }])
+    await expect(service.revertFiles()).resolves.toEqual({ ok: true })
+    expect(mocks.extractAlbumReleaseWithEmbeddedCoverArt)
+      .toHaveBeenCalledWith('/workspace/Old Album', ['Alice.flac', 'Zoe.flac'])
+    expect(getState().files.apply.files.map((file) => file.id)).toEqual(['old-first', 'old-second'])
+  })
+
   it('jumps to file checks when restore brings back problems', async () => {
     const test = setup()
     await test.service.applyTagsAndNames(true)

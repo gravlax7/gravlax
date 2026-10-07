@@ -229,7 +229,13 @@ export class UploadSessionFileChanges {
         ? Math.max(0, (state.files.original.embeddedCoverArtCount ?? 0) - result.strippedPictureCount)
         : state.files.original.embeddedCoverArtCount
       try {
-        const extracted = await extractAlbumReleaseWithEmbeddedCoverArt(result.workspacePath)
+        const pathsById = new Map(result.currentPaths.map((file) => [file.id, file.currentPath]))
+        const orderedPaths = state.files.apply.files.map((file) => {
+          const path = pathsById.get(file.id)
+          if (!path) throw new Error(`Missing rename result for track "${file.id}".`)
+          return path
+        })
+        const extracted = await extractAlbumReleaseWithEmbeddedCoverArt(result.workspacePath, orderedPaths)
         applied = extracted.release
         embeddedCoverArtCount = extracted.embeddedCoverArtCount
         if (writeTags && release.artists) {
@@ -349,11 +355,25 @@ export class UploadSessionFileChanges {
 
       await this.invalidateGeneratedFiles()
       if (!stillCurrent()) return { ok: false, error: 'Restore was cancelled.' }
-      const [files, payload, extracted] = await Promise.all([
+      const [files, payload] = await Promise.all([
         discoverFLACFiles(restoredPath),
-        enumerateReleasePaths(restoredPath),
-        extractAlbumReleaseWithEmbeddedCoverArt(restoredPath)
+        enumerateReleasePaths(restoredPath)
       ])
+      if (!stillCurrent()) return { ok: false, error: 'Restore was cancelled.' }
+      const originals = new Map(
+        (state.files.apply.payloadPaths ?? []).map((item) => [item.id, item.originalPath])
+      )
+      const hasOriginalPaths = state.files.apply.files.every((file) => originals.has(file.id))
+      const restoredFiles = state.files.apply.files.length > 0
+        ? state.files.apply.files.map((file, index) => ({
+            id: file.id,
+            currentPath: hasOriginalPaths ? originals.get(file.id)! : files[index]?.relativePath ?? ''
+          }))
+        : files.map((file, index) => ({ id: `track-${index + 1}`, currentPath: file.relativePath }))
+      const extracted = await extractAlbumReleaseWithEmbeddedCoverArt(
+        restoredPath,
+        restoredFiles.map((file) => file.currentPath)
+      )
       if (!stillCurrent()) return { ok: false, error: 'Restore was cancelled.' }
       this.context.apply(
         setTagsCurrent(
@@ -361,7 +381,7 @@ export class UploadSessionFileChanges {
             this.context.getState(),
             restoredPath,
             basename(restoredPath),
-            files.map((file) => file.relativePath),
+            restoredFiles,
             payload
           ),
           extracted.release

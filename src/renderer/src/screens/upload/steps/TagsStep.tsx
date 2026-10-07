@@ -32,6 +32,7 @@ import { ArtistsEditor, type ArtistEditAction } from '../ArtistsEditor'
 import { SeparatorArtistBanner } from '../SeparatorArtistBanner'
 import { invalidReleaseDateFields } from '@shared/tags/dates'
 import { sourceRestoreUnavailableMessage } from '@shared/upload/sourceRestore'
+import { trackPositionMismatchNotice } from '@shared/tags/trackOrder'
 
 export function TagsStep(props: {
   state: UploadFlowStateJSON
@@ -54,6 +55,10 @@ export function TagsStep(props: {
   const currentTracks = (): Track[] => props.state.tags.current?.tracks ?? []
   const proposedTracks = (): Track[] => props.state.tags.proposed?.tracks ?? []
   const trackCount = (): number => Math.max(currentTracks().length, proposedTracks().length)
+  const positionNotice = () => trackPositionMismatchNotice(
+    currentTracks(),
+    props.state.tags.selected?.tracks ?? []
+  )
   const multiDisc = (): boolean =>
     isMultiDiscTracks([...currentTracks(), ...proposedTracks()])
   const plan = createMemo(() => buildFilesRenamePlan({
@@ -151,6 +156,20 @@ export function TagsStep(props: {
           Restore original files
         </Button>
       </div>
+
+      <Show when={props.state.tags.currentStatus === 'failed'}>
+        <Callout tone="error" class="tags-release-status">
+          <div>
+            Could not read the tags in these FLAC files.
+            <Show when={props.state.tags.currentError}>
+              {(error) => <div class="tags-release-error">{error()}</div>}
+            </Show>
+          </div>
+          <Button variant="secondary" size="sm" onClick={props.onReload}>
+            Retry
+          </Button>
+        </Callout>
+      </Show>
 
       <Show when={props.state.tags.releaseStatus === 'loading'}>
         <Callout tone="info" class="tags-release-status">
@@ -311,6 +330,12 @@ export function TagsStep(props: {
         <Show when={trackCount() > 0}>
           <section class="tags-tracks">
             <h3 class="tags-tracks-heading">Tracks</h3>
+            <Show when={props.state.tags.orderingNotice}>
+              {(notice) => <Callout tone="warning">{notice()}</Callout>}
+            </Show>
+            <Show when={positionNotice()}>
+              {(notice) => <Callout tone="warning">{notice()}</Callout>}
+            </Show>
             <For each={Array.from({ length: trackCount() }, (_, index) => index)}>
               {(trackIndex) => {
                 const currentTrack = (): Track | undefined => currentTracks()[trackIndex]

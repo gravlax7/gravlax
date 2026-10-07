@@ -3,6 +3,7 @@ import { setFileChecks } from '../fileChecks'
 import { setSeed } from '../seed'
 import { restoreState, snapshot } from '../snapshot'
 import { beginSubmit, patchSubmission } from '../upload'
+import { initializeFiles, reorderFiles } from '../files'
 import {
   currentStep,
   newState,
@@ -18,6 +19,22 @@ import {
 } from '../state'
 
 describe('snapshot round-trip', () => {
+  it('keeps file order, stable IDs, overrides, notices, and edited artist lists', () => {
+    let state = initializeFiles(selectSourcePath(newState(), '/music/album'), 'Album', ['Alice.flac', 'Zoe.flac'])
+    state.files.apply.files[0]!.filenameOverride = 'Custom second'
+    state = reorderFiles(state, ['Zoe.flac', 'Alice.flac'])
+    state.tags = {
+      orderingNotice: 'Saved notice', proposedDirty: true, releaseStatus: 'ready',
+      proposed: { tracks: [
+        { title: 'Edited First', artists: [{ name: 'Zoe', role: 'main' }] },
+        { title: 'Edited Second', artists: [{ name: 'Alice', role: 'main' }, { name: 'Bob', role: 'main' }] }
+      ] }
+    }
+    const restored = restoreState('/workspace/album', snapshot(state))
+    expect(restored.tags).toEqual(state.tags)
+    expect(restored.files.apply.files).toEqual(state.files.apply.files)
+    expect(restored.files.apply.payloadPaths).toEqual(state.files.apply.payloadPaths)
+  })
   it('keeps the saved step and media', () => {
     let state = selectSourcePath(newState(), '/music/album')
     state = setSourceMedia(state, 'CD')

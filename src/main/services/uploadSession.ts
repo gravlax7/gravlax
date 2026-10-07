@@ -83,6 +83,7 @@ import {
   emptyGroupSearch,
   setSeed,
   initializeFiles,
+  reorderFiles,
   reconcilePayloadPaths,
   setEmbeddedCoverArtCount,
   setSourceRestoreStatus,
@@ -1088,6 +1089,9 @@ export class UploadSession {
     stillCurrent: () => boolean = () => true
   ): Promise<void> {
     if (!this.state.draft.workspacePath || this.state.files.apply.files.length > 0) return
+    // Old snapshots paired saved tracks by filename. A session without saved
+    // tracks gets its initial file order from tag extraction instead.
+    if (!(this.state.tags.current?.tracks?.length || this.state.tags.proposed?.tracks?.length)) return
     const workspacePath = this.state.draft.workspacePath
     const [files, payload] = await Promise.all([
       discoverFLACFiles(workspacePath),
@@ -1374,6 +1378,12 @@ export class UploadSession {
 
   async refreshTags(): Promise<void> {
     if (!this.state.draft.workspacePath) return
+    const files = this.state.files.apply
+    if (files.phase === 'applying' || files.phase === 'restoring') return
+    const recomputeOrder = !files.onDiskModified && files.phase === 'idle' && !files.grandfathered &&
+      this.state.upload.phase !== 'submitting' && this.state.upload.phase !== 'done' &&
+      !(this.state.upload.submissions ?? []).some((item) => item.status === 'done') &&
+      this.state.seed.phase === 'idle'
     const workspacePath = this.state.draft.workspacePath
     const urls = this.state.tags.proposed?.urls ?? this.state.tags.current?.urls
     // A failed metadata request leaves the proposed release empty. Reloading
@@ -1381,10 +1391,7 @@ export class UploadSession {
     this.tags.cancel()
     this.apply(clearTagsRelease(this.state))
     this.apply(setTagsCurrentLoading(this.state))
-    if (!(await this.loadCurrentTags(workspacePath, urls))) return
-    if (this.state.tags.currentStatus !== 'ready') return
-    if (!this.state.metadata.selected) return
-    void this.startTagsReleaseIfNeeded()
+    await this.loadCurrentTags(workspacePath, urls, recomputeOrder)
   }
 
   setTranscodeSelection(optionIds: string[]): void {
@@ -1880,41 +1887,37 @@ export class UploadSession {
     await this.loadCurrentTags(workspacePath)
   }
 
-  /** Reads the tags already on disk. Resolves true if the run stayed current. */
+  /** Reads the tags already on disk. */
   private async loadCurrentTags(
     workspacePath: string,
-    preservedUrls?: string[]
-  ): Promise<boolean> {
-    let loaded = false
+    preservedUrls?: string[],
+    recomputeOrder = false
+  ): Promise<void> {
     await this.tagsCurrent.run(
       async (task) => {
-        const { release, embeddedCoverArtCount } =
-          await extractAlbumReleaseWithEmbeddedCoverArt(workspacePath)
+        const savedFiles = this.state.files.apply.files
+        const orderedPaths = !recomputeOrder && savedFiles.length > 0
+          ? savedFiles.map((file) => file.currentPath)
+          : undefined
+        const { release, embeddedCoverArtCount, relativePaths, orderingNotice } =
+          await extractAlbumReleaseWithEmbeddedCoverArt(workspacePath, orderedPaths)
         if (!task.fresh()) return
         if ((!release.urls || release.urls.length === 0) && (preservedUrls?.length ?? 0) > 0) {
           release.urls = [...(preservedUrls ?? [])]
         }
-        const [files, payload] = await Promise.all([
-          discoverFLACFiles(workspacePath),
-          enumerateReleasePaths(workspacePath)
-        ])
+        const payload = await enumerateReleasePaths(workspacePath)
         if (!task.fresh()) return
-        this.apply(setEmbeddedCoverArtCount(
-          initializeFiles(
-            setTagsCurrent(this.state, release),
-            basename(workspacePath),
-            files.map((file) => file.relativePath),
-            payload
-          ),
-          embeddedCoverArtCount
-        ))
-        if (
-          this.state.metadata.selected?.provider === METADATA_PROVIDER_MANUAL ||
-          isKeepExistingSelection(this.state.metadata.selected)
-        ) {
-          this.apply(setTagsReleaseManual(this.state))
-        }
-        loaded = true
+        let next = setTagsCurrent(
+          this.state,
+          release,
+          orderedPaths === undefined ? { orderingNotice } : undefined
+        )
+        next = next.files.apply.files.length > 0
+          ? reorderFiles(next, relativePaths)
+          : initializeFiles(next, basename(workspacePath), relativePaths, payload)
+        if (recomputeOrder) next = reconcilePayloadPaths(next, payload)
+        this.apply(setEmbeddedCoverArtCount(next, embeddedCoverArtCount))
+        void this.startTagsReleaseIfNeeded()
       },
       {
         guard: this.stillOn(workspacePath),
@@ -1923,13 +1926,13 @@ export class UploadSession {
         }
       }
     )
-    return loaded
   }
 
   private async startTagsReleaseIfNeeded(): Promise<void> {
     if (!this.state.draft.workspacePath) return
     const selection = this.state.metadata.selected
     if (!selection) return
+    if (this.state.tags.currentStatus !== 'ready') return
     const status = this.state.tags.releaseStatus
     if (status === 'ready' || status === 'loading') return
 
@@ -1937,11 +1940,7 @@ export class UploadSession {
       selection.provider === METADATA_PROVIDER_MANUAL ||
       isKeepExistingSelection(selection)
     ) {
-      if (this.state.tags.currentStatus === 'ready') {
-        this.apply(setTagsReleaseManual(this.state))
-      } else {
-        this.apply(setTagsReleaseLoading(this.state))
-      }
+      this.apply(setTagsReleaseManual(this.state))
       return
     }
 

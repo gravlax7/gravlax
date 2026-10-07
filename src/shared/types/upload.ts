@@ -201,6 +201,7 @@ export interface MetadataSearchSnapshot {
 export type TagsStatus = 'idle' | 'loading' | 'ready' | 'failed'
 
 export interface TagsSnapshot {
+  orderingNotice?: string
   current?: Release
   currentStatus?: TagsStatus
   currentError?: string
