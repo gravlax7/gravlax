@@ -1,5 +1,5 @@
 import type { NamingConfig } from '../types/config'
-import type { FilesSnapshot, PayloadPathState, Release, SourceMedia, TranscodeEncoding } from '../types/upload'
+import type { FilesSnapshot, PayloadPathState, Release, SourceMedia, Track, TranscodeEncoding } from '../types/upload'
 import { dateYear } from '../tags/dates'
 
 export interface PlannedFileName {
@@ -174,8 +174,6 @@ export function buildFilesRenamePlan(input: FilesRenamePlanInput): FilesRenamePl
     const targetFilename = !renameTrackFiles || files.apply.grandfathered
       ? file.currentPath.split('/').at(-1) ?? file.currentPath
       : manual ? normalizeManualFlacName(manual) : `${sanitize(generated)}.flac`
-    const manualError = manual ? validateManualName(manual) : undefined
-    if (manualError) errors.push(`${file.currentPath}: ${manualError}`)
     if (targetFilename.toLocaleLowerCase() === '.flac') errors.push(`${file.currentPath}: Filename cannot be empty.`)
     const discFolder = renameTrackFiles && discTotal > 1
       ? sanitize(renderTemplate(naming.multiDiscFolderTemplate, {
@@ -217,6 +215,11 @@ export function buildFilesRenamePlan(input: FilesRenamePlanInput): FilesRenamePl
     : undefined
   if (folderError) errors.push(`Release folder: ${folderError}`)
   if (!folderName) errors.push('The release folder name is empty.')
+  const keptFolderError = files.apply.renameReleaseFolder || !folderName ? undefined : nameError(folderName)
+  if (keptFolderError) errors.push(`Release folder: ${keptFolderError} Turn on Rename release folder to edit it.`)
+  if (!files.apply.renameReleaseFolder && !nameShowsTitle(folderName, titleKey(release.title ?? ''))) {
+    warnings.push('The release folder name lacks the album title.')
+  }
   const payloadState: PayloadPathState[] = files.apply.payloadPaths ?? proposedTracks.map((file) => ({
     id: file.id,
     kind: 'file' as const,
@@ -235,7 +238,9 @@ export function buildFilesRenamePlan(input: FilesRenamePlanInput): FilesRenamePl
         changed: false,
         track: proposedTracks.some((track) => track.id === item.id)
       }))
+    errors.push(...payloadNameErrors(payloadFiles, ' Turn on Rename FLAC tracks to edit it.'))
     errors.push(...payloadPathErrors(folderName, payloadFiles))
+    warnings.push(...keptTrackNameWarnings(proposedTracks.map((file) => file.currentPath), release.tracks ?? []))
     const hash = stableHash(JSON.stringify({
       folderName,
       files: proposedTracks.map((file) => [file.id, file.targetPath]),
@@ -284,8 +289,6 @@ export function buildFilesRenamePlan(input: FilesRenamePlanInput): FilesRenamePl
     const targetName = folder.nameOverride
       ? normalizeManualName(folder.nameOverride)
       : basenamePosix(defaultTarget)
-    const manualError = folder.nameOverride ? validateManualName(folder.nameOverride) : undefined
-    if (manualError) errors.push(`${folder.currentPath}: ${manualError}`)
     const targetPath = joinPosix(dirnamePosix(defaultTarget), targetName)
     folderTargets.set(folder.currentPath, targetPath)
     folders.push({
@@ -320,8 +323,6 @@ export function buildFilesRenamePlan(input: FilesRenamePlanInput): FilesRenamePl
     const targetName = manual
       ? normalizePayloadFileName(manual, item.originalPath)
       : basenamePosix(item.currentPath)
-    const manualError = manual ? validateManualName(manual) : undefined
-    if (manualError) errors.push(`${item.currentPath}: ${manualError}`)
     const sourceDir = dirnamePosix(item.currentPath)
     const targetPath = joinPosix(folderTargets.get(sourceDir) ?? sourceDir, targetName)
     return {
@@ -340,6 +341,7 @@ export function buildFilesRenamePlan(input: FilesRenamePlanInput): FilesRenamePl
     return { ...file, targetPath, changed: file.currentPath !== targetPath }
   })
 
+  errors.push(...payloadNameErrors([...folders, ...payloadFiles], ''))
   errors.push(...payloadPathErrors(folderName, payloadFiles))
   const hash = stableHash(JSON.stringify({
     folderName,
@@ -429,21 +431,119 @@ function sanitize(value: string): string {
   const name = value
     .normalize('NFC')
     .replace(UNICODE_FORMAT_CHARACTERS, '')
-    .replace(/[\u0000-\u001f:?<>\\*|"/]/g, '_')
+    .replace(/[\u0000-\u001f:?<>\\*|"/`]/g, '_')
     .replace(/\s+/g, ' ')
     .replace(/[. ]+$/g, '')
     .trim()
   return isReservedWindowsName(name) ? `_${name}` : name
 }
 
-function validateManualName(value: string): string | undefined {
-  const name = normalizeManualName(value)
+function nameError(name: string): string | undefined {
   if (!name) return 'Name cannot be empty.'
   if (name === '.' || name === '..') return 'Name is reserved by the filesystem.'
-  if (/[\u0000-\u001f:?<>\\*|"/]/.test(name)) return 'Name contains a character which is not allowed.'
+  if (/[\u0000-\u001f:?<>\\*|"/`]/.test(name)) return 'Name contains a character which is not allowed.'
+  if (name.startsWith(' ')) return 'Name cannot start with a space.'
+  if (/(?! )\p{Zs}/u.test(name)) return 'Name contains a space other than a plain space.'
   if (/[. ]$/.test(name)) return 'Name cannot end with a dot or space.'
   if (isReservedWindowsName(name)) return 'Name is reserved by the filesystem.'
   return undefined
+}
+
+function validateManualName(value: string): string | undefined {
+  return nameError(normalizeManualName(value))
+}
+
+/** Every folder and file name in the payload, kept or typed, follows the same rules. */
+function payloadNameErrors(files: readonly PlannedPayloadPath[], hint: string): string[] {
+  const errors: string[] = []
+  for (const file of files) {
+    const parts = file.targetPath.split('/')
+    parts.forEach((part, index) => {
+      const error = nameError(part)
+      if (error) errors.push(`${parts.slice(0, index + 1).join('/') || file.currentPath}: ${error}${hint}`)
+    })
+  }
+  return errors
+}
+
+/** File names the user keeps: rules 2.3.11, 2.3.13, 2.3.14 and 2.3.15. */
+function keptTrackNameWarnings(paths: readonly string[], tracks: readonly Track[]): string[] {
+  const warnings: string[] = []
+  const numbers = paths.map((_, index) => numberValue(tracks[index]?.trackNumber))
+  const discs = paths.map((_, index) => numberValue(tracks[index]?.discNumber) || 1)
+  paths.forEach((path, index) => {
+    const name = basenamePosix(path)
+    const stem = name.replace(/\.flac$/i, '')
+    if (/\.flac$/i.test(name) && !name.endsWith('.flac')) {
+      warnings.push(`${path}: Use a lowercase .flac extension.`)
+    }
+    const number = numbers[index]!
+    const runs = stem.match(/\d+/g) ?? []
+    if (paths.length > 1 && number > 0 &&
+      !runs.some((run) => Number(run) === number || run.endsWith(String(number).padStart(2, '0')))) {
+      warnings.push(`${path}: The name lacks the track number.`)
+    }
+    const title = titleKey(tracks[index]?.title ?? '')
+    if (title && !nameShowsTitle(stem, title)) warnings.push(`${path}: The name lacks the title.`)
+  })
+
+  if (paths.length > 1 && numbers.every((number) => number > 0)) {
+    const indexes = paths.map((_, index) => index)
+    const playOrder = [...indexes].sort((a, b) => discs[a]! - discs[b]! || numbers[a]! - numbers[b]!)
+    const nameOrder = [...indexes].sort((a, b) => comparePlainPaths(paths[a]!, paths[b]!))
+    const first = nameOrder.findIndex((index, position) => index !== playOrder[position])
+    if (first >= 0) {
+      warnings.push(`Names do not sort in play order: ${paths[nameOrder[first]!]} comes before ${paths[playOrder[first]!]}.`)
+    }
+  }
+
+  if (isMultiDisc(discs.map(String))) {
+    const folders = new Map<string, number[]>()
+    paths.forEach((path, index) => {
+      const folder = dirnamePosix(path)
+      folders.set(folder, [...folders.get(folder) ?? [], index])
+    })
+    for (const [folder, indexes] of folders) {
+      if (new Set(indexes.map((index) => discs[index])).size < 2) continue
+      const keys = indexes.map((index) => leadingNumbers(basenamePosix(paths[index]!)))
+      if (new Set(keys).size < keys.length) {
+        warnings.push(
+          `${folder || 'The release folder'}: Tracks from different discs share a number. Number them on, or give each disc its own folder.`
+        )
+      }
+    }
+  }
+  return warnings
+}
+
+/** Lowercase letters and digits of a title, without a trailing "(feat. …)" or "EP". */
+function titleKey(title: string): string {
+  return nameKey(title.replace(/\s*[([]feat\.?[^)\]]*[)\]]\s*$/i, '').replace(/\s+EP$/i, ''))
+}
+
+function nameKey(value: string): string {
+  return value.normalize('NFC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
+}
+
+/** A name may cut a long title short: its first 10 letters and digits are enough. */
+function nameShowsTitle(name: string, title: string): boolean {
+  const key = nameKey(name)
+  return key.includes(title) || (title.length > 10 && key.includes(title.slice(0, 10)))
+}
+
+/** The digits before the first letter: "01", "1 06" or "106". */
+function leadingNumbers(name: string): string {
+  return (name.split(/\p{L}/u)[0]?.match(/\d+/g) ?? []).join('-')
+}
+
+/** Plain alphabetical order, folder by folder, as file lists show it. */
+function comparePlainPaths(a: string, b: string): number {
+  const left = a.toLowerCase().split('/')
+  const right = b.toLowerCase().split('/')
+  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+    if (left[index] !== right[index]) return left[index]! < right[index]! ? -1 : 1
+  }
+  return left.length - right.length
 }
 
 function isReservedWindowsName(name: string): boolean {

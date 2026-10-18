@@ -20,7 +20,7 @@ export function newBackgroundWork(sourcePath: string): BackgroundWork {
     tasks: [
       queuedTask('spectrals', 'spectrals', 'Generating spectrals'),
       queuedTask('metadata', 'metadata', 'Fetching metadata tags'),
-      queuedTask('transcode', 'transcode', 'Transcoding')
+      queuedTask('transcode', 'transcode', 'Inspecting transcode options')
     ]
   }
 }

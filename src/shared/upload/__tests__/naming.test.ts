@@ -563,6 +563,135 @@ describe('buildFilesRenamePlan', () => {
   })
 })
 
+describe('names gravlax keeps', () => {
+  function keptPlan(
+    paths: string[],
+    tracks: Release['tracks'],
+    options: { folder?: string; others?: string[]; renameTrackFiles?: boolean } = {}
+  ) {
+    const files = paths.map((path, index) => ({ id: String(index), currentPath: path }))
+    return buildFilesRenamePlan({
+      release: { title: 'Album', tracks },
+      files: {
+        original: {},
+        apply: {
+          phase: 'idle',
+          onDiskModified: false,
+          stripEmbeddedCoverArt: false,
+          renameReleaseFolder: false,
+          renameTrackFiles: options.renameTrackFiles ?? false,
+          currentFolderName: options.folder ?? 'Artist - Album (2024)',
+          files,
+          payloadPaths: [
+            ...files.map((file) => ({ ...file, kind: 'file' as const, originalPath: file.currentPath })),
+            ...(options.others ?? []).map((path) => ({ id: path, kind: 'file' as const, currentPath: path, originalPath: path }))
+          ]
+        }
+      },
+      naming,
+      sourceMedia: 'WEB',
+      encoding: 'Lossless',
+      writeTags: false
+    })
+  }
+  const two = [{ trackNumber: '1', title: 'One' }, { trackNumber: '2', title: 'Two' }]
+  const hint = ' Turn on Rename FLAC tracks to edit it.'
+
+  it('passes names that follow the rules', () => {
+    const plan = keptPlan(['01 - One.flac', '02 - Two.flac'], two, { others: ['cover.jpg'] })
+    expect(plan.errors).toEqual([])
+    expect(plan.warnings).toEqual([])
+  })
+
+  it.each([
+    ['Art: Front.jpg', 'Art: Front.jpg: Name contains a character which is not allowed.'],
+    ['Art `Front`.jpg', 'Art `Front`.jpg: Name contains a character which is not allowed.'],
+    [' cover.jpg', ' cover.jpg: Name cannot start with a space.'],
+    ['Scans Back/back.jpg', 'Scans Back: Name contains a space other than a plain space.']
+  ])('blocks the kept name %j', (other, error) => {
+    expect(keptPlan(['01 - One.flac', '02 - Two.flac'], two, { others: [other] }).errors)
+      .toEqual([`${error}${hint}`])
+  })
+
+  it('blocks a kept name while track renaming is on, without the hint', () => {
+    const plan = keptPlan(['a.flac'], [{ trackNumber: '1', title: 'One' }], {
+      others: ['Art: Front.jpg'],
+      renameTrackFiles: true
+    })
+    expect(plan.errors).toEqual(['Art: Front.jpg: Name contains a character which is not allowed.'])
+  })
+
+  it('blocks a kept release folder name', () => {
+    expect(keptPlan(['01 - One.flac', '02 - Two.flac'], two, { folder: ' Album' }).errors).toEqual([
+      'Release folder: Name cannot start with a space. Turn on Rename release folder to edit it.'
+    ])
+  })
+
+  it('replaces a backtick in generated names and blocks one in a typed name', () => {
+    const generated = buildTrackPlan({ title: 'Album', tracks: [{ trackNumber: '1', title: 'Don`t' }] })
+    expect(generated.files[0]?.targetFilename).toBe('01. Don_t.flac')
+    expect(generated.errors).toEqual([])
+    const typed = buildFilesRenamePlan({
+      release: { title: 'Album', tracks: [{ trackNumber: '1', title: 'One' }] },
+      files: {
+        original: {},
+        apply: {
+          phase: 'idle',
+          onDiskModified: false,
+          stripEmbeddedCoverArt: false,
+          renameReleaseFolder: false,
+          renameTrackFiles: true,
+          currentFolderName: 'Album',
+          files: [{ id: '0', currentPath: '0.flac', filenameOverride: 'Don`t' }]
+        }
+      },
+      naming,
+      sourceMedia: 'WEB',
+      encoding: 'Lossless'
+    })
+    expect(typed.errors).toEqual(['Don`t.flac: Name contains a character which is not allowed.'])
+  })
+
+  it.each([
+    [['01track.flac', '02track.flac'], two, ['01track.flac: The name lacks the title.', '02track.flac: The name lacks the title.']],
+    [['One.flac', 'Two.flac'], two, ['One.flac: The name lacks the track number.', 'Two.flac: The name lacks the track number.']],
+    [['01 - One.FLAC', '02 - Two.flac'], two, ['01 - One.FLAC: Use a lowercase .flac extension.']],
+    [['1 - One.flac', '103 - Two.flac'], [{ trackNumber: '1', title: 'One' }, { trackNumber: '3', title: 'Two' }], []],
+    [
+      ['01 - A Very Long Title Cut Sh.flac', '02 - Two.flac'],
+      [{ trackNumber: '1', title: 'A Very Long Title Cut Short' }, { trackNumber: '2', title: 'Two (feat. Guest)' }],
+      []
+    ],
+    [
+      Array.from({ length: 10 }, (_, index) => `${index + 1} - x.flac`),
+      Array.from({ length: 10 }, (_, index) => ({ trackNumber: String(index + 1), title: 'x' })),
+      ['Names do not sort in play order: 10 - x.flac comes before 2 - x.flac.']
+    ],
+    [
+      ['CD1/01 - One.flac', 'CD1/01 - Two.flac'],
+      [{ discNumber: '1', trackNumber: '1', title: 'One' }, { discNumber: '2', trackNumber: '1', title: 'Two' }],
+      ['CD1: Tracks from different discs share a number. Number them on, or give each disc its own folder.']
+    ],
+    [
+      ['1 01 - One.flac', '2 01 - Two.flac'],
+      [{ discNumber: '1', trackNumber: '1', title: 'One' }, { discNumber: '2', trackNumber: '1', title: 'Two' }],
+      []
+    ],
+    [
+      ['CD1/01 - One.flac', 'CD2/01 - Two.flac'],
+      [{ discNumber: '1', trackNumber: '1', title: 'One' }, { discNumber: '2', trackNumber: '1', title: 'Two' }],
+      []
+    ]
+  ])('warns about the kept track names %j', (paths, tracks, warnings) => {
+    expect(keptPlan(paths, tracks).warnings).toEqual(warnings)
+  })
+
+  it('warns when the kept folder name lacks the album title', () => {
+    expect(keptPlan(['01 - One.flac', '02 - Two.flac'], two, { folder: 'Artist (2024)' }).warnings)
+      .toEqual(['The release folder name lacks the album title.'])
+  })
+})
+
 describe('various artists track file template', () => {
   it('includes the track artist when the album has no single main artist', () => {
     const plan = buildTrackPlan({

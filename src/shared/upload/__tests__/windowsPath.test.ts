@@ -53,6 +53,6 @@ describe('Windows names generated from templates', () => {
 
   it('rejects a reserved manual track name', () => {
     const result = plan('Album', 'Song', 'COM¹.flac')
-    expect(result.errors).toContain('old.flac: Name is reserved by the filesystem.')
+    expect(result.errors).toEqual(['COM¹.flac: Name is reserved by the filesystem.'])
   })
 })

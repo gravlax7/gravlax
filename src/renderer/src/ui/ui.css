@@ -1990,20 +1990,6 @@ button.toggle.toggle-on .toggle-thumb {
   color: var(--fg-muted);
 }
 
-.filename-errors {
-  padding: 10px 12px;
-  border: 1px solid var(--error);
-  border-radius: var(--radius-md);
-  color: var(--error);
-}
-
-.filename-warnings {
-  padding: 10px 12px;
-  border: 1px solid var(--warning);
-  border-radius: var(--radius-md);
-  color: var(--warning);
-}
-
 .tags-table-wrap {
   overflow: visible;
 }

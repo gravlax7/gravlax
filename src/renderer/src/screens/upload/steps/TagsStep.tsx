@@ -195,7 +195,7 @@ export function TagsStep(props: {
 
       <Show when={props.state.tags.releaseStatus !== 'loading'}>
         <Show when={keepExistingTags()}>
-          <Callout tone="info" class="tags-release-status">
+          <Callout tone="info">
             Gravlax will use the tags read from these FLAC files and will not rewrite them.
           </Callout>
         </Show>
@@ -207,12 +207,12 @@ export function TagsStep(props: {
           }}
         />
         <Show when={invalidDates().length > 0}>
-          <Callout tone="error" class="tags-release-status">
+          <Callout tone="error">
             Original and edition release dates must be YYYY, YYYY-MM, or YYYY-MM-DD.
           </Callout>
         </Show>
         <Show when={missingTags().length > 0}>
-          <Callout tone="error" class="tags-release-status">
+          <Callout tone="error">
             <div>
               <For each={missingTags()}>{(error) => <div>{error}</div>}</For>
               <div>
@@ -731,14 +731,19 @@ export function TagsStep(props: {
         </Show>
 
         <Show when={plan().errors.length > 0}>
-          <div class="filename-errors">
-            <For each={plan().errors}>{(error) => <div>{error}</div>}</For>
-          </div>
+          <Callout tone="error">
+            <div>
+              <For each={plan().errors}>{(error) => <div>{error}</div>}</For>
+            </div>
+          </Callout>
         </Show>
         <Show when={plan().warnings.length > 0}>
-          <div class="filename-warnings">
-            <For each={plan().warnings}>{(warning) => <div>{warning}</div>}</For>
-          </div>
+          <Callout tone="warning">
+            <div>
+              <For each={plan().warnings}>{(warning) => <div>{warning}</div>}</For>
+              <div>Turn on a rename option to fix these names.</div>
+            </div>
+          </Callout>
         </Show>
       </section>
     </div>
