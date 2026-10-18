@@ -1,6 +1,7 @@
 import type { JSX } from 'solid-js'
 import type { CoverImageHostId } from '@shared/types/config'
 import { isCoverImageHostId } from '@shared/config/imageHosts'
+import ptscreensIcon from '../assets/imagehosts/ptscreens.png'
 import redactedIcon from '../assets/trackers/redacted.png'
 
 const thesungodIcon =
@@ -16,6 +17,7 @@ const ICONS: Record<ImageHostIconId, string> = {
   thesungod: thesungodIcon,
   imgbb: imgbbIcon,
   catbox: catboxIcon,
+  ptscreens: ptscreensIcon,
   redacted: redactedIcon
 }
 
@@ -23,6 +25,7 @@ const LABELS: Record<ImageHostIconId, string> = {
   thesungod: 'Ra (thesungod)',
   imgbb: 'imgbb',
   catbox: 'Catbox',
+  ptscreens: 'PTScreens',
   redacted: 'Redacted Image Host'
 }
 

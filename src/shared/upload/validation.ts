@@ -174,7 +174,7 @@ export function validateUploadTargets(
     if (credentials) return credentials
 
     const coverImageHost = cfg.trackers[trackerId].coverImageHost.trim()
-    if (!coverImageHost || !isValidCoverImageHost(cfg, trackerId, coverImageHost)) {
+    if (!coverImageHost || !isValidCoverImageHost(cfg, coverImageHost)) {
       return `${trackerName(trackerId)}: select an enabled cover image host in Settings.`
     }
 

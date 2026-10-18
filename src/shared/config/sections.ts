@@ -92,7 +92,9 @@ export function sections(): SectionMetadata[] {
         { name: 'thesungod.apiKey', label: 'thesungod API key', type: 'string', sensitive: true },
         { name: 'imgbb.enabled', label: 'imgbb enabled', type: 'bool' },
         { name: 'imgbb.apiKey', label: 'imgbb API key', type: 'string', sensitive: true },
-        { name: 'catbox.enabled', label: 'Catbox enabled', type: 'bool' }
+        { name: 'catbox.enabled', label: 'Catbox enabled', type: 'bool' },
+        { name: 'ptscreens.enabled', label: 'PTScreens enabled', type: 'bool' },
+        { name: 'ptscreens.apiKey', label: 'PTScreens API key', type: 'string', sensitive: true }
       ]
     },
     {

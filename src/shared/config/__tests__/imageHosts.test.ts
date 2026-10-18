@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { COVER_IMAGE_HOST_IDS, type Config } from '@shared/types/config'
 import {
-  coverImageHostOptions,
   enabledImageHostOptions,
   enabledSpectralImageHostOptions,
   isCoverImageHostId,
@@ -50,7 +49,8 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
     imageHosts: {
       thesungod: { enabled: false, apiKey: '' },
       imgbb: { enabled: false, apiKey: '' },
-      catbox: { enabled: false }
+      catbox: { enabled: false },
+      ptscreens: { enabled: false, apiKey: '' }
     },
     torrentClient: {
       enabled: false,
@@ -104,9 +104,10 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
 }
 
 describe('imageHosts', () => {
-  it('marks imgbb and catbox as supporting spectral upload', () => {
+  it('marks imgbb, catbox and ptscreens as supporting spectral upload', () => {
     expect(supportsSpectralUpload('imgbb')).toBe(true)
     expect(supportsSpectralUpload('catbox')).toBe(true)
+    expect(supportsSpectralUpload('ptscreens')).toBe(true)
     expect(supportsSpectralUpload('thesungod')).toBe(false)
     expect(supportsSpectralUpload('redacted')).toBe(false)
   })
@@ -116,11 +117,12 @@ describe('imageHosts', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: true, apiKey: 'key' },
-        catbox: { enabled: true }
+        catbox: { enabled: true },
+        ptscreens: { enabled: true, apiKey: 'key' }
       }
     })
-    expect(enabledImageHostOptions(cfg)).toEqual(['thesungod', 'imgbb', 'catbox'])
-    expect(enabledSpectralImageHostOptions(cfg)).toEqual(['imgbb', 'catbox'])
+    expect(enabledImageHostOptions(cfg)).toEqual(['thesungod', 'imgbb', 'catbox', 'ptscreens'])
+    expect(enabledSpectralImageHostOptions(cfg)).toEqual(['imgbb', 'catbox', 'ptscreens'])
   })
 
   it('returns no spectral options when imgbb and catbox are disabled', () => {
@@ -128,7 +130,8 @@ describe('imageHosts', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: false, apiKey: '' },
-        catbox: { enabled: false }
+        catbox: { enabled: false },
+        ptscreens: { enabled: false, apiKey: '' }
       }
     })
     expect(enabledSpectralImageHostOptions(cfg)).toEqual([])
@@ -167,7 +170,7 @@ describe('imageHosts', () => {
     expect(enabledImageHostOptions(cfg)).toEqual([])
   })
 
-  it('allows redacted cover host only for the redacted tracker', () => {
+  it('offers the redacted cover host to every tracker', () => {
     const cfg = baseConfig({
       trackers: {
         redacted: {
@@ -190,19 +193,14 @@ describe('imageHosts', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: true, apiKey: 'key' },
-        catbox: { enabled: true }
+        catbox: { enabled: true },
+        ptscreens: { enabled: false, apiKey: '' }
       }
     })
-    expect(coverImageHostOptions(cfg, 'redacted')).toEqual([
-      'thesungod',
-      'imgbb',
-      'catbox',
-      'redacted'
-    ])
-    expect(coverImageHostOptions(cfg, 'orpheus')).toEqual(['thesungod', 'imgbb', 'catbox'])
-    expect(isValidCoverImageHost(cfg, 'orpheus', 'catbox')).toBe(true)
-    expect(isValidCoverImageHost(cfg, 'redacted', 'redacted')).toBe(true)
-    expect(isValidCoverImageHost(cfg, 'orpheus', 'redacted')).toBe(false)
+    expect(enabledImageHostOptions(cfg)).toEqual(['thesungod', 'imgbb', 'catbox', 'redacted'])
+    expect(isValidCoverImageHost(cfg, 'catbox')).toBe(true)
+    expect(isValidCoverImageHost(cfg, 'redacted')).toBe(true)
+    expect(isValidCoverImageHost(cfg, 'ptscreens')).toBe(false)
   })
 
   it('clears invalid cover image hosts', () => {
@@ -228,7 +226,8 @@ describe('imageHosts', () => {
       imageHosts: {
         thesungod: { enabled: false, apiKey: '' },
         imgbb: { enabled: true, apiKey: 'key' },
-        catbox: { enabled: false }
+        catbox: { enabled: false },
+        ptscreens: { enabled: false, apiKey: '' }
       }
     })
     sanitizeCoverImageHosts(cfg)
@@ -236,7 +235,7 @@ describe('imageHosts', () => {
     expect(cfg.trackers.orpheus.coverImageHost).toBe('')
   })
 
-  it('keeps the redacted cover host when the tracker is turned off', () => {
+  it('clears the redacted cover host when the tracker is turned off', () => {
     const cfg = baseConfig({
       trackers: {
         redacted: {
@@ -258,6 +257,6 @@ describe('imageHosts', () => {
       }
     })
     sanitizeCoverImageHosts(cfg)
-    expect(cfg.trackers.redacted.coverImageHost).toBe('redacted')
+    expect(cfg.trackers.redacted.coverImageHost).toBe('')
   })
 })

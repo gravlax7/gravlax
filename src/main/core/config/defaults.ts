@@ -33,7 +33,8 @@ export function defaultConfig(): Config {
     imageHosts: {
       thesungod: { enabled: false, apiKey: '' },
       imgbb: { enabled: false, apiKey: '' },
-      catbox: { enabled: true }
+      catbox: { enabled: true },
+      ptscreens: { enabled: false, apiKey: '' }
     },
     torrentClient: {
       enabled: false,

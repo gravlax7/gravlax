@@ -1,6 +1,5 @@
 import type { Config, FieldMetadata, SectionID } from '@shared/types/config'
 import {
-  coverImageHostOptions,
   enabledImageHostOptions,
   enabledSpectralImageHostOptions,
   sanitizeCoverImageHosts
@@ -9,7 +8,6 @@ import { normalizeTrackerHost } from '@shared/config/network'
 import { normalizePath } from './paths'
 
 export {
-  coverImageHostOptions,
   enabledImageHostOptions,
   enabledSpectralImageHostOptions
 }
@@ -113,6 +111,10 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return c.imgbb.apiKey
         case 'catbox.enabled':
           return String(c.catbox.enabled)
+        case 'ptscreens.enabled':
+          return String(c.ptscreens.enabled)
+        case 'ptscreens.apiKey':
+          return c.ptscreens.apiKey
       }
       break
     }
@@ -268,6 +270,7 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
     case 'imageHosts':
       if (field === 'thesungod.apiKey') next.imageHosts.thesungod.apiKey = value
       if (field === 'imgbb.apiKey') next.imageHosts.imgbb.apiKey = value
+      if (field === 'ptscreens.apiKey') next.imageHosts.ptscreens.apiKey = value
       sanitizeCoverImageHosts(next)
       break
     case 'torrentClient':
@@ -358,6 +361,7 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
       if (field === 'thesungod.enabled') next.imageHosts.thesungod.enabled = value
       if (field === 'imgbb.enabled') next.imageHosts.imgbb.enabled = value
       if (field === 'catbox.enabled') next.imageHosts.catbox.enabled = value
+      if (field === 'ptscreens.enabled') next.imageHosts.ptscreens.enabled = value
       sanitizeCoverImageHosts(next)
       break
     case 'torrentClient':
@@ -413,7 +417,7 @@ export function cycleFieldEnum(cfg: Config, section: SectionID, field: FieldMeta
     return next
   }
   if (section === 'trackers' && field.name === 'redacted.coverImageHost') {
-    const options = coverImageHostOptions(next, 'redacted')
+    const options = enabledImageHostOptions(next)
     if (options.length === 0) {
       next.trackers.redacted.coverImageHost = ''
       return next
@@ -422,7 +426,7 @@ export function cycleFieldEnum(cfg: Config, section: SectionID, field: FieldMeta
     return next
   }
   if (section === 'trackers' && field.name === 'orpheus.coverImageHost') {
-    const options = coverImageHostOptions(next, 'orpheus')
+    const options = enabledImageHostOptions(next)
     if (options.length === 0) {
       next.trackers.orpheus.coverImageHost = ''
       return next

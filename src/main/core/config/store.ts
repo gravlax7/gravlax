@@ -256,6 +256,11 @@ export function normalizeImageHosts(
     const host = obj.catbox as Record<string, unknown>
     if (typeof host.enabled === 'boolean') next.catbox.enabled = host.enabled
   }
+  if (obj.ptscreens && typeof obj.ptscreens === 'object') {
+    const host = obj.ptscreens as Record<string, unknown>
+    if (typeof host.enabled === 'boolean') next.ptscreens.enabled = host.enabled
+    if (typeof host.apiKey === 'string') next.ptscreens.apiKey = host.apiKey
+  }
   return next
 }
 

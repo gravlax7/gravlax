@@ -326,7 +326,7 @@ export async function hostCoverImagesForSubmit(
       errors.push(`${trackerName(trackerId)} has no cover image host selected.`)
       continue
     }
-    if (!isCoverImageHostId(host) || !isValidCoverImageHost(cfg, trackerId, host)) {
+    if (!isCoverImageHostId(host) || !isValidCoverImageHost(cfg, host)) {
       delete hostedCoverImages[trackerId]
       errors.push(`${trackerName(trackerId)} has an invalid cover image host: ${host}.`)
       continue
