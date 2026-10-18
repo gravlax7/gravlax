@@ -68,6 +68,8 @@ export function registerIpc(deps: IpcDeps): void {
   handle('upload:resume', (workspacePath) => upload.resume(workspacePath))
   handle('upload:selectSourceMedia', (media) => upload.selectSourceMedia(media))
   handle('upload:setLossyMaster', (value) => upload.setLossyMaster(value))
+  handle('upload:listLineageFiles', () => upload.listLineageFiles())
+  handle('upload:setLineage', (lineage) => upload.setLineage(lineage))
   handle('upload:setLossyComment', (value) => upload.setLossyComment(value))
   handle('upload:resolveMetadataUrl', (url) => upload.resolveMetadataUrl(url))
   handle('upload:selectMetadataMatch', (selection) => upload.selectMetadataMatch(selection))

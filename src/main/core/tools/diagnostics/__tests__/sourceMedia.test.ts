@@ -40,6 +40,19 @@ describe('detectSourceMedia', () => {
     expect(await detectSourceMedia(dir)).toBe('CD')
   })
 
+  it('returns Vinyl when a root text file is named as lineage', async () => {
+    const dir = await tempDir()
+    await writeFile(join(dir, 'Lineage.TXT'), 'turntable')
+    expect(await detectSourceMedia(dir)).toBe('Vinyl')
+  })
+
+  it('prefers CD when both a log and a lineage file are present', async () => {
+    const dir = await tempDir()
+    await writeFile(join(dir, 'rip.log'), 'log')
+    await writeFile(join(dir, 'lineage.txt'), 'turntable')
+    expect(await detectSourceMedia(dir)).toBe('CD')
+  })
+
   it('returns null when no .log file is present', async () => {
     const dir = await tempDir()
     await writeFile(join(dir, 'readme.txt'), 'notes')

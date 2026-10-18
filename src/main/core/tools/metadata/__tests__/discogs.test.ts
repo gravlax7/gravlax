@@ -102,6 +102,22 @@ describe('Discogs provider', () => {
     expect(results[0]?.display).toContain('Not On Label')
   })
 
+  it('maps vinyl-like formats to Vinyl', async () => {
+    stubJSON({
+      results: ['Vinyl', 'Shellac', 'Lathe Cut', 'Acetate'].map((format, index) => ({
+        id: index + 1,
+        title: `Artist - Record ${index + 1}`,
+        format: [format],
+        label: []
+      }))
+    })
+    const provider = createDiscogsProvider('token', 5000)
+
+    const results = await provider.searchReleases('Artist', 10)
+
+    expect(results.map((result) => result.ident.source)).toEqual(['Vinyl', 'Vinyl', 'Vinyl', 'Vinyl'])
+  })
+
   it('fetches a release by ID and omits auth when no token is set', async () => {
     const fetchMock = stubJSON({ id: 432932, title: 'Rounds' })
     const provider = createDiscogsProvider('', 5000)

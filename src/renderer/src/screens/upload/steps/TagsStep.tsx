@@ -34,6 +34,7 @@ import { invalidReleaseDateFields } from '@shared/tags/dates'
 import { sourceRestoreUnavailableMessage } from '@shared/upload/sourceRestore'
 import { trackPositionMismatchNotice } from '@shared/tags/trackOrder'
 import { missingRequiredTags } from '@shared/tags/requiredTags'
+import { vinylTrackCountNotice } from '@shared/upload/vinyl'
 
 export function TagsStep(props: {
   state: UploadFlowStateJSON
@@ -59,6 +60,12 @@ export function TagsStep(props: {
   const positionNotice = () => trackPositionMismatchNotice(
     currentTracks(),
     props.state.tags.selected?.tracks ?? []
+  )
+  const vinylTrackNotice = () => vinylTrackCountNotice(
+    props.state.draft.sourceMedia,
+    props.state.metadata.selected?.provider,
+    props.state.tags.selected?.tracks?.length ?? 0,
+    props.state.files.apply.files.length
   )
   const multiDisc = (): boolean =>
     isMultiDiscTracks([...currentTracks(), ...proposedTracks()])
@@ -360,6 +367,9 @@ export function TagsStep(props: {
                   <div>Tracks may be missing from this folder. Upload the whole release.</div>
                 </div>
               </Callout>
+            </Show>
+            <Show when={vinylTrackNotice()}>
+              {(notice) => <Callout tone="warning">{notice()}</Callout>}
             </Show>
             <For each={Array.from({ length: trackCount() }, (_, index) => index)}>
               {(trackIndex) => {

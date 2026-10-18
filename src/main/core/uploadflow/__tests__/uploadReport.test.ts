@@ -266,6 +266,77 @@ describe('multi-format upload report', () => {
     }
   })
 
+  it('prints the vinyl lineage before the footer of every format', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-lineage-'))
+    try {
+      await writeFile(path.join(dir, 'lineage.txt'), 'Turntable\r\nCartridge\r\n')
+      const build = async (
+        sourceMedia: 'WEB' | 'CD' | 'Vinyl',
+        lineage: NonNullable<ReturnType<typeof newState>['draft']['lineage']>
+      ) => {
+        const state = newState()
+        state.draft.workspacePath = dir
+        state.draft.sourceMedia = sourceMedia
+        state.draft.lineage = lineage
+        state.tags.proposed = { title: 'Album' }
+        state.transcode = {
+          phase: 'done',
+          inspection: {
+            encoding: '24bit Lossless',
+            sampleRate: 96000,
+            trackCount: 1,
+            hybrid: false,
+            blockers: [],
+            options: [
+              { id: 'transcode-V0', name: 'MP3 V0', action: 'transcode', bitrate: 'V0', outputFolderName: 'V0' },
+              {
+                id: 'downconvert-16-48000',
+                name: '16bit 48.0 kHz',
+                action: 'downconvert',
+                targetBitDepth: 16,
+                targetSampleRate: 48000,
+                outputFolderName: 'FLAC'
+              }
+            ]
+          },
+          selectedOptionIds: ['transcode-V0', 'downconvert-16-48000'],
+          jobs: [
+            { optionId: 'transcode-V0', status: 'succeeded', outputPath: path.join(dir, '..', 'V0') },
+            { optionId: 'downconvert-16-48000', status: 'succeeded', outputPath: path.join(dir, '..', 'FLAC') }
+          ]
+        }
+        const snapshot = await buildUploadSnapshot(state, cfgWithTrackers([]), { version: '9.8.7' })
+        return (snapshot.formats ?? []).map((format) => format.releaseDesc)
+      }
+
+      const vinyl = await build('Vinyl', { kind: 'file', path: 'lineage.txt' })
+      expect(vinyl).toHaveLength(3)
+      for (const description of vinyl) {
+        expect(description).toContain(
+          '[b]Lineage:[/b]\nTurntable\nCartridge\n[hr]Uploaded with [b]gravlax[/b] v9.8.7'
+        )
+      }
+      for (const description of await build('Vinyl', { kind: 'pasted', text: 'Phono stage' })) {
+        expect(description).toContain('[b]Lineage:[/b]\nPhono stage\n[hr]')
+      }
+      for (const media of ['Vinyl', 'WEB', 'CD'] as const) {
+        const lineage = media === 'Vinyl' ? { kind: 'none' as const } : { kind: 'file' as const, path: 'lineage.txt' }
+        for (const description of await build(media, lineage)) {
+          expect(description).not.toContain('Lineage')
+        }
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('rebuilds the report when the lineage changes', () => {
+    const state = newState()
+    const before = fingerprintUploadInputs(state, cfgWithTrackers([]), TEST_VERSION)
+    state.draft.lineage = { kind: 'none' }
+    expect(fingerprintUploadInputs(state, cfgWithTrackers([]), TEST_VERSION)).not.toBe(before)
+  })
+
   it.skipIf(process.env.CI === 'true')('keeps source track order in mixed converted FLAC descriptions', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'gravlax-upload-track-order-'))
     const source = path.join(root, 'Album [24bit FLAC]')

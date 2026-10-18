@@ -86,3 +86,12 @@ describe('getDownconversionOptions', () => {
     expect(options[0]).not.toHaveProperty('targetSampleRate')
   })
 })
+
+describe('vinyl downconversion', () => {
+  it('never offers a 24-bit option below 88.2 kHz', () => {
+    for (const rate of [96000, 48000]) {
+      const options = getDownconversionOptions('/tmp/Artist - Album [Vinyl 24bit FLAC]', '24bit Lossless', rate)
+      expect(options.some((option) => option.targetBitDepth === 24)).toBe(false)
+    }
+  })
+})

@@ -447,7 +447,7 @@ export class UploadSessionFileChanges {
     return { ok: false, error }
   }
 
-  private async invalidateGeneratedFiles(): Promise<void> {
+  async invalidateGeneratedFiles(): Promise<void> {
     this.context.cancelGeneratedWork()
     const state = this.context.getState()
     for (const job of state.transcode.jobs ?? []) {

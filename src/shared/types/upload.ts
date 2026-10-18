@@ -96,10 +96,20 @@ export interface Release {
   mixed?: Record<string, boolean>
 }
 
+export type VinylLineage =
+  /** Relative to the release folder. */
+  | { kind: 'file'; path: string }
+  /** Written by Gravlax to `lineage.txt` at the release folder root. */
+  | { kind: 'pasted'; text: string }
+  /** The user chose to upload without lineage. */
+  | { kind: 'none' }
+
 export interface Draft {
   sourcePath: string
   workspacePath: string
   sourceMedia: SourceMedia | ''
+  /** Vinyl only. Undefined until the user decides. */
+  lineage?: VinylLineage
   lossyMaster: boolean
   lossyComment: string
   /** One-based track numbers whose spectrals go in the release description. */
@@ -645,6 +655,7 @@ export interface UploadFlowSnapshot {
   /** `source` is accepted for snapshots written before the start menu existed. */
   currentStepID: StepID | 'source'
   sourceMedia?: SourceMedia
+  lineage?: VinylLineage
   lossyMaster?: boolean
   lossyComment?: string
   spectralIds?: number[]

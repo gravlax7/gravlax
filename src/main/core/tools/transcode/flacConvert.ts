@@ -6,6 +6,7 @@ import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binar
 import {
   generateAudioDetails,
   SOURCE_TORRENT_PLACEHOLDER,
+  lineageBbcode,
   type TrackDescInput
 } from '@main/core/tools/upload/descriptions'
 import { readFLACTags } from '@main/core/tags/extract'
@@ -50,6 +51,7 @@ export async function convertFolder(
     bitDepth?: BitDepth
     sampleRate?: number | null
     essentialOnly?: boolean
+    alwaysCopy?: ReadonlySet<string>
     concurrency?: number
     signal?: AbortSignal
     onProgress?: (progress: ProcessProgress) => void
@@ -78,7 +80,8 @@ export async function convertFolder(
   await mkdir(newPath, { recursive: true })
   await copyExtraFiles(path, newPath, {
     essentialOnly: options.essentialOnly,
-    skipSources: convertSrcs
+    skipSources: convertSrcs,
+    alwaysCopy: options.alwaysCopy
   })
 
   await processFiles(
@@ -115,7 +118,8 @@ export function generateConversionDescription(
   sampleRate: number | null,
   bitDepth: BitDepth = 16,
   version: string,
-  tracks: TrackDescInput[] = []
+  tracks: TrackDescInput[] = [],
+  lineage?: string
 ): string {
   const depthArgs = SOX_DEPTH_ARGS[bitDepth].join(' ')
   const rates = tracks.map((track) => track.sampleRate ?? 0).filter((rate) => rate > 0)
@@ -136,6 +140,7 @@ export function generateConversionDescription(
     }) +
     `[b]Source:[/b] ${SOURCE_TORRENT_PLACEHOLDER}\n` +
     `[b]Transcode process:[/b] ${process}` +
+    lineageBbcode(lineage) +
     `[hr]Uploaded with [b]gravlax[/b] v${version}`
   )
 }

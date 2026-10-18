@@ -1251,6 +1251,29 @@ button.toggle.toggle-on .toggle-thumb {
   min-width: 0;
 }
 
+.file-checks-lineage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.file-checks-lineage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.file-checks-lineage-none {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.file-checks-lineage-none small {
+  display: block;
+}
+
 .file-checks-result {
   display: flex;
   align-items: flex-start;

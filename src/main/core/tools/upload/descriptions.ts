@@ -46,6 +46,7 @@ export interface ReleaseDescInput {
   metadataUrls?: string[]
   tracks?: TrackDescInput[]
   includeTracklist?: boolean
+  lineage?: string
   version: string
 }
 
@@ -292,8 +293,15 @@ export function generateReleaseDescription(input: ReleaseDescInput): string {
     description += `[b]More info:[/b] ${moreInfo}\n`
   }
 
+  description += lineageBbcode(input.lineage)
   description += `[hr]Uploaded with [b]gravlax[/b] v${input.version}`
   return description
+}
+
+/** Vinyl lineage, printed before the footer of every format's description. */
+export function lineageBbcode(lineage: string | undefined): string {
+  const text = (lineage ?? '').trim()
+  return text ? `[b]Lineage:[/b]\n${text}\n` : ''
 }
 
 export function generateAudioDetails(

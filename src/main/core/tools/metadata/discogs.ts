@@ -67,6 +67,9 @@ const ARTIST_ROLES: Record<string, string> = {
 
 const SOURCES: Array<[string, string]> = [
   ['Vinyl', 'Vinyl'],
+  ['Shellac', 'Vinyl'],
+  ['Lathe Cut', 'Vinyl'],
+  ['Acetate', 'Vinyl'],
   ['File', 'WEB'],
   ['CD', 'CD']
 ]

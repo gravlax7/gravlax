@@ -6,6 +6,7 @@ import type {
   FilesSnapshot,
   MetadataSearchSnapshot,
   SourceMedia,
+  VinylLineage,
   StepID,
   TagsSnapshot,
   TranscodeSnapshot,
@@ -93,6 +94,10 @@ export function sourceMedia(s: State): SourceMedia | '' {
   return s.draft.sourceMedia
 }
 
+export function lineage(s: State): VinylLineage | undefined {
+  return s.draft.lineage
+}
+
 export function workspacePath(s: State): string {
   return s.draft.workspacePath
 }
@@ -154,6 +159,13 @@ export function setWorkspacePath(s: State, path: string): State {
   }
 }
 
+export function setLineage(s: State, value: VinylLineage | undefined): State {
+  return {
+    ...s,
+    draft: { ...s.draft, lineage: value }
+  }
+}
+
 export function setLossyMaster(s: State, value: boolean): State {
   return {
     ...s,
@@ -200,7 +212,11 @@ export function setSourceMedia(s: State, media: SourceMedia): State {
   }
   return {
     ...s,
-    draft: { ...s.draft, sourceMedia: media },
+    draft: {
+      ...s.draft,
+      sourceMedia: media,
+      lineage: media === 'Vinyl' ? s.draft.lineage : undefined
+    },
     background: withSourceMedia(s.background, media)
   }
 }

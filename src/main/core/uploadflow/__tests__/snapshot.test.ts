@@ -3,12 +3,13 @@ import { setFileChecks } from '../fileChecks'
 import { setSeed } from '../seed'
 import { restoreState, snapshot } from '../snapshot'
 import { beginSubmit, patchSubmission } from '../upload'
-import { initializeFiles, reorderFiles } from '../files'
+import { finishFilesApply, finishFilesRestore, initializeFiles, reorderFiles } from '../files'
 import {
   currentStep,
   newState,
   selectSourcePath,
   setCurrentStep,
+  setLineage,
   setSourceMedia,
   setDefaultSpectralIds,
   setSpectralIds,
@@ -35,6 +36,51 @@ describe('snapshot round-trip', () => {
     expect(restored.files.apply.files).toEqual(state.files.apply.files)
     expect(restored.files.apply.payloadPaths).toEqual(state.files.apply.payloadPaths)
   })
+  it('keeps each kind of vinyl lineage', () => {
+    for (const lineage of [
+      { kind: 'file' as const, path: 'Lineage.txt' },
+      { kind: 'pasted' as const, text: 'Turntable\nCartridge' },
+      { kind: 'none' as const }
+    ]) {
+      const state = setLineage(setSourceMedia(selectSourcePath(newState(), '/music/album'), 'Vinyl'), lineage)
+      expect(restoreState('/workspace/album', snapshot(state)).draft.lineage).toEqual(lineage)
+    }
+  })
+
+  it('loads a snapshot saved before lineage existed as undecided', () => {
+    const restored = restoreState('/workspace/album', {
+      sourcePath: '/music/album',
+      currentStepID: 'file-checks',
+      sourceMedia: 'Vinyl'
+    })
+    expect(restored.draft.lineage).toBeUndefined()
+  })
+
+  it('drops the lineage when the media is no longer vinyl', () => {
+    let state = setSourceMedia(selectSourcePath(newState(), '/music/album'), 'Vinyl')
+    state = setLineage(state, { kind: 'none' })
+    expect(setSourceMedia(state, 'WEB').draft.lineage).toBeUndefined()
+  })
+
+  it('follows a picked lineage file through renames and restores', () => {
+    let state = setSourceMedia(selectSourcePath(newState(), '/music/album'), 'Vinyl')
+    state = initializeFiles(state, 'Album', ['01.flac'], { files: ['01.flac', 'info.txt'], directories: [] })
+    state = setLineage(state, { kind: 'file', path: 'info.txt' })
+    const lineageId = state.files.apply.payloadPaths!.find((item) => item.currentPath === 'info.txt')!.id
+    state = finishFilesApply(
+      state,
+      '/workspace/Album',
+      'Album',
+      [{ id: 'track-1', currentPath: '01 Song.flac' }],
+      'hash',
+      { changedFileCount: 1, strippedPictureCount: 0 },
+      [{ id: lineageId, currentPath: 'lineage.txt' }]
+    )
+    expect(state.draft.lineage).toEqual({ kind: 'file', path: 'lineage.txt' })
+    state = finishFilesRestore(state, '/workspace/album', 'album', [{ id: 'track-1', currentPath: '01.flac' }])
+    expect(state.draft.lineage).toEqual({ kind: 'file', path: 'info.txt' })
+  })
+
   it('keeps the saved step and media', () => {
     let state = selectSourcePath(newState(), '/music/album')
     state = setSourceMedia(state, 'CD')

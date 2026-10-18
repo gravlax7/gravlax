@@ -28,6 +28,7 @@ import {
   generateTranscodeDescription
 } from '@main/core/tools/transcode'
 import { downloadCoverIfNonexistent } from '@main/core/tools/upload/cover'
+import { lineageText } from '@main/core/tools/upload/lineage'
 import { uploadImageToHost } from '@main/core/tools/imagehosts/upload'
 import { isCoverImageHostId, isValidCoverImageHost } from '@shared/config/imageHosts'
 import { trackerEncoding } from '@shared/upload/encodings'
@@ -62,6 +63,7 @@ export function fingerprintUploadInputs(s: State, cfg: Config, version: string):
     workspace: s.draft.workspacePath,
     filePlan: s.files.apply.appliedHash ?? '',
     media: s.draft.sourceMedia,
+    lineage: s.draft.lineage,
     lossy: s.draft.lossyMaster,
     albumDescriptionTemplateId: cfg.naming.albumDescriptionTemplateId,
     useUpcAsCatNo: cfg.workflow.useUpcAsCatNo,
@@ -116,6 +118,9 @@ export async function buildUploadSnapshot(
   const bitDepth = inspection?.encoding === '24bit Lossless' ? 24 : 16
   const sampleRate = inspection?.sampleRate ?? 0
   const hybrid = inspection?.hybrid ?? false
+  const lineage = s.draft.sourceMedia === 'Vinyl'
+    ? await lineageText(s.draft.workspacePath, s.draft.lineage)
+    : undefined
   const sourceReleaseDesc = generateReleaseDescription({
     bitDepth,
     sampleRate,
@@ -124,6 +129,7 @@ export async function buildUploadSnapshot(
     sourceUrl,
     metadataUrls: proposed.urls,
     tracks: hybrid ? trackInputs : undefined,
+    lineage,
     version: options.version
   })
 
@@ -166,7 +172,7 @@ export async function buildUploadSnapshot(
         bitrate: trackerEncoding(option.bitrate),
         otherBitrate: '',
         vbr: option.bitrate === 'V0',
-        releaseDesc: generateTranscodeDescription(option.bitrate as Bitrate, options.version),
+        releaseDesc: generateTranscodeDescription(option.bitrate as Bitrate, options.version, lineage),
         logfileNames: []
       })
       continue
@@ -192,7 +198,8 @@ export async function buildUploadSnapshot(
           targetRate,
           targetDepth,
           options.version,
-          convertedTracks
+          convertedTracks,
+          lineage
         ),
         logfileNames: []
       })

@@ -309,7 +309,7 @@ async function moveDirectory(source: string, destination: string): Promise<void>
   }
 }
 
-async function pathExists(path: string): Promise<boolean> {
+export async function pathExists(path: string): Promise<boolean> {
   try {
     await stat(path)
     return true

@@ -355,7 +355,7 @@ export function finishFilesApply(
   )
   return {
     ...s,
-    draft: { ...s.draft, workspacePath },
+    draft: { ...s.draft, workspacePath, lineage: remapLineage(s.draft.lineage, payloadPathMap) },
     files: {
       ...s.files,
       apply: {
@@ -469,9 +469,12 @@ export function finishFilesRestore(
   tracks: Array<{ id: string; currentPath: string }>,
   payload?: { files: string[]; directories: string[] }
 ): State {
+  const originalPaths = new Map(
+    (s.files.apply.payloadPaths ?? []).map((item) => [item.currentPath, item.originalPath])
+  )
   return {
     ...s,
-    draft: { ...s.draft, workspacePath },
+    draft: { ...s.draft, workspacePath, lineage: remapLineage(s.draft.lineage, originalPaths) },
     files: {
       original: { ...s.files.original },
       apply: {
@@ -486,6 +489,14 @@ export function finishFilesRestore(
       }
     }
   }
+}
+
+function remapLineage(
+  lineage: State['draft']['lineage'],
+  paths: Map<string, string>
+): State['draft']['lineage'] {
+  if (lineage?.kind !== 'file') return lineage
+  return { kind: 'file', path: paths.get(lineage.path) ?? lineage.path }
 }
 
 function buildPayloadPaths(

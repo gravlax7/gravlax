@@ -5,7 +5,7 @@ import type { Bitrate } from '@shared/types'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { readFLACStreamInfo } from '@main/core/tools/flacLayout'
-import { SOURCE_TORRENT_PLACEHOLDER } from '@main/core/tools/upload/descriptions'
+import { SOURCE_TORRENT_PLACEHOLDER, lineageBbcode } from '@main/core/tools/upload/descriptions'
 import { SKIP_EXTENSIONS } from './audioInfo'
 import { copyExtraFiles } from './extras'
 import { buildMp3OutputPath } from './naming'
@@ -42,6 +42,7 @@ export async function transcodeFolder(
   bitrate: Bitrate,
   options: {
     essentialOnly?: boolean
+    alwaysCopy?: ReadonlySet<string>
     concurrency?: number
     signal?: AbortSignal
     onProgress?: (progress: ProcessProgress) => void
@@ -67,7 +68,8 @@ export async function transcodeFolder(
   await copyExtraFiles(path, newPath, {
     essentialOnly: options.essentialOnly,
     skipFlac: true,
-    skipExtensions: SKIP_EXTENSIONS
+    skipExtensions: SKIP_EXTENSIONS,
+    alwaysCopy: options.alwaysCopy
   })
 
   await processFiles(
@@ -94,12 +96,17 @@ export async function transcodeFolder(
   return { outputPath: newPath }
 }
 
-export function generateTranscodeDescription(bitrate: Bitrate, version: string): string {
+export function generateTranscodeDescription(
+  bitrate: Bitrate,
+  version: string,
+  lineage?: string
+): string {
   const lameCommand = LAME_COMMAND_MAP[bitrate].join(' ')
   return (
     `[b]Source:[/b] ${SOURCE_TORRENT_PLACEHOLDER}\n` +
     `[b]Transcode process:[/b] ` +
     `[code]flac -Vdsc -- input.flac | lame -S ${lameCommand} --ignore-tag-errors - output.mp3[/code]\n` +
+    lineageBbcode(lineage) +
     `[hr]Uploaded with [b]gravlax[/b] v${version}`
   )
 }

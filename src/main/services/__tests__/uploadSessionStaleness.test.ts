@@ -20,7 +20,7 @@ describe('workspace staleness', () => {
 
     await expect(session.setCurrentStep(6)).resolves.toEqual({
       ok: false,
-      error: 'Choose WEB or CD source media before continuing.'
+      error: 'Choose a source media before continuing.'
     })
   })
 
