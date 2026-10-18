@@ -132,11 +132,20 @@ app.whenReady().then(async () => {
     send('stats:changed', stats)
   })
 
+  const openExternalUrl = async (url: string): Promise<void> => {
+    const parsed = new URL(String(url ?? '').trim())
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error('only http(s) URLs can be opened')
+    }
+    await shell.openExternal(parsed.toString())
+  }
+
   const uploadSession = new UploadSession({
     appVersion,
     userDataPath,
     getConfig: () => configService.get(),
     trashItem: (path) => shell.trashItem(path),
+    openExternal: openExternalUrl,
     tools: toolResolver,
     send,
     recordUploadStatistic: async (record) => {
@@ -196,14 +205,7 @@ app.whenReady().then(async () => {
       shell.showItemInFolder(path)
     },
     openPath: (path) => openPathInShell(path, shell.openPath),
-    openExternal: async (url) => {
-      const trimmed = String(url ?? '').trim()
-      const parsed = new URL(trimmed)
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-        throw new Error('only http(s) URLs can be opened')
-      }
-      await shell.openExternal(parsed.toString())
-    },
+    openExternal: openExternalUrl,
     writeClipboardText: (text) => clipboard.writeText(text),
     diagnosticReport: () => trackerDiagnosticReport(),
     revealDiagnosticLog: async () => shell.showItemInFolder(await diagnosticLogPath()),

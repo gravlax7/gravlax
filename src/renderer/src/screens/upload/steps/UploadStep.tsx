@@ -30,6 +30,7 @@ import { TrackerIcon, trackerLabel } from '../../../components/TrackerIcon'
 import { ArtistsEditor, type ArtistEditAction } from '../ArtistsEditor'
 import { spectralUrl } from '../pathUtil'
 import { GroupSuggestions } from '../GroupSuggestions'
+import { SubmissionLinks } from '../SubmissionLinks'
 import { createBbcodePreviewBatcher } from '@shared/upload/bbcodePreviewBatcher'
 import { createBbcodePreview } from '@shared/upload/bbcodePreview'
 import {
@@ -425,23 +426,7 @@ function SubmissionRow(props: { submission: UploadSubmission }) {
         <Badge tone={submissionTone(sub().status)}>{sub().status}</Badge>
       </div>
 
-      <Show when={sub().url}>
-        {(url) => (
-          <button
-            type="button"
-            class="upload-submission-link"
-            onClick={() => void window.gravlax.shell.openExternal(url())}
-          >
-            Open on tracker
-          </button>
-        )}
-      </Show>
-
-      <Show when={sub().lossyReport === 'failed'}>
-        <div class="upload-submission-note">
-          Torrent uploaded, but the lossy master report failed — file it by hand.
-        </div>
-      </Show>
+      <SubmissionLinks submission={sub()} />
 
       <Show when={sub().error}>
         {(error) => <div class="upload-submission-error">{error()}</div>}

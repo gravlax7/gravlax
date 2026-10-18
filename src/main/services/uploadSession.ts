@@ -17,6 +17,7 @@ import type {
   UploadFlowStateJSON,
   UploadStartEntries,
   UploadSnapshot,
+  UploadSubmission,
   UploadTrackerId
 } from '@shared/types'
 import {
@@ -190,6 +191,7 @@ export interface UploadSessionDeps extends UploadSessionRuntimeDeps {
   appVersion: string
   recordUploadStatistic?: (record: UploadStatsRecord) => Promise<void>
   trashItem: (path: string) => Promise<void>
+  openExternal?: (url: string) => Promise<void>
   tools: ToolResolver
 }
 
@@ -592,6 +594,11 @@ export class UploadSession {
         )
         if (!task.fresh()) return
 
+        const alreadyDone = new Set(
+          (this.state.upload.submissions ?? [])
+            .filter((sub) => sub.status === 'done')
+            .map((sub) => sub.id)
+        )
         this.apply(beginSubmit(this.state, planSubmissions(this.state.upload)))
         await this.persistNow()
 
@@ -658,6 +665,9 @@ export class UploadSession {
         const seedIdx = stepIndex('seed')
         if (seedIdx !== null) this.apply(setCurrentStep(this.state, seedIdx))
         void this.startSeed()
+        if (cfg.workflow.openGroupsAfterUpload) {
+          void this.openGroupPages(succeeded.filter((sub) => !alreadyDone.has(sub.id)))
+        }
       },
       {
         onError: (err) => {
@@ -670,6 +680,19 @@ export class UploadSession {
     )
 
     return outcome
+  }
+
+  /** Opens each new group page once; a failed open never fails the upload. */
+  private async openGroupPages(submissions: readonly UploadSubmission[]): Promise<void> {
+    const urls = new Set(submissions.flatMap((sub) => (sub.groupUrl ? [sub.groupUrl] : [])))
+    for (const url of urls) {
+      try {
+        await this.deps.openExternal?.(url)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        this.notify('warning', `Could not open ${url}: ${message}`)
+      }
+    }
   }
 
   /** Cover and spectrals, hosted before the first tracker call. */

@@ -235,7 +235,8 @@ const configInput: z.ZodType<Config> = z.object({
     confirmBeforeWrites: z.boolean(),
     useUpcAsCatNo: z.boolean(),
     autoRepairFlacIntegrity: z.boolean(),
-    keepExistingTagsByDefault: z.boolean()
+    keepExistingTagsByDefault: z.boolean(),
+    openGroupsAfterUpload: z.boolean()
   })
 })
 

@@ -99,7 +99,8 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
       confirmBeforeWrites: true,
       useUpcAsCatNo: true,
       autoRepairFlacIntegrity: false,
-      keepExistingTagsByDefault: false
+      keepExistingTagsByDefault: false,
+      openGroupsAfterUpload: false
     },
     ...overrides
   }

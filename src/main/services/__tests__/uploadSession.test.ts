@@ -323,6 +323,48 @@ describe('UploadSession', () => {
     })
   })
 
+  it('opens each group page once and survives a failed open', async () => {
+    const send = vi.fn()
+    const openExternal = vi.fn(async (url: string) => {
+      if (url.endsWith('id=2')) throw new Error('no browser')
+    })
+    const session = new UploadSession({
+      appVersion: 'test',
+      userDataPath: '',
+      getConfig: defaultConfig,
+      trashItem: async () => undefined,
+      openExternal,
+      tools: automaticToolResolver,
+      send
+    })
+    const submission = (id: string, groupUrl?: string) => ({
+      id,
+      trackerId: 'redacted' as const,
+      formatId: id,
+      label: id,
+      status: 'done' as const,
+      groupUrl
+    })
+
+    await (session as unknown as {
+      openGroupPages: (submissions: ReturnType<typeof submission>[]) => Promise<void>
+    }).openGroupPages([
+      submission('a', 'https://tracker.test/g?id=1'),
+      submission('b', 'https://tracker.test/g?id=1'),
+      submission('c', 'https://tracker.test/g?id=2'),
+      submission('d')
+    ])
+
+    expect(openExternal.mock.calls.map(([url]) => url)).toEqual([
+      'https://tracker.test/g?id=1',
+      'https://tracker.test/g?id=2'
+    ])
+    expect(send).toHaveBeenCalledWith('upload:notify', {
+      level: 'warning',
+      message: 'Could not open https://tracker.test/g?id=2: no browser'
+    })
+  })
+
   it('refuses tracker submission until FLAC integrity passes', async () => {
     const session = newSession()
     const state = newState()

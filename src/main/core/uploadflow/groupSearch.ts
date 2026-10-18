@@ -15,6 +15,7 @@ import {
 } from '@shared/upload/dupeSearch'
 import { enabledTrackerOptions } from '@shared/config/trackers'
 import { createEnabledTrackers, type Tracker } from '@main/core/tools/trackers'
+import { torrentGroupUrl } from '@main/core/tools/trackers/gazelle'
 import { asArray, asRecord, compileArtists, decodeHtml } from '@main/core/tools/trackers/json'
 
 export function emptyGroupSearch(): TrackerGroupSearchSnapshot {
@@ -108,7 +109,7 @@ export function mapBrowseResults(
       year,
       releaseType,
       tags,
-      url: `${siteUrl.replace(/\/+$/, '')}/torrents.php?id=${groupId}`
+      url: torrentGroupUrl(siteUrl, groupId)
     })
   }
   return out
@@ -176,7 +177,7 @@ export function mapTorrentGroupDetail(
       group.releaseType === undefined || group.releaseType === null
         ? undefined
         : String(group.releaseType),
-    url: `${siteUrl.replace(/\/+$/, '')}/torrents.php?id=${groupId}`,
+    url: torrentGroupUrl(siteUrl, groupId),
     torrents
   }
 }

@@ -569,6 +569,7 @@ export interface UploadSubmission {
   torrentId?: number
   groupId?: number
   url?: string
+  groupUrl?: string
   lossyReport?: 'not-needed' | 'done' | 'failed'
   error?: string
 }

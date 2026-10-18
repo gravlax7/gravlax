@@ -199,6 +199,9 @@ export function normalizeWorkflow(raw: unknown, base: Config['workflow']): Confi
   if (typeof obj.keepExistingTagsByDefault === 'boolean') {
     next.keepExistingTagsByDefault = obj.keepExistingTagsByDefault
   }
+  if (typeof obj.openGroupsAfterUpload === 'boolean') {
+    next.openGroupsAfterUpload = obj.openGroupsAfterUpload
+  }
   return next
 }
 

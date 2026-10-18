@@ -25,7 +25,8 @@ vi.mock('@main/core/tools/trackers', () => ({
         announce: 'https://announce.example/secret',
         authenticate: mocks.authenticate,
         torrentUrl: (torrentId: number) =>
-          `https://redacted.example/torrents.php?torrentid=${torrentId}`
+          `https://redacted.example/torrents.php?torrentid=${torrentId}`,
+        groupUrl: (groupId: number) => `https://redacted.example/torrents.php?id=${groupId}`
       },
       upload: mocks.trackerUpload,
       reportLossyMaster: mocks.reportLossyMaster
@@ -149,6 +150,11 @@ describe('multi-format submission', () => {
       '/torrents/Album [MP3 V0] - RED.torrent'
     ])
     expect([...patches.values()].filter((patch) => patch.status === 'done')).toHaveLength(3)
+    expect([...patches.values()].map((patch) => patch.groupUrl)).toEqual([
+      'https://redacted.example/torrents.php?id=88',
+      'https://redacted.example/torrents.php?id=88',
+      'https://redacted.example/torrents.php?id=88'
+    ])
     expect(successful.map((submission) => submission.formatId)).toEqual(formats.map((item) => item.id))
   })
 

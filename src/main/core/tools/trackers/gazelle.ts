@@ -65,6 +65,10 @@ interface HttpResult {
   headers: Headers
 }
 
+export function torrentGroupUrl(siteUrl: string, groupId: number): string {
+  return `${siteUrl.replace(/\/+$/, '')}/torrents.php?id=${groupId}`
+}
+
 export function parseTorrentGroupIdFromUrl(url: string): number | null {
   try {
     const parsed = new URL(url)
@@ -229,6 +233,10 @@ export class GazelleClient {
 
   torrentUrl(torrentId: number): string {
     return `${this.siteUrl}/torrents.php?torrentid=${torrentId}`
+  }
+
+  groupUrl(groupId: number): string {
+    return torrentGroupUrl(this.siteUrl, groupId)
   }
 
   async authenticate(signal?: AbortSignal): Promise<GazelleIndexResponse> {

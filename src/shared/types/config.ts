@@ -177,6 +177,7 @@ export interface WorkflowConfig {
   useUpcAsCatNo: boolean
   autoRepairFlacIntegrity: boolean
   keepExistingTagsByDefault: boolean
+  openGroupsAfterUpload: boolean
 }
 
 export interface ValidationIssue {

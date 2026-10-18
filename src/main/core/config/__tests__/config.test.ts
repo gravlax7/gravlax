@@ -30,6 +30,7 @@ describe('config', () => {
     expect(cfg.workflow.useUpcAsCatNo).toBe(true)
     expect(cfg.workflow.autoRepairFlacIntegrity).toBe(false)
     expect(cfg.workflow.keepExistingTagsByDefault).toBe(false)
+    expect(cfg.workflow.openGroupsAfterUpload).toBe(false)
     expect(cfg.metadataProviders.requestTimeoutSeconds).toBe(10)
     expect(cfg.metadataProviders.musicBrainz.enabled).toBe(true)
     expect(cfg.metadataProviders.deezer.enabled).toBe(true)
@@ -88,6 +89,16 @@ describe('config', () => {
     expect(loaded.workflow.keepExistingTagsByDefault).toBe(true)
     const changed = setFieldBool(defaultConfig(), 'workflow', 'keepExistingTagsByDefault', true)
     expect(fieldBoolValue(changed, 'workflow', 'keepExistingTagsByDefault')).toBe(true)
+    expect(
+      mergeLoadedConfig({ workflow: { openGroupsAfterUpload: true } }).workflow.openGroupsAfterUpload
+    ).toBe(true)
+    expect(
+      fieldBoolValue(
+        setFieldBool(defaultConfig(), 'workflow', 'openGroupsAfterUpload', true),
+        'workflow',
+        'openGroupsAfterUpload'
+      )
+    ).toBe(true)
     expect(resetSection(changed, 'workflow').workflow.keepExistingTagsByDefault).toBe(false)
   })
 

@@ -225,6 +225,8 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return String(c.autoRepairFlacIntegrity)
         case 'keepExistingTagsByDefault':
           return String(c.keepExistingTagsByDefault)
+        case 'openGroupsAfterUpload':
+          return String(c.openGroupsAfterUpload)
       }
       break
     }
@@ -393,6 +395,7 @@ export function setFieldBool(cfg: Config, section: SectionID, field: string, val
       if (field === 'useUpcAsCatNo') next.workflow.useUpcAsCatNo = value
       if (field === 'autoRepairFlacIntegrity') next.workflow.autoRepairFlacIntegrity = value
       if (field === 'keepExistingTagsByDefault') next.workflow.keepExistingTagsByDefault = value
+      if (field === 'openGroupsAfterUpload') next.workflow.openGroupsAfterUpload = value
       break
   }
   return next

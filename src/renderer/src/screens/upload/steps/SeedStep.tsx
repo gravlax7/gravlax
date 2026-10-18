@@ -6,10 +6,11 @@ import type {
   UploadFlowStateJSON,
   UploadSubmission
 } from '@shared/types'
-import { trackerCode } from '@shared/trackers'
+import { UPLOAD_TRACKER_IDS, trackerCode } from '@shared/trackers'
 import { etaSeconds, formatByteSize, formatEta, formatTransferRate } from '@shared/format'
-import { TrackerIcon } from '../../../components/TrackerIcon'
-import { Badge, Button, Callout, EmptyState, Icon, ProgressBar, type BadgeTone } from '../../../ui'
+import { TrackerIcon, trackerLabel } from '../../../components/TrackerIcon'
+import { SubmissionLinks } from '../SubmissionLinks'
+import { Badge, Button, Callout, Card, EmptyState, Icon, ProgressBar, type BadgeTone } from '../../../ui'
 
 /** Transfers and copies both move the release; injects hand it to the client. */
 function isPlacement(task: SeedTask): boolean {
@@ -41,6 +42,17 @@ export function SeedStep(props: {
       (submission) => submission.status === 'done' && Boolean(submission.torrentPath)
     )
   )
+  const trackerLinks = createMemo(() => {
+    const done = (props.state.upload?.submissions ?? []).filter((s) => s.status === 'done')
+    return UPLOAD_TRACKER_IDS.flatMap((trackerId) => {
+      const submissions = done.filter((s) => s.trackerId === trackerId)
+      if (submissions.length === 0) return []
+      return [{ trackerId, groupUrl: submissions.find((s) => s.groupUrl)?.groupUrl, submissions }]
+    })
+  })
+  const formatLabel = (submission: UploadSubmission): string =>
+    props.state.upload?.formats?.find((f) => f.id === submission.formatId)?.label ??
+    submission.label
   const torrentFolder = createMemo(() => props.config.directories.torrents.trim())
   const clientSavePath = createMemo(() => {
     const explicit = props.config.torrentClient.savePath.trim()
@@ -136,54 +148,98 @@ export function SeedStep(props: {
       </Show>
 
       <Show when={uploadDone()}>
-        <div class="seed-header">
-          <div class="seed-header-text">
-            <div class="seed-title">Seed</div>
-            <div class="seed-subtitle">
-              {phaseLabel(phase())}
-              <Show when={seed().error}> — {seed().error}</Show>
+        <div class="seed-title">Seed</div>
+
+        <Show when={trackerLinks().length > 0}>
+          <Card class="seed-card">
+            <div class="seed-card-title">Uploaded</div>
+            <div class="seed-links">
+              <For each={trackerLinks()}>
+                {(entry) => (
+                  <div class="seed-link-group">
+                    <div class="seed-link-head">
+                      <div class="seed-link-tracker">
+                        <TrackerIcon trackerId={entry.trackerId} size={18} alt="" />
+                        <span>{trackerLabel(entry.trackerId)}</span>
+                      </div>
+                      <Show when={entry.groupUrl}>
+                        {(url) => (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => void window.gravlax.shell.openExternal(url())}
+                          >
+                            <Icon name="external-link" size={14} />
+                            Open group
+                          </Button>
+                        )}
+                      </Show>
+                    </div>
+                    <For each={entry.submissions}>
+                      {(submission) => (
+                        <div class="seed-link-row">
+                          <span>{formatLabel(submission)}</span>
+                          <SubmissionLinks submission={submission} />
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                )}
+              </For>
             </div>
-            <Show when={tasks().length > 0}>
-              <div class="mono seed-summary">{summary()}</div>
+          </Card>
+        </Show>
+
+        <Card class="seed-card">
+          <div class="seed-card-header">
+            <div class="seed-header-text">
+              <div class="seed-card-title">Seeding</div>
+              <div class="seed-card-help">
+                {phaseLabel(phase())}
+                <Show when={seed().error}> — {seed().error}</Show>
+              </div>
+              <Show when={tasks().length > 0}>
+                <div class="mono seed-summary">{summary()}</div>
+              </Show>
+            </div>
+            <Show when={phase() === 'failed' || phase() === 'done'}>
+              <Button variant="secondary" size="sm" onClick={() => props.onRetry()}>
+                <Icon name="refresh-cw" size={14} />
+                {hasCompleted() ? 'Retry failed' : 'Retry'}
+              </Button>
             </Show>
           </div>
-          <Show when={phase() === 'failed' || phase() === 'done'}>
-            <Button variant="secondary" onClick={() => props.onRetry()}>
-              <Icon name="refresh-cw" size={14} />
-              {hasCompleted() ? 'Retry failed' : 'Retry'}
-            </Button>
+
+          <Show when={phase() === 'running' && totals().bytesTotal > 0}>
+            <ProgressBar
+              value={totals().bytesTransferred}
+              max={totals().bytesTotal}
+              tone="accent"
+              label="Overall seeding progress"
+            />
           </Show>
-        </div>
 
-        <Show when={phase() === 'running' && totals().bytesTotal > 0}>
-          <ProgressBar
-            value={totals().bytesTransferred}
-            max={totals().bytesTotal}
-            tone="accent"
-            label="Overall seeding progress"
-          />
-        </Show>
+          <Show when={tasks().length === 0 && phase() !== 'running'}>
+            <Callout tone="info">
+              {torrents().length > 0
+                ? 'No automatic placement is configured. The release data remains in the working copy.'
+                : 'Seedbox, seeding folder and torrent client are all off, or no torrents were created.'}
+            </Callout>
+          </Show>
 
-        <Show when={tasks().length === 0 && phase() !== 'running'}>
-          <Callout tone="info">
-            {torrents().length > 0
-              ? 'No automatic placement is configured. The release data remains in the working copy.'
-              : 'Seedbox, seeding folder and torrent client are all off, or no torrents were created.'}
-          </Callout>
-        </Show>
-
-        <Show when={tasks().length > 0}>
-          <div class="seed-task-list">
-            <For each={tasks()}>{(task) => <SeedTaskRow task={task} />}</For>
-          </div>
-        </Show>
+          <Show when={tasks().length > 0}>
+            <div class="seed-task-list">
+              <For each={tasks()}>{(task) => <SeedTaskRow task={task} />}</For>
+            </div>
+          </Show>
+        </Card>
 
         <Show when={torrents().length > 0}>
-          <section class="seed-torrents">
-            <div class="seed-torrents-header">
+          <Card class="seed-card">
+            <div class="seed-card-header">
               <div>
-                <div class="seed-torrents-title">Torrent files</div>
-                <div class="seed-torrents-help">Save or reveal the generated .torrent files.</div>
+                <div class="seed-card-title">Torrent files</div>
+                <div class="seed-card-help">Save or reveal the generated .torrent files.</div>
               </div>
               <div class="seed-torrents-header-actions">
                 <Show when={torrentFolder()}>
@@ -280,7 +336,7 @@ export function SeedStep(props: {
             <Show when={saveMessage()}>
               {(message) => <Callout tone={message().tone}>{message().text}</Callout>}
             </Show>
-          </section>
+          </Card>
         </Show>
       </Show>
     </div>

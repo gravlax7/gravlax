@@ -302,6 +302,12 @@ export function sections(): SectionMetadata[] {
           label: 'Automatically repair failed FLAC integrity checks',
           description: 'Re-encode failed FLACs in the working copy and check them again before continuing.',
           type: 'bool'
+        },
+        {
+          name: 'openGroupsAfterUpload',
+          label: 'Open groups after upload',
+          description: "Open each tracker's group page in your browser after a successful upload.",
+          type: 'bool'
         }
       ]
     }

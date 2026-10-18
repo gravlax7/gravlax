@@ -83,7 +83,8 @@ export function defaultConfig(): Config {
       confirmBeforeWrites: true,
       useUpcAsCatNo: true,
       autoRepairFlacIntegrity: false,
-      keepExistingTagsByDefault: false
+      keepExistingTagsByDefault: false,
+      openGroupsAfterUpload: false
     }
   }
 }

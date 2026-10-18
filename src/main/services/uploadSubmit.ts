@@ -219,6 +219,7 @@ async function uploadOneFormat(
       torrentId: result.torrentId,
       groupId: result.groupId,
       url: tracker.client.torrentUrl(result.torrentId),
+      groupUrl: result.groupId ? tracker.client.groupUrl(result.groupId) : undefined,
       lossyReport,
       error: undefined
     },
