@@ -35,9 +35,8 @@ export function validateUploadReport(upload: UploadSnapshot): string | null {
 
 /** Every selected transcode must finish before the upload payload is fixed. */
 export function validateSelectedTranscodes(transcode: TranscodeSnapshot): string | null {
-  if (transcode.phase === 'inspecting' || transcode.phase === 'running') {
-    return 'Wait for transcoding to complete.'
-  }
+  if (transcode.phase === 'inspecting') return 'Wait for the release inspection to finish.'
+  if (transcode.phase === 'running') return 'Wait for transcoding to complete.'
 
   const selected = [...new Set(transcode.selectedOptionIds ?? [])]
   if (selected.length === 0) return null
@@ -60,6 +59,8 @@ export function validatePreparedUploadFormats(
 ): string | null {
   const transcodeError = validateSelectedTranscodes(state.transcode)
   if (transcodeError) return transcodeError
+  // Bit depth, sample rate and hybrid flags come only from the inspection.
+  if (!state.transcode.inspection) return 'Wait for the release inspection to finish.'
 
   const formatIds = new Set((state.upload.formats ?? []).map((format) => format.id))
   if (!formatIds.has('source')) return 'The source FLAC upload is not ready yet.'

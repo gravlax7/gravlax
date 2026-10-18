@@ -61,6 +61,26 @@ export function stepHasError(index: number, state: UploadFlowStateJSON): boolean
   }
 }
 
+const TRANSCODE_STEP = stepIndexOf('transcode')
+
+/** Transcode is hidden when skipped, unless the user is on it or it needs attention. */
+export function transcodeStepHidden(state: UploadFlowStateJSON, skip: boolean): boolean {
+  return skip && state.currentStep !== TRANSCODE_STEP && !stepHasError(TRANSCODE_STEP, state)
+}
+
+/** The next or previous step index, passing over a hidden Transcode step. */
+export function adjacentStepIndex(
+  state: UploadFlowStateJSON,
+  direction: 1 | -1,
+  skip: boolean
+): number {
+  const clamp = (index: number): number => Math.max(0, Math.min(UPLOAD_STEPS.length - 1, index))
+  const index = clamp(state.currentStep + direction)
+  return index === TRANSCODE_STEP && transcodeStepHidden(state, skip)
+    ? clamp(index + direction)
+    : index
+}
+
 export function activeBackgroundTasks(tasks: BackgroundTask[]): BackgroundTask[] {
   return tasks.filter((t) => t.status === 'queued' || t.status === 'running')
 }

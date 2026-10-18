@@ -308,6 +308,12 @@ export function sections(): SectionMetadata[] {
           label: 'Open groups after upload',
           description: "Open each tracker's group page in your browser after a successful upload.",
           type: 'bool'
+        },
+        {
+          name: 'skipTranscode',
+          label: 'Skip transcode step',
+          description: 'Go from Tags & Filenames straight to Upload and upload only the source.',
+          type: 'bool'
         }
       ]
     }

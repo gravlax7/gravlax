@@ -85,7 +85,8 @@ function cfgWithRedacted(tracker: TrackerConfig): Config {
       useUpcAsCatNo: true,
       autoRepairFlacIntegrity: false,
       keepExistingTagsByDefault: false,
-      openGroupsAfterUpload: false
+      openGroupsAfterUpload: false,
+      skipTranscode: false
     }
   }
 }

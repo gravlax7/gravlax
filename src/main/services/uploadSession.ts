@@ -149,6 +149,7 @@ import { TaskScope, isAbortError, type TaskHandle } from '@main/services/taskSlo
 import { UploadSessionRuntime, type UploadSessionRuntimeDeps } from '@main/services/uploadSessionRuntime'
 import { UploadSessionFileChanges } from '@main/services/uploadSessionFileChanges'
 import { evaluateStepNavigation } from '@shared/upload/workflow'
+import { transcodeStepHidden } from '@shared/upload/stepGating'
 import { flacIntegrityRepairAllowed } from '@shared/upload/fileChecks'
 import { listUploadStartEntries } from '@main/services/uploadStartService'
 import type { UploadStatsRecord } from '@main/services/uploadStatsService'
@@ -346,21 +347,34 @@ export class UploadSession {
     const seedIdx = stepIndex('seed')
     const tagsIdx = stepIndex('tags')
     const metadataIdx = stepIndex('metadata')
+    const skipTranscode = this.deps.getConfig().workflow.skipTranscode
+    if (index === transcodeIdx && transcodeStepHidden(this.state, skipTranscode)) {
+      return { ok: false, error: 'The Transcode step is turned off in Settings.' }
+    }
     if (tagsIdx !== null && from <= tagsIdx && index > tagsIdx) {
       const applied = await this.applyTagsAndNames(confirmedWrites)
       if (!applied.ok) return applied
-      if (transcodeIdx !== null && index > transcodeIdx && this.state.transcode.phase === 'idle') {
+      if (
+        transcodeIdx !== null &&
+        index > transcodeIdx &&
+        this.state.transcode.phase === 'idle' &&
+        !transcodeStepHidden(this.state, skipTranscode)
+      ) {
         index = transcodeIdx
       }
     }
+    const passesTranscode = transcodeIdx !== null && from <= transcodeIdx && index > transcodeIdx
+    // A skipped step uploads the source alone, whatever an earlier visit selected.
+    const base =
+      passesTranscode && skipTranscode ? setTranscodeSelection(this.state, []) : this.state
     const defaultedMetadata =
-      metadataIdx !== null && index === metadataIdx && !this.state.metadata.selected
+      metadataIdx !== null && index === metadataIdx && !base.metadata.selected
     const next = defaultedMetadata
       ? setMetadataSelection(
-          this.state,
+          base,
           defaultMetadataSelection(this.deps.getConfig().workflow.keepExistingTagsByDefault)
         )
-      : this.state
+      : base
     this.apply(
       setCurrentStep(
         defaultedMetadata && isKeepExistingSelection(next.metadata.selected)
@@ -370,7 +384,7 @@ export class UploadSession {
       )
     )
     if (defaultedMetadata) void this.startTagsReleaseIfNeeded()
-    if (transcodeIdx !== null && from <= transcodeIdx && index > transcodeIdx) {
+    if (passesTranscode && !skipTranscode) {
       void this.runTranscode({ quiet: true })
     }
     if (uploadIdx !== null && index === uploadIdx) {
@@ -1684,6 +1698,8 @@ export class UploadSession {
                 detail
               )
         )
+        // The source's bit depth and sample rate come from this inspection.
+        if (this.state.currentStep === stepIndex('upload')) void this.ensureUploadReport()
       },
       {
         guard: this.stillOn(workspacePath),

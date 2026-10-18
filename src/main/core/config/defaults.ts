@@ -84,7 +84,8 @@ export function defaultConfig(): Config {
       useUpcAsCatNo: true,
       autoRepairFlacIntegrity: false,
       keepExistingTagsByDefault: false,
-      openGroupsAfterUpload: false
+      openGroupsAfterUpload: false,
+      skipTranscode: false
     }
   }
 }

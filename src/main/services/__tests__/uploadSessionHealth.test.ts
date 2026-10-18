@@ -25,6 +25,14 @@ function validState(): State {
   }
   state.currentStep = stepIndex('upload') ?? 6
   state.draft.workspacePath = '/workspace/Album'
+  state.transcode.inspection = {
+    encoding: 'Lossless',
+    sampleRate: 44100,
+    trackCount: 1,
+    hybrid: false,
+    blockers: [],
+    options: []
+  }
   state.upload = {
     selectedTrackerIds: ['redacted'],
     title: 'Album',

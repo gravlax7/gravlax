@@ -93,6 +93,15 @@ describe('prepared transcode validation', () => {
     )
   })
 
+  it('blocks upload until the release inspection has finished', () => {
+    expect(validateSelectedTranscodes({ phase: 'inspecting' })).toBe(
+      'Wait for the release inspection to finish.'
+    )
+    expect(validatePreparedUploadFormats({ transcode: { phase: 'failed' }, upload: validUpload() })).toBe(
+      'Wait for the release inspection to finish.'
+    )
+  })
+
   it('requires every selected job to finish successfully', () => {
     expect(
       validateSelectedTranscodes({

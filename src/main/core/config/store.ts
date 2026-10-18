@@ -202,6 +202,9 @@ export function normalizeWorkflow(raw: unknown, base: Config['workflow']): Confi
   if (typeof obj.openGroupsAfterUpload === 'boolean') {
     next.openGroupsAfterUpload = obj.openGroupsAfterUpload
   }
+  if (typeof obj.skipTranscode === 'boolean') {
+    next.skipTranscode = obj.skipTranscode
+  }
   return next
 }
 

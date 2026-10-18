@@ -33,6 +33,7 @@ import { invalidReleaseDateFields } from '@shared/tags/dates'
 import { lossyMasterMissingSpectral } from '@shared/upload/lossyReport'
 import {
   UPLOAD_STEPS,
+  adjacentStepIndex,
   canNavigateToStep,
   isTranscodeBusy
 } from '@shared/upload/stepGating'
@@ -445,7 +446,11 @@ export function UploadScreen(props: {
     <div class="upload-screen">
       <header class="upload-header">
         <div class="upload-title">{title()}</div>
-        <Stepper state={props.state} onNavigate={navigateToStep} />
+        <Stepper
+          state={props.state}
+          skipTranscode={props.config.workflow.skipTranscode}
+          onNavigate={navigateToStep}
+        />
       </header>
 
       <div class="upload-body">
@@ -568,7 +573,7 @@ export function UploadScreen(props: {
           }
           onClick={() => {
             if (stepIndex() === 0) props.onExit()
-            else navigateToStep(stepIndex() - 1)
+            else navigateToStep(adjacentStepIndex(props.state, -1, props.config.workflow.skipTranscode))
           }}
         >
           {actionLabel().back}
@@ -621,7 +626,7 @@ export function UploadScreen(props: {
                   })
                   return
                 }
-                navigateToStep(Math.min(UPLOAD_STEPS.length - 1, stepIndex() + 1))
+                navigateToStep(adjacentStepIndex(props.state, 1, props.config.workflow.skipTranscode))
               }}
             >
               {actionLabel().continue}

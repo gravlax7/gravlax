@@ -178,6 +178,7 @@ export interface WorkflowConfig {
   autoRepairFlacIntegrity: boolean
   keepExistingTagsByDefault: boolean
   openGroupsAfterUpload: boolean
+  skipTranscode: boolean
 }
 
 export interface ValidationIssue {

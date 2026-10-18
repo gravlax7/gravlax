@@ -130,8 +130,8 @@ export function validate(cfg: Config): ValidationIssue[] {
       // Both send an Authorization header, and a request carries only one.
       add(
         'torrentClient',
-        'basicAuthUsername',
-        'basic auth cannot be combined with an API key, since both use the Authorization header'
+        'useApiKey',
+        'API key cannot be combined with basic auth, since both use the Authorization header. Clear the basic auth username first'
       )
     }
     if (cfg.torrentClient.useAutoTMM) {

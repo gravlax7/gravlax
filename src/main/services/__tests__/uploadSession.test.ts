@@ -397,6 +397,45 @@ describe('UploadSession', () => {
     expect(session.getState().upload.seededFrom).toBeTruthy()
   })
 
+  it('refuses to open a skipped Transcode step', async () => {
+    const config = defaultConfig()
+    config.workflow.skipTranscode = true
+    const session = newSession(config)
+    const state = integrityReadyState()
+    state.currentStep = stepIndex('upload') ?? 5
+    runtimeOf(session).apply(state)
+
+    await expect(session.setCurrentStep(stepIndex('transcode') ?? 4)).resolves.toEqual({
+      ok: false,
+      error: 'The Transcode step is turned off in Settings.'
+    })
+  })
+
+  it('uploads only the 24-bit source when moving past a skipped Transcode step', async () => {
+    const config = defaultConfig()
+    config.workflow.skipTranscode = true
+    const session = newSession(config)
+    let state = setSourceMedia(selectSourcePath(newState(), '/source'), 'WEB')
+    state.fileChecks = integrityReadyState().fileChecks
+    state.fileChecks.structure.ready = true
+    state = markBackgroundTaskCompleted(state, 'file-checks', 'done')
+    state = markBackgroundTaskCompleted(state, 'spectrals', 'done')
+    state.metadata.selected = { provider: 'manual' }
+    state.tags.proposed = { title: 'Album' }
+    state.transcode = completedAlternateFormats()
+    state.currentStep = stepIndex('transcode') ?? 4
+    runtimeOf(session).apply(state)
+
+    await expect(session.setCurrentStep(stepIndex('upload') ?? 5)).resolves.toEqual({ ok: true })
+    await session.ensureUploadReport()
+
+    const result = session.getState()
+    expect(result.transcode.selectedOptionIds).toEqual([])
+    expect(result.upload.formats?.map((format) => format.id)).toEqual(['source'])
+    expect(result.upload.formats?.[0]?.bitrate).toBe('24bit Lossless')
+    expect(result.upload.formats?.[0]?.releaseDesc).toContain('48.0')
+  })
+
   it('uses the running app version in the upload report', async () => {
     const session = newSession()
     const state = integrityReadyState()

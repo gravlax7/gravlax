@@ -31,6 +31,7 @@ describe('config', () => {
     expect(cfg.workflow.autoRepairFlacIntegrity).toBe(false)
     expect(cfg.workflow.keepExistingTagsByDefault).toBe(false)
     expect(cfg.workflow.openGroupsAfterUpload).toBe(false)
+    expect(cfg.workflow.skipTranscode).toBe(false)
     expect(cfg.metadataProviders.requestTimeoutSeconds).toBe(10)
     expect(cfg.metadataProviders.musicBrainz.enabled).toBe(true)
     expect(cfg.metadataProviders.deezer.enabled).toBe(true)
@@ -97,6 +98,14 @@ describe('config', () => {
         setFieldBool(defaultConfig(), 'workflow', 'openGroupsAfterUpload', true),
         'workflow',
         'openGroupsAfterUpload'
+      )
+    ).toBe(true)
+    expect(mergeLoadedConfig({ workflow: { skipTranscode: true } }).workflow.skipTranscode).toBe(true)
+    expect(
+      fieldBoolValue(
+        setFieldBool(defaultConfig(), 'workflow', 'skipTranscode', true),
+        'workflow',
+        'skipTranscode'
       )
     ).toBe(true)
     expect(resetSection(changed, 'workflow').workflow.keepExistingTagsByDefault).toBe(false)
@@ -355,12 +364,12 @@ describe('config', () => {
     cfg.torrentClient.enabled = true
     cfg.torrentClient.url = 'http://127.0.0.1:8080'
     cfg.transfer.enabled = true
-    expect(validate(cfg).some((issue) => issue.field === 'basicAuthUsername')).toBe(false)
+    expect(validate(cfg).some((issue) => issue.field === 'useApiKey')).toBe(false)
 
     // Both use the Authorization header, so they cannot share a request.
     cfg.torrentClient.useApiKey = true
     cfg.torrentClient.apiKey = 'qbt_key'
-    expect(validate(cfg).some((issue) => issue.field === 'basicAuthUsername')).toBe(true)
+    expect(validate(cfg).some((issue) => issue.field === 'useApiKey')).toBe(true)
   })
 
   it('validate requires a save path only when there is no seedbox to fall back to', () => {

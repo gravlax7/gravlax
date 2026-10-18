@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { UploadFlowStateJSON } from '../../types/upload'
 import {
   activeBackgroundTasks,
+  adjacentStepIndex,
   canNavigateToStep,
   highestReachableStep,
   stepHasError,
   stepIndexOf,
   stepNodeStatus,
+  transcodeStepHidden,
   UPLOAD_STEPS
 } from '../stepGating'
 import { LOSSY_MASTER_SPECTRAL_REQUIRED } from '../lossyReport'
@@ -505,5 +507,33 @@ describe('activeBackgroundTasks', () => {
       }
     ])
     expect(tasks.map((t) => t.id)).toEqual(['file-checks', 'metadata'])
+  })
+})
+
+describe('skipped transcode step', () => {
+  const tags = stepIndexOf('tags')
+  const transcode = stepIndexOf('transcode')
+  const upload = stepIndexOf('upload')
+
+  it('passes over Transcode in both directions when skipped', () => {
+    expect(adjacentStepIndex(baseState({ currentStep: tags }), 1, true)).toBe(upload)
+    expect(adjacentStepIndex(baseState({ currentStep: upload }), -1, true)).toBe(tags)
+    expect(adjacentStepIndex(baseState({ currentStep: tags }), 1, false)).toBe(transcode)
+    expect(adjacentStepIndex(baseState({ currentStep: upload }), -1, false)).toBe(transcode)
+  })
+
+  it('stays within the step range', () => {
+    expect(adjacentStepIndex(baseState({ currentStep: 0 }), -1, true)).toBe(0)
+    const last = UPLOAD_STEPS.length - 1
+    expect(adjacentStepIndex(baseState({ currentStep: last }), 1, true)).toBe(last)
+  })
+
+  it('shows Transcode while the user is on it or its inspection failed', () => {
+    expect(transcodeStepHidden(baseState({ currentStep: tags }), true)).toBe(true)
+    expect(transcodeStepHidden(baseState({ currentStep: tags }), false)).toBe(false)
+    expect(transcodeStepHidden(baseState({ currentStep: transcode }), true)).toBe(false)
+    const failed = baseState({ currentStep: tags, transcode: { phase: 'failed', error: 'boom' } })
+    expect(transcodeStepHidden(failed, true)).toBe(false)
+    expect(adjacentStepIndex(failed, 1, true)).toBe(transcode)
   })
 })

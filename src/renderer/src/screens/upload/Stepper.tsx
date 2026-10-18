@@ -3,21 +3,28 @@ import type { UploadFlowStateJSON } from '@shared/types'
 import {
   UPLOAD_STEPS,
   canNavigateToStep,
-  stepNodeStatus
+  stepNodeStatus,
+  transcodeStepHidden
 } from '@shared/upload/stepGating'
 import { Icon } from '../../ui'
 
 export function Stepper(props: {
   state: UploadFlowStateJSON
+  skipTranscode: boolean
   onNavigate: (index: number) => void
 }) {
+  const steps = () =>
+    UPLOAD_STEPS.filter(
+      (step) => step.id !== 'transcode' || !transcodeStepHidden(props.state, props.skipTranscode)
+    )
+
   return (
     <nav class="ui-stepper" role="navigation" aria-label="Upload steps">
-      <For each={UPLOAD_STEPS}>
+      <For each={steps()}>
         {(step, i) => {
-          const status = () => stepNodeStatus(i(), props.state)
-          const canNav = () => canNavigateToStep(i(), props.state)
-          const isCurrent = () => i() === props.state.currentStep
+          const status = () => stepNodeStatus(step.index, props.state)
+          const canNav = () => canNavigateToStep(step.index, props.state)
+          const isCurrent = () => step.index === props.state.currentStep
           return (
             <div class="ui-stepper-item">
               <button
@@ -25,7 +32,7 @@ export function Stepper(props: {
                 class={`ui-stepper-node ui-stepper-node-${status()}`}
                 aria-current={isCurrent() ? 'step' : undefined}
                 disabled={!canNav()}
-                onClick={() => props.onNavigate(i())}
+                onClick={() => props.onNavigate(step.index)}
               >
                 <span class="ui-stepper-num">
                   <Show when={status() === 'done'}>
@@ -38,10 +45,10 @@ export function Stepper(props: {
                 </span>
                 <span class="ui-stepper-label">{step.title}</span>
               </button>
-              <Show when={i() < UPLOAD_STEPS.length - 1}>
+              <Show when={i() < steps().length - 1}>
                 <div
                   class={`ui-stepper-connector ${
-                    i() < props.state.currentStep ? 'ui-stepper-connector-done' : ''
+                    step.index < props.state.currentStep ? 'ui-stepper-connector-done' : ''
                   }`}
                 />
               </Show>
