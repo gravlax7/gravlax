@@ -33,6 +33,7 @@ import {
   preserveSeparatorArtistChoices
 } from '@shared/tags/editor'
 import { invalidReleaseDateFields } from '@shared/tags/dates'
+import { missingRequiredTags } from '@shared/tags/requiredTags'
 import { buildFilesRenamePlan, nextRenameFlagsForPathLimits } from '@shared/upload/naming'
 import { sourceRestoreUnavailableMessage } from '@shared/upload/sourceRestore'
 import { applyTagsAndRenames as writeTagsAndRenames } from '@main/core/tools/files/apply'
@@ -123,6 +124,8 @@ export class UploadSessionFileChanges {
       if (invalidReleaseDateFields(release.groupYear, release.year).length > 0) {
         return { ok: false, error: 'Dates must be YYYY, YYYY-MM, or YYYY-MM-DD.' }
       }
+      const missingTags = missingRequiredTags(release)
+      if (missingTags.length > 0) return { ok: false, error: missingTags[0]! }
       stillCurrent = this.context.createWorkspaceGuard(workspacePath)
       const writeTags = !isKeepExistingSelection(state.metadata.selected)
       const naming = this.context.getConfig().naming

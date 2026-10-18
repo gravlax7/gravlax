@@ -1962,7 +1962,7 @@ export class UploadSession {
           ? savedFiles.map((file) => file.currentPath)
           : undefined
         const extracted = await extractAlbumReleaseWithEmbeddedCoverArt(workspacePath, orderedPaths)
-        const { release, relativePaths, orderingNotice } = extracted
+        const { release, relativePaths, orderingNotice, completenessNotices } = extracted
         if (!task.fresh()) return
         if ((!release.urls || release.urls.length === 0) && (preservedUrls?.length ?? 0) > 0) {
           release.urls = [...(preservedUrls ?? [])]
@@ -1972,7 +1972,7 @@ export class UploadSession {
         let next = setTagsCurrent(
           this.state,
           release,
-          orderedPaths === undefined ? { orderingNotice } : undefined
+          orderedPaths === undefined ? { orderingNotice, completenessNotices } : undefined
         )
         next = next.files.apply.files.length > 0
           ? reorderFiles(next, relativePaths)

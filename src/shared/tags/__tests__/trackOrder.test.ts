@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { numericTrackPositions, trackPositionMismatchNotice } from '../trackOrder'
+import { numericTrackPositions, trackCompletenessNotices, trackPositionMismatchNotice } from '../trackOrder'
 
 describe('numeric track positions', () => {
   it('accepts padded numbers, totals, gaps, and repeated numbers on separate discs', () => {
@@ -52,5 +52,39 @@ describe('position mismatch notice', () => {
   it('leaves invalid positions and track counts to existing checks', () => {
     expect(trackPositionMismatchNotice([{ trackNumber: '1' }], [{ trackNumber: 'A1' }])).toBeUndefined()
     expect(trackPositionMismatchNotice([{ trackNumber: '1' }], [])).toBeUndefined()
+  })
+})
+
+describe('track completeness', () => {
+  const disc = (numbers: number[], tags: Record<string, string> = {}) =>
+    numbers.map((n) => ({ trackNumber: String(n), ...tags }))
+
+  it.each([
+    ['a gap', disc([1, 2, 4]), ['Track 3 is missing.']],
+    ['a total above the file count', disc([...Array(10).keys()].map((i) => i + 1), { trackTotal: '13' }),
+      ['Tags say 13 tracks; the folder has 10.']],
+    ['a number past the total', [...disc([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], { trackTotal: '13' }),
+      { trackNumber: '15', trackTotal: '13' }], [
+      'Tracks 12–14 are missing.',
+      'Track 15 is numbered past the total of 13.',
+      'Tags say 13 tracks; the folder has 12.'
+    ]],
+    ['a total in the number tag', [{ trackNumber: '1/3' }, { trackNumber: '2/3' }],
+      ['Tags say 3 tracks; the folder has 2.']],
+    ['a file without a total', [{ trackNumber: '1', trackTotal: '3' }, { trackNumber: '2' }],
+      ['Tags say 3 tracks; the folder has 2.']],
+    ['files that disagree on the total', [{ trackNumber: '1', trackTotal: '2' }, { trackNumber: '2', trackTotal: '3' }],
+      ['Files disagree on the track total (2, 3).']],
+    ['a missing disc', [{ discNumber: '1', trackNumber: '1' }, { discNumber: '3', trackNumber: '1' }],
+      ['Disc 2 is missing.']],
+    ['a disc total above the discs found', [{ discNumber: '1/2', trackNumber: '1' }],
+      ['Tags say 2 discs; the folder has 1.']],
+    ['a gap on one disc', [
+      { discNumber: '1', trackNumber: '1' }, { discNumber: '2', trackNumber: '1' }, { discNumber: '2', trackNumber: '3' }
+    ], ['Disc 2: Track 2 is missing.']],
+    ['a complete release', disc([1, 2, 3], { trackTotal: '3' }), []],
+    ['vinyl sides', [{ trackNumber: 'A1' }, { trackNumber: 'A2' }], []]
+  ])('reports %s', (_name, files, notices) => {
+    expect(trackCompletenessNotices(files)).toEqual(notices)
   })
 })

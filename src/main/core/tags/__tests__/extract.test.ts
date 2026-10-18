@@ -302,6 +302,16 @@ describe('track ordering', () => {
     expect(result.orderingNotice).toContain('Using filename order')
   })
 
+  it('reads the track total from TOTALTRACKS on a first read only', async () => {
+    const directory = await releaseFolder()
+    await writeFlac(join(directory, 'A.flac'), ['TRACKNUMBER=1', 'TOTALTRACKS=13'])
+    await writeFlac(join(directory, 'B.flac'), ['TRACKNUMBER=2', 'TOTALTRACKS=13'])
+    expect((await extractAlbumReleaseWithEmbeddedCoverArt(directory)).completenessNotices)
+      .toEqual(['Tags say 13 tracks; the folder has 2.'])
+    expect((await extractAlbumReleaseWithEmbeddedCoverArt(directory, ['A.flac', 'B.flac'])).completenessNotices)
+      .toBeUndefined()
+  })
+
   it('honors saved paths even when tags suggest a different order', async () => {
     const directory = await releaseFolder()
     await writeFlac(join(directory, 'A.flac'), ['TRACKNUMBER=1', 'TITLE=First'])

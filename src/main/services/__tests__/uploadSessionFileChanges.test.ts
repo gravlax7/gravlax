@@ -43,6 +43,8 @@ import { UploadSessionFileChanges } from '@main/services/uploadSessionFileChange
 import { automaticToolResolver } from '@main/core/tools/binaries'
 import type { FilesRenamePlan } from '@shared/upload/naming'
 
+const artist = [{ name: 'Artist', role: 'main' }]
+
 function setup() {
   let state: State = {
     ...newState(),
@@ -54,7 +56,7 @@ function setup() {
     },
     tags: {
       current: { title: 'Old Album' },
-      proposed: { title: 'New Album', tracks: [{ title: 'Track' }] }
+      proposed: { title: 'New Album', tracks: [{ title: 'Track', artists: artist }] }
     },
     files: {
       original: {
@@ -256,7 +258,7 @@ describe('UploadSessionFileChanges folder renames', () => {
       release: {
         title: 'New Album',
         trackCount: 1,
-        tracks: [{ title: 'Track', trackNumber: '1', discNumber: '1' }]
+        tracks: [{ title: 'Track', trackNumber: '1', discNumber: '1', artists: artist }]
       },
       embeddedCoverArtCount: 0
     })
@@ -332,7 +334,7 @@ describe('UploadSessionFileChanges folder renames', () => {
     getState().files.apply.stripEmbeddedCoverArt = false
     getState().files.apply.currentFolderName = 'Album'
     getState().files.apply.files = [{ id: 'track-1', currentPath: `${'x'.repeat(180)}.flac` }]
-    getState().tags.proposed = { title: 'Album', tracks: [{ title: 'Song' }] }
+    getState().tags.proposed = { title: 'Album', tracks: [{ title: 'Song', artists: artist }] }
 
     await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
 
@@ -369,7 +371,7 @@ describe('UploadSessionFileChanges folder renames', () => {
     getState().tags.proposed = {
       title: 'Old Album',
       artists: [{ name: 'Bach, Johann Sebastian', role: 'composer', separatorKept: true }],
-      tracks: [{ title: 'Track' }]
+      tracks: [{ title: 'Track', artists: artist }]
     }
     mocks.buildFilesRenamePlan.mockReturnValueOnce({
       folderName: 'Old Album',
@@ -456,7 +458,7 @@ describe('UploadSessionFileChanges folder renames', () => {
     getState().tags.proposed = {
       title: 'New Album',
       artists: [{ name: 'Bach, Jean Sebastian', role: 'composer' }],
-      tracks: [{ title: 'Track' }]
+      tracks: [{ title: 'Track', artists: artist }]
     }
 
     await expect(service.applyTagsAndNames(true)).resolves.toEqual({
@@ -471,7 +473,7 @@ describe('UploadSessionFileChanges folder renames', () => {
     getState().tags.proposed = {
       title: 'New Album',
       year: 'May 2020',
-      tracks: [{ title: 'Track' }]
+      tracks: [{ title: 'Track', artists: artist }]
     }
 
     await expect(service.applyTagsAndNames(true)).resolves.toEqual({
@@ -487,7 +489,7 @@ describe('UploadSessionFileChanges folder renames', () => {
       title: 'New Album',
       cover: 'https://example.invalid/cover.jpg',
       urls: ['https://example.invalid/release'],
-      tracks: [{ title: 'Track' }]
+      tracks: [{ title: 'Track', artists: artist }]
     }
 
     await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })
@@ -602,7 +604,7 @@ describe('UploadSessionFileChanges folder renames', () => {
   it('keeps a successful restore current after it restores the folder name', async () => {
     const test = setup()
     await test.service.applyTagsAndNames(true)
-    test.getState().tags.proposed = { title: 'New Album', tracks: [{ title: 'Track' }] }
+    test.getState().tags.proposed = { title: 'New Album', tracks: [{ title: 'Track', artists: artist }] }
 
     await expect(test.service.revertFiles()).resolves.toEqual({ ok: true })
     expect(test.getState().draft.workspacePath).toBe('/workspace/Old Album')
@@ -624,7 +626,7 @@ describe('UploadSessionFileChanges folder renames', () => {
       { title: 'First', trackNumber: '1', artists: [{ name: 'Zoe', role: 'main' }] },
       { title: 'Second', trackNumber: '2', artists: [{ name: 'Alice', role: 'main' }, { name: 'Bob', role: 'main' }] }
     ]
-    service.updateTagsProposed({ tracks })
+    service.updateTagsProposed({ title: 'Album', tracks })
     const paths = rename ? ['Z-first.flac', 'A-second.flac'] : ['Zoe.flac', 'Alice.flac']
     mocks.buildFilesRenamePlan.mockReturnValue({
       folderName: 'Old Album',
@@ -641,7 +643,7 @@ describe('UploadSessionFileChanges folder renames', () => {
       payloadPaths: [], changedFileCount: rename ? 2 : 0, strippedPictureCount: 0
     })
     mocks.extractAlbumReleaseWithEmbeddedCoverArt.mockResolvedValueOnce({
-      release: { tracks }, embeddedCoverArtCount: 0, relativePaths: paths
+      release: { title: 'Album', tracks }, embeddedCoverArtCount: 0, relativePaths: paths
     })
 
     await expect(service.applyTagsAndNames(true)).resolves.toEqual({ ok: true })

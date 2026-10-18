@@ -29,7 +29,12 @@ import {
 } from '@shared/tags/editor'
 import { metadataDate } from '@shared/tags/dates'
 import { EMBEDDED_ART_LIMIT_BYTES } from '@shared/upload/naming'
-import { numericTrackPositions, sameTrackPaths, TRACK_ORDER_FALLBACK_NOTICE } from '@shared/tags/trackOrder'
+import {
+  numericTrackPositions,
+  sameTrackPaths,
+  trackCompletenessNotices,
+  TRACK_ORDER_FALLBACK_NOTICE
+} from '@shared/tags/trackOrder'
 import {
   firstAliasValue,
   mergeAliasValues,
@@ -58,6 +63,7 @@ export async function extractAlbumReleaseWithEmbeddedCoverArt(
   oversizeArtCount: number
   relativePaths: string[]
   orderingNotice?: string
+  completenessNotices?: string[]
 }> {
   let files = await discoverFLACInput(path)
   if (files.length === 0) {
@@ -83,12 +89,17 @@ export async function extractAlbumReleaseWithEmbeddedCoverArt(
   }
 
   let orderingNotice: string | undefined
+  let completenessNotices: string[] | undefined
   if (orderedPaths === undefined) {
     // Use raw number tags here: buildTrack defaults absent disc tags to 1.
-    const positions = numericTrackPositions(records.map(({ tagSet }) => ({
+    const numberTags = records.map(({ tagSet }) => ({
       discNumber: firstAliasValue(tagSet.values, 'DISCNUMBER'),
-      trackNumber: firstAliasValue(tagSet.values, 'TRACKNUMBER')
-    })))
+      trackNumber: firstAliasValue(tagSet.values, 'TRACKNUMBER'),
+      trackTotal: firstAliasValue(tagSet.values, 'TRACKTOTAL'),
+      discTotal: firstAliasValue(tagSet.values, 'DISCTOTAL')
+    }))
+    completenessNotices = trackCompletenessNotices(numberTags)
+    const positions = numericTrackPositions(numberTags)
     if (positions) {
       records = records
         .map((record, index) => ({ record, position: positions[index]! }))
@@ -163,7 +174,8 @@ export async function extractAlbumReleaseWithEmbeddedCoverArt(
     embeddedCoverArtCount,
     oversizeArtCount,
     relativePaths: records.map((record) => record.file.relativePath),
-    orderingNotice
+    orderingNotice,
+    completenessNotices
   }
 }
 

@@ -5,6 +5,7 @@ import type {
   UploadFlowStateJSON
 } from '../types/upload'
 import { pendingSeparatorArtists } from '../tags/editor'
+import { missingRequiredTags } from '../tags/requiredTags'
 import { lossyMasterMissingSpectral } from './lossyReport'
 import { fileChecksBlocker } from './fileChecks/blocker'
 import {
@@ -51,7 +52,8 @@ export function stepHasError(index: number, state: UploadFlowStateJSON): boolean
     case 'metadata':
       return taskById(state.background.tasks, 'metadata')?.status === 'failed'
     case 'tags':
-      return pendingSeparatorArtists(state.tags.proposed).length > 0
+      return pendingSeparatorArtists(state.tags.proposed).length > 0 ||
+        missingRequiredTags(state.tags.proposed).length > 0
     case 'transcode':
       return state.transcode?.phase === 'failed' || Boolean(state.transcode?.error)
     case 'upload':

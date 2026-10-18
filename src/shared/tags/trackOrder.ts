@@ -45,6 +45,86 @@ export function numericTrackPositions(tracks: readonly Track[]): TrackPosition[]
   return positions
 }
 
+export interface TrackNumberTags {
+  discNumber?: string
+  trackNumber?: string
+  trackTotal?: string
+  discTotal?: string
+}
+
+/** The total from its own tag, or from the "3/13" form of the number tag. */
+function statedTotal(total: string | undefined, number: string | undefined): number | undefined {
+  return positiveNumber(total) ?? positiveNumber(/^\s*\d+\s*\/\s*(\d+)\s*$/.exec(number ?? '')?.[1])
+}
+
+/** "3", "3 and 5", "12–14": a sorted list of numbers in short form. */
+function numberRanges(numbers: number[]): string {
+  const ranges: string[] = []
+  for (let i = 0; i < numbers.length; i++) {
+    let end = i
+    while (numbers[end + 1] === numbers[end]! + 1) end++
+    ranges.push(end > i ? `${numbers[i]}–${numbers[end]}` : String(numbers[i]))
+    i = end
+  }
+  return ranges.length > 1 ? `${ranges.slice(0, -1).join(', ')} and ${ranges.at(-1)}` : ranges[0]!
+}
+
+/** "Track 3 is" or "Tracks 12–14 are". */
+function numbered(noun: string, numbers: number[]): string {
+  const many = numbers.length > 1
+  return `${noun}${many ? 's' : ''} ${numberRanges(numbers)} ${many ? 'are' : 'is'}`
+}
+
+function missingNumbers(present: Iterable<number>, highest: number): number[] {
+  const seen = new Set(present)
+  return Array.from({ length: highest }, (_, i) => i + 1).filter((n) => !seen.has(n))
+}
+
+/** One total for a set of files; undefined when no file states one. */
+function agreedTotal(
+  totals: (number | undefined)[],
+  what: string,
+  issues: string[],
+  prefix = ''
+): number | undefined {
+  const stated = [...new Set(totals.filter((total) => total !== undefined))].sort((a, b) => a - b)
+  if (stated.length > 1) issues.push(`${prefix}Files disagree on the ${what} total (${stated.join(', ')}).`)
+  return stated.length === 1 ? stated[0] : undefined
+}
+
+/** Signs that tracks or discs are missing, read from the source tags. */
+export function trackCompletenessNotices(files: readonly TrackNumberTags[]): string[] {
+  const positions = numericTrackPositions(files)
+  if (!positions) return []
+  const issues: string[] = []
+  const discs = [...new Set(positions.map((position) => position.disc))].sort((a, b) => a - b)
+  const multiDisc = discs.length > 1 || discs[0] !== 1
+  const lostDiscs = missingNumbers(discs, discs.at(-1)!)
+  if (lostDiscs.length > 0) issues.push(`${numbered('Disc', lostDiscs)} missing.`)
+  const discTotals = files.map((file) => statedTotal(file.discTotal, file.discNumber))
+  const discTotal = agreedTotal(discTotals, 'disc', issues)
+  if (discTotal !== undefined && discTotal > discs.at(-1)!) {
+    issues.push(`Tags say ${discTotal} discs; the folder has ${discs.length}.`)
+  }
+  for (const disc of discs) {
+    const prefix = multiDisc ? `Disc ${disc}: ` : ''
+    const onDisc = files.filter((_, index) => positions[index]!.disc === disc)
+    const numbers = positions.filter((position) => position.disc === disc).map((position) => position.track)
+    const highest = Math.max(...numbers)
+    const lost = missingNumbers(numbers, highest)
+    if (lost.length > 0) issues.push(`${prefix}${numbered('Track', lost)} missing.`)
+    const totals = onDisc.map((file) => statedTotal(file.trackTotal, file.trackNumber))
+    const total = agreedTotal(totals, 'track', issues, prefix)
+    if (total === undefined) continue
+    const past = numbers.filter((n) => n > total).sort((a, b) => a - b)
+    if (past.length > 0) issues.push(`${prefix}${numbered('Track', past)} numbered past the total of ${total}.`)
+    if (total !== numbers.length) {
+      issues.push(`${prefix}Tags say ${total} tracks; the ${multiDisc ? 'disc' : 'folder'} has ${numbers.length}.`)
+    }
+  }
+  return issues
+}
+
 export function trackPositionMismatchNotice(
   current: readonly Track[],
   selected: readonly Track[]

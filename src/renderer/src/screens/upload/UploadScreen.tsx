@@ -30,6 +30,7 @@ import {
   type ArtistEditRow
 } from '@shared/tags/editor'
 import { invalidReleaseDateFields } from '@shared/tags/dates'
+import { missingRequiredTags } from '@shared/tags/requiredTags'
 import { lossyMasterMissingSpectral } from '@shared/upload/lossyReport'
 import {
   UPLOAD_STEPS,
@@ -615,6 +616,7 @@ export function UploadScreen(props: {
                     props.state.files.apply.phase === 'applying' ||
                     props.state.files.apply.phase === 'restoring' ||
                     pendingSeparatorArtists(props.state.tags.proposed).length > 0 ||
+                    missingRequiredTags(props.state.tags.proposed).length > 0 ||
                     invalidReleaseDateFields(
                       props.state.tags.proposed?.groupYear,
                       props.state.tags.proposed?.year

@@ -202,6 +202,8 @@ export type TagsStatus = 'idle' | 'loading' | 'ready' | 'failed'
 
 export interface TagsSnapshot {
   orderingNotice?: string
+  /** Read from the source tags before any rewrite: signs of missing tracks. */
+  completenessNotices?: string[]
   current?: Release
   currentStatus?: TagsStatus
   currentError?: string
