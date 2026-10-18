@@ -13,7 +13,8 @@ import {
   mqaTone,
   upconvertFindings,
   upconvertHeadline,
-  upconvertTone
+  upconvertTone,
+  validateMqaEditionTitle
 } from '../fileChecks'
 
 function snapshot(overrides: Partial<FileChecksSnapshot> = {}): FileChecksSnapshot {
@@ -72,6 +73,17 @@ describe('MQA reporting', () => {
     const s = snapshot()
     expect(mqaHeadline(s)).toBe('No FLAC files for MQA checks')
     expect(mqaTone(s)).toBe('info')
+  })
+
+  it.each([
+    [['02.flac'], 'Live (MQA)', null],
+    [['02.flac'], '24bit mqa', null],
+    [['02.flac'], 'Deluxe Edition', 'MQA files found. Add “MQA” to the edition title.'],
+    [['02.flac'], undefined, 'MQA files found. Add “MQA” to the edition title.'],
+    [[], 'Deluxe Edition', null]
+  ])('checks the edition title: %j, %j', (mqaPaths, remasterTitle, error) => {
+    const s = snapshot({ mqa: { checkedCount: 2, mqaPaths, errors: [] } })
+    expect(validateMqaEditionTitle(s, { remasterTitle })).toBe(error)
   })
 })
 

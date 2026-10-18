@@ -78,7 +78,10 @@ export function deriveEncoding(tracks: TrackAudioInfo[]): {
   }
 }
 
-export async function inspectTranscode(workspacePath: string): Promise<TranscodeInspection> {
+export async function inspectTranscode(
+  workspacePath: string,
+  mqaPaths: string[] = []
+): Promise<TranscodeInspection> {
   if (!workspacePath) {
     throw new Error('workspace path is required')
   }
@@ -123,8 +126,13 @@ export async function inspectTranscode(workspacePath: string): Promise<Transcode
     })
   }
 
+  // MQA may not be transcoded in any way. The source FLAC still uploads.
+  if (mqaPaths.length > 0) {
+    blockers.push({ kind: 'mqa', message: 'MQA files cannot be transcoded.' })
+  }
+
   let options =
-    tracks.length === 0 || blockers.some((b) => b.kind === 'lossy' || b.kind === 'empty')
+    tracks.length === 0 || blockers.some((b) => b.kind === 'lossy' || b.kind === 'empty' || b.kind === 'mqa')
       ? []
       : getDownconversionOptions(workspacePath, encoding, sampleRate, hybrid)
 

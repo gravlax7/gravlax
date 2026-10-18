@@ -293,7 +293,7 @@ export interface TranscodeOption {
 }
 
 export interface TranscodeBlocker {
-  kind: 'lossy' | 'multichannel' | 'untagged' | 'empty' | 'unusual-rate'
+  kind: 'lossy' | 'multichannel' | 'untagged' | 'empty' | 'unusual-rate' | 'mqa'
   message: string
 }
 

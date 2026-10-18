@@ -150,7 +150,11 @@ import { UploadSessionRuntime, type UploadSessionRuntimeDeps } from '@main/servi
 import { UploadSessionFileChanges } from '@main/services/uploadSessionFileChanges'
 import { evaluateStepNavigation } from '@shared/upload/workflow'
 import { transcodeStepHidden } from '@shared/upload/stepGating'
-import { fileChecksBlocker, flacIntegrityRepairAllowed } from '@shared/upload/fileChecks'
+import {
+  fileChecksBlocker,
+  flacIntegrityRepairAllowed,
+  validateMqaEditionTitle
+} from '@shared/upload/fileChecks'
 import { listUploadStartEntries } from '@main/services/uploadStartService'
 import type { UploadStatsRecord } from '@main/services/uploadStatsService'
 import type { ToolResolver } from '@main/core/tools/binaries'
@@ -557,6 +561,7 @@ export class UploadSession {
       validatePreparedUploadFormats(this.state) ??
       validateUploadReport(this.state.upload) ??
       validateLossyMasterReport(this.state.draft) ??
+      validateMqaEditionTitle(this.state.fileChecks, this.state.upload) ??
       validateUploadTargets(this.state.upload, cfg, pendingTrackerIds)
     if (error) {
       this.apply(failUploadReport(this.state, error))
@@ -1673,15 +1678,19 @@ export class UploadSession {
     if (!this.state.draft.workspacePath) return
     const t = getTask(this.state.background, 'transcode')
     if (!t || t.status !== 'queued') return
+    // Wait for the MQA result: MQA blocks every transcode.
+    const files = getTask(this.state.background, 'file-checks')
+    if (files?.status !== 'succeeded' && files?.status !== 'failed') return
 
     const workspacePath = this.state.draft.workspacePath
+    const mqaPaths = this.state.fileChecks.mqa.mqaPaths
     this.apply(
       markBackgroundTaskRunning(setTranscodePhase(this.state, 'inspecting'), 'transcode')
     )
 
     void this.transcode.run(
       async (task) => {
-        const inspection = await inspectTranscode(workspacePath)
+        const inspection = await inspectTranscode(workspacePath, mqaPaths)
         if (!task.fresh()) return
         const detail =
           inspection.blockers.length > 0

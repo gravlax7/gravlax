@@ -40,6 +40,7 @@ import {
 } from '@shared/upload/lossyReport'
 import { anySelectedTrackerHasGroupId } from '@shared/upload/groupIds'
 import { mixedWebTrackerGuidance } from '@shared/upload/mixedAudio'
+import { validateMqaEditionTitle } from '@shared/upload/fileChecks'
 import {
   artistRoleToImportance,
   importanceToArtistRole
@@ -138,6 +139,7 @@ function uploadBlockedReason(
     validatePreparedUploadFormats(state) ??
     validateUploadReport(state.upload) ??
     validateLossyMasterReport(state.draft) ??
+    validateMqaEditionTitle(state.fileChecks, state.upload) ??
     validateUploadTargets(
       state.upload,
       config,

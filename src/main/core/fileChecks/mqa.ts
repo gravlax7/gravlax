@@ -1,9 +1,18 @@
 import type { MQASummary } from '@shared/types'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { checkMQA } from '../tools/diagnostics/mqa'
+import { readFlacLayout } from '@main/core/tools/flacLayout'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
 
 export type { MQASummary }
+
+/** MQA encoders leave an MQAENCODER tag or name themselves in a tag value. */
+export async function hasMQATags(path: string): Promise<boolean> {
+  const { comments } = await readFlacLayout(path)
+  return Object.entries(comments).some(([key, values]) =>
+    key === 'MQAENCODER' || values.some((value) => value.toLowerCase().includes('mqaencode'))
+  )
+}
 
 export async function checkMQAWorkspace(
   path: string,
@@ -28,7 +37,8 @@ export async function checkMQAWorkspace(
     const file = files[i]!
     options.onProgress?.(i, files.length, file.relativePath)
     try {
-      const ok = await check(file.absolutePath, options.signal)
+      const ok =
+        (await hasMQATags(file.absolutePath)) || (await check(file.absolutePath, options.signal))
       if (ok) {
         summary.mqaPaths.push(file.relativePath)
       }
