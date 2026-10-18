@@ -4,8 +4,8 @@ import { audioProfileIsMixed, summarizeAudioTracks } from '../../audioProfile'
 describe('audio profiles', () => {
   it('finds mixed properties and their highest values', () => {
     const profile = summarizeAudioTracks([
-      { relativePath: '01.flac', bitDepth: 16, sampleRate: 192000 },
-      { relativePath: '02.flac', bitDepth: 24, sampleRate: 44100 }
+      { relativePath: '01.flac', bitDepth: 16, sampleRate: 192000, channels: 2, durationSeconds: 0, audioBytes: 0, vendor: '' },
+      { relativePath: '02.flac', bitDepth: 24, sampleRate: 44100, channels: 2, durationSeconds: 0, audioBytes: 0, vendor: '' }
     ])
     expect(profile).toMatchObject({
       highestBitDepth: 24,
@@ -18,8 +18,8 @@ describe('audio profiles', () => {
 
   it('reports uniform settings without a warning flag', () => {
     const profile = summarizeAudioTracks([
-      { relativePath: '01.flac', bitDepth: 24, sampleRate: 96000 },
-      { relativePath: '02.flac', bitDepth: 24, sampleRate: 96000 }
+      { relativePath: '01.flac', bitDepth: 24, sampleRate: 96000, channels: 2, durationSeconds: 0, audioBytes: 0, vendor: '' },
+      { relativePath: '02.flac', bitDepth: 24, sampleRate: 96000, channels: 2, durationSeconds: 0, audioBytes: 0, vendor: '' }
     ])
     expect(profile).toMatchObject({ mixedBitDepth: false, mixedSampleRate: false })
     expect(audioProfileIsMixed(profile)).toBe(false)

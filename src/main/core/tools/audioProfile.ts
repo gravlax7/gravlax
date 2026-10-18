@@ -1,5 +1,5 @@
 import type { AudioTrackProfile, ReleaseAudioProfile } from '@shared/types'
-import { readFLACStreamInfo } from '@main/core/tools/diagnostics/mqa'
+import { readFlacLayout } from '@main/core/tools/flacLayout'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 
 export function summarizeAudioTracks(tracks: AudioTrackProfile[]): ReleaseAudioProfile {
@@ -18,11 +18,15 @@ export async function gatherReleaseAudioProfile(root: string): Promise<ReleaseAu
   const files = await discoverFLACFiles(root)
   const tracks: AudioTrackProfile[] = []
   for (const file of files) {
-    const stream = await readFLACStreamInfo(file.absolutePath)
+    const { stream, vendor, audioBytes } = await readFlacLayout(file.absolutePath)
     tracks.push({
       relativePath: file.relativePath,
       bitDepth: stream.bitsPerSample,
-      sampleRate: stream.sampleRate
+      sampleRate: stream.sampleRate,
+      channels: stream.channels,
+      durationSeconds: stream.durationSeconds,
+      audioBytes,
+      vendor
     })
   }
   return summarizeAudioTracks(tracks)

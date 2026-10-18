@@ -11,6 +11,7 @@ export async function writeSyntheticFlac(
     distinctChannels?: boolean
     durationSeconds?: number
     silenceSeconds?: number
+    encoderArgs?: string[]
   } = {}
 ): Promise<void> {
   const bitsPerSample = options.bitsPerSample ?? 16
@@ -59,6 +60,7 @@ export async function writeSyntheticFlac(
     await runCommand('flac', [
       '--silent',
       '--force',
+      ...(options.encoderArgs ?? []),
       '--tag=ARTIST=Test Artist',
       '--tag=ALBUM=Synthetic Test Audio',
       '--tag=TITLE=Tone',

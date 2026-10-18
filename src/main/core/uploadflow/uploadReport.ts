@@ -16,7 +16,7 @@ import { derivedUploadFieldsFromTags } from '@shared/upload/derivedFields'
 import { discoverLogFiles } from '@main/core/tools/diagnostics/sourceMedia'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
 import { enumerateReleaseFiles, totalSize } from '@main/core/tools/releaseFiles'
-import { readFLACStreamInfo } from '@main/core/tools/diagnostics/mqa'
+import { readFLACStreamInfo } from '@main/core/tools/flacLayout'
 import {
   albumDescMetadataFromRelease,
   generateAlbumDescription,

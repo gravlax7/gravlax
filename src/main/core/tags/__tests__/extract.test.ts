@@ -36,6 +36,7 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
     const padded = join(directory, 'padded.flac')
     await writeFile(padded, Buffer.concat([
       Buffer.from('fLaC'),
+      streamInfoBlock(),
       metadataBlock(4, vorbisComments(['TRACKNUMBER=1', 'COVERART=abcd']), false),
       metadataBlock(6, Buffer.alloc(1000), false),
       metadataBlock(1, Buffer.alloc(1024 * 1024 - 1004), true)
@@ -47,6 +48,7 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
 
     await writeFile(padded, Buffer.concat([
       Buffer.from('fLaC'),
+      streamInfoBlock(),
       metadataBlock(4, vorbisComments(['TRACKNUMBER=1']), false),
       metadataBlock(1, Buffer.alloc(1024 * 1024 + 1), true)
     ]))
@@ -334,11 +336,18 @@ async function writeFlac(
   comments: string[],
   pictureCount = 0
 ): Promise<void> {
-  const blocks = [metadataBlock(4, vorbisComments(comments), pictureCount === 0)]
+  const blocks = [streamInfoBlock(), metadataBlock(4, vorbisComments(comments), pictureCount === 0)]
   for (let index = 0; index < pictureCount; index++) {
     blocks.push(metadataBlock(6, Buffer.from([index]), index === pictureCount - 1))
   }
   await writeFile(path, Buffer.concat([Buffer.from('fLaC'), ...blocks]))
+}
+
+/** 16-bit stereo at 44.1 kHz. */
+function streamInfoBlock(): Buffer {
+  const data = Buffer.alloc(34)
+  data.set([0x0a, 0xc4, 0x42, 0xf0], 10)
+  return metadataBlock(0, data, false)
 }
 
 function metadataBlock(type: number, payload: Buffer, last: boolean): Buffer {

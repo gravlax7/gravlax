@@ -2,7 +2,7 @@ import { readdir } from 'node:fs/promises'
 import { extname, join, relative, sep } from 'node:path'
 import type { TranscodeBlocker, TranscodeEncoding, TranscodeInspection } from '@shared/types'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
-import { readFLACStreamInfo } from '@main/core/tools/diagnostics/mqa'
+import { readFLACStreamInfo } from '@main/core/tools/flacLayout'
 import { getDownconversionOptions, sampleRateFamily } from './options'
 import { readPreparedFlacTags } from './tags'
 

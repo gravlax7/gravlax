@@ -15,6 +15,9 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
 })
 
+// The files hold no audio, so skip the compression read.
+const checkCompressed = async () => undefined
+
 async function workspace(...files: string[]): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'gravlax-integrity-'))
   roots.push(root)
@@ -29,7 +32,7 @@ describe('FLAC integrity checks', () => {
   it('checks nested FLACs with warnings treated as errors', async () => {
     const root = await workspace('CD2/02.flac', 'CD1/01.FLAC')
     const run = vi.fn<typeof runCommand>(async () => Buffer.alloc(0))
-    const summary = await checkFLACIntegrityWorkspace(root, { run })
+    const summary = await checkFLACIntegrityWorkspace(root, { run, checkCompressed })
 
     expect(summary.status).toBe('passed')
     expect(summary.checkedCount).toBe(2)
@@ -45,7 +48,7 @@ describe('FLAC integrity checks', () => {
       if (basename(args.at(-1)!) === '02.flac') throw new Error('MD5 signature was unset')
       return Buffer.alloc(0)
     })
-    const summary = await checkFLACIntegrityWorkspace(root, { run })
+    const summary = await checkFLACIntegrityWorkspace(root, { run, checkCompressed })
 
     expect(summary.status).toBe('failed')
     expect(summary.failures).toEqual([
@@ -86,6 +89,7 @@ describe('workspace FLAC repair', () => {
 
     const summary = await repairFLACIntegrityWorkspace(root, {
       run,
+      checkCompressed,
       repair,
       onRepairStarting,
       onProgress
@@ -117,7 +121,7 @@ describe('workspace FLAC repair', () => {
     const run = vi.fn<typeof runCommand>(async () => Buffer.alloc(0))
     const onRepairStarting = vi.fn(async () => undefined)
 
-    await repairFLACIntegrityWorkspace(root, { run, onRepairStarting })
+    await repairFLACIntegrityWorkspace(root, { run, checkCompressed, onRepairStarting })
 
     expect(onRepairStarting).not.toHaveBeenCalled()
   })
@@ -127,7 +131,7 @@ describe('workspace FLAC repair', () => {
     const run = vi.fn<typeof runCommand>(async () => { throw new Error('corrupt frame') })
     const repair = vi.fn(async (_path: string) => { throw new Error('encode failed') })
 
-    const summary = await repairFLACIntegrityWorkspace(root, { run, repair })
+    const summary = await repairFLACIntegrityWorkspace(root, { run, checkCompressed, repair })
 
     expect(repair).toHaveBeenCalledOnce()
     expect(summary.status).toBe('failed')

@@ -3,7 +3,7 @@ import type { CheckTone } from '@shared/upload/fileChecks'
 import { Card, Icon, type IconName } from '../../../ui'
 
 export function FileChecksResult(props: {
-  tone: CheckTone | 'error'
+  tone: CheckTone
   icon: IconName
   children: JSX.Element
 }) {

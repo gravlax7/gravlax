@@ -101,7 +101,15 @@ export function restoreFileChecks(snapshot: FileChecksSnapshot | undefined): Fil
       quarantined: (structure?.quarantined ?? []).map((item) => ({ ...item }))
     },
     audio: {
-      tracks: (audio?.tracks ?? []).map((track) => ({ ...track })),
+      tracks: (audio?.tracks ?? []).map((track) => ({
+        relativePath: track.relativePath,
+        bitDepth: track.bitDepth,
+        sampleRate: track.sampleRate,
+        channels: track.channels ?? 0,
+        durationSeconds: track.durationSeconds ?? 0,
+        audioBytes: track.audioBytes ?? 0,
+        vendor: track.vendor ?? ''
+      })),
       highestBitDepth: audio?.highestBitDepth ?? 0,
       highestSampleRate: audio?.highestSampleRate ?? 0,
       mixedBitDepth: audio?.mixedBitDepth ?? false,

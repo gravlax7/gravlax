@@ -1,8 +1,8 @@
-import { open, stat } from 'node:fs/promises'
+import { stat } from 'node:fs/promises'
 import { basename, extname } from 'node:path'
 import type { Artist, Release, Track } from '@shared/types'
 import { discoverFLACFiles, type FlacFile } from '@main/core/tools/flacFiles'
-import { readExact } from '@main/core/tools/readExact'
+import { readFlacLayout } from '@main/core/tools/flacLayout'
 import {
   FIELD_ALBUM_ARTIST,
   FIELD_ARTISTS,
@@ -179,72 +179,10 @@ async function discoverFLACInput(path: string): Promise<FlacFile[]> {
 }
 
 export async function readFLACTags(path: string): Promise<FlacTags> {
-  const handle = await open(path, 'r')
-  try {
-    const header = Buffer.alloc(4)
-    await readExact(handle, header, 0)
-    if (header.toString('utf8') !== 'fLaC') {
-      throw new Error('not a FLAC file')
-    }
-
-    let position = 4
-    let values: Record<string, string[]> = {}
-    let pictureCount = 0
-    let artAndPaddingBytes = 0
-    for (;;) {
-      const blockHeader = Buffer.alloc(4)
-      await readExact(handle, blockHeader, position)
-      position += blockHeader.length
-      const isLast = (blockHeader[0]! & 0x80) !== 0
-      const blockType = blockHeader[0]! & 0x7f
-      const blockLength = (blockHeader[1]! << 16) | (blockHeader[2]! << 8) | blockHeader[3]!
-      if (blockType === 4) {
-        const payload = Buffer.alloc(blockLength)
-        await readExact(handle, payload, position)
-        values = parseVorbisComments(payload)
-      } else if (blockType === 6) {
-        pictureCount += 1
-        artAndPaddingBytes += blockLength
-      } else if (blockType === 1) {
-        artAndPaddingBytes += blockLength
-      }
-      position += blockLength
-      if (isLast) break
-    }
-    for (const value of values.COVERART ?? []) artAndPaddingBytes += Buffer.byteLength(value)
-    return { values, pictureCount, artAndPaddingBytes }
-  } finally {
-    await handle.close()
-  }
-}
-
-function parseVorbisComments(payload: Buffer): Record<string, string[]> {
-  let offset = 0
-  const readUint32 = (): number => {
-    const value = payload.readUInt32LE(offset)
-    offset += 4
-    return value
-  }
-  const readString = (): string => {
-    const length = readUint32()
-    const value = payload.subarray(offset, offset + length).toString('utf8')
-    offset += length
-    return value
-  }
-
-  readString()
-  const commentCount = readUint32()
-  const values: Record<string, string[]> = {}
-  for (let i = 0; i < commentCount; i++) {
-    const comment = readString()
-    const eq = comment.indexOf('=')
-    if (eq < 0) continue
-    const key = comment.slice(0, eq).trim().toUpperCase()
-    const value = comment.slice(eq + 1).trim()
-    if (!key || !value) continue
-    ;(values[key] ??= []).push(value)
-  }
-  return values
+  const layout = await readFlacLayout(path)
+  let artAndPaddingBytes = layout.pictureBytes + layout.paddingBytes
+  for (const value of layout.comments.COVERART ?? []) artAndPaddingBytes += Buffer.byteLength(value)
+  return { values: layout.comments, pictureCount: layout.pictureCount, artAndPaddingBytes }
 }
 
 /** Picture blocks plus legacy COVERART comments: what a strip removes. */

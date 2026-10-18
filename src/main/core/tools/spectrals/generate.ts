@@ -2,7 +2,7 @@ import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { discoverFLACFiles, type FlacFile } from '@main/core/tools/flacFiles'
 import { automaticToolResolver, type ToolId, type ToolResolver } from '@main/core/tools/binaries'
-import { readFLACStreamInfo } from '@main/core/tools/diagnostics/mqa'
+import { readFLACStreamInfo } from '@main/core/tools/flacLayout'
 import { runCommand } from '@main/core/tools/runCommand'
 import { processFiles } from '@main/core/tools/transcode/processFiles'
 

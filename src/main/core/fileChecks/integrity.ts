@@ -3,6 +3,7 @@ import { basename, dirname, join } from 'node:path'
 import type { IntegrityIssue, IntegritySummary, RepairFlowStage } from '@shared/types'
 import { automaticToolResolver, type ToolResolver } from '../tools/binaries'
 import { discoverFLACFiles } from '../tools/flacFiles'
+import { readFlacLayout } from '../tools/flacLayout'
 import { runCommand } from '../tools/runCommand'
 
 type CommandRunner = typeof runCommand
@@ -11,6 +12,7 @@ interface IntegrityOptions {
   signal?: AbortSignal
   tools?: ToolResolver
   run?: CommandRunner
+  checkCompressed?: (path: string) => Promise<void>
   onProgress?: (
     current: number,
     total: number,
@@ -44,6 +46,15 @@ export async function checkFLACIntegrity(
   )
 }
 
+/** An uncompressed FLAC holds more audio bytes than the raw PCM it decodes to. */
+export async function checkFLACCompressed(path: string): Promise<void> {
+  const { stream, audioBytes } = await readFlacLayout(path)
+  const pcmBytes = (stream.channels * stream.totalSamples * stream.bitsPerSample) / 8
+  if (stream.totalSamples > 0 && audioBytes > pcmBytes) {
+    throw new Error('FLAC is not compressed.')
+  }
+}
+
 export async function checkFLACIntegrityWorkspace(
   root: string,
   options: IntegrityOptions = {}
@@ -69,6 +80,7 @@ export async function checkFLACIntegrityWorkspace(
     options.onProgress?.(index, files.length, file.relativePath)
     try {
       await checkFLACIntegrity(file.absolutePath, options)
+      await (options.checkCompressed ?? checkFLACCompressed)(file.absolutePath)
     } catch (error) {
       if ((error as Error).name === 'AbortError') throw error
       failures.push({ relativePath: file.relativePath, message: messageFrom(error) })

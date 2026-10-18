@@ -152,6 +152,33 @@ describe('highestReachableStep', () => {
     expect(stepHasError(0, state)).toBe(true)
   })
 
+  it('blocks every later step while a file is above 24-bit', () => {
+    const state = baseState({
+      draft: { ...baseState().draft, sourcePath: '/a', workspacePath: '/w', sourceMedia: 'WEB' },
+      fileChecks: {
+        ...baseState().fileChecks,
+        audio: {
+          ...baseState().fileChecks.audio,
+          tracks: [{
+            relativePath: '01.flac',
+            bitDepth: 32,
+            sampleRate: 96_000,
+            channels: 2,
+            durationSeconds: 0,
+            audioBytes: 0,
+            vendor: ''
+          }]
+        }
+      }
+    })
+    expect(highestReachableStep(state)).toBe(0)
+    expect(evaluateStepNavigation(state, 1)).toEqual({
+      ok: false,
+      error: expect.stringMatching(/^FLAC files may be at most 24-bit/)
+    })
+    expect(stepHasError(0, state)).toBe(true)
+  })
+
   it('does not gate on a failed file-checks', () => {
     const draft = {
       sourcePath: '/a',

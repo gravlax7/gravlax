@@ -1,26 +1,10 @@
 import { spawn } from 'node:child_process'
-import { open } from 'node:fs/promises'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
-import { readExact } from '@main/core/tools/readExact'
+import { readFLACStreamInfo, type FlacStreamInfo } from '@main/core/tools/flacLayout'
 
 const MQA_MAGIC = 0xbe0498c88
 const MQA_MAGIC_BITS = 36
 const MQA_MASK = 0x1000000000
-
-export class NotFLACError extends Error {
-  constructor() {
-    super('not a FLAC file')
-    this.name = 'NotFLACError'
-  }
-}
-
-export interface FlacStreamInfo {
-  sampleRate: number
-  channels: number
-  bitsPerSample: number
-  totalSamples: number
-  durationSeconds: number
-}
 
 export async function checkMQA(
   path: string,
@@ -33,57 +17,6 @@ export async function checkMQA(
   }
   const { left, right } = await decodeFirstSecond(path, info, signal, tools)
   return checkMQASyncword(left, right)
-}
-
-export async function readFLACStreamInfo(path: string): Promise<FlacStreamInfo> {
-  const handle = await open(path, 'r')
-  try {
-    const magic = Buffer.alloc(4)
-    await readExact(handle, magic)
-    if (magic.toString('utf8') !== 'fLaC') {
-      throw new NotFLACError()
-    }
-
-    const header = Buffer.alloc(4)
-    await readExact(handle, header)
-    const blockType = header[0]! & 0x7f
-    const length = (header[1]! << 16) | (header[2]! << 8) | header[3]!
-    if (blockType !== 0) {
-      throw new Error('missing STREAMINFO metadata block')
-    }
-    if (length < 34) {
-      throw new Error(`invalid STREAMINFO length: ${length}`)
-    }
-
-    const data = Buffer.alloc(length)
-    await readExact(handle, data)
-
-    const sampleRate = (data[10]! << 12) | (data[11]! << 4) | (data[12]! >> 4)
-    const channels = ((data[12]! >> 1) & 0x07) + 1
-    const bitsPerSample = (((data[12]! & 0x01) << 4) | (data[13]! >> 4)) + 1
-    const totalSamples =
-      (data[13]! & 0x0f) * 0x100000000 +
-      data[14]! * 0x1000000 +
-      data[15]! * 0x10000 +
-      data[16]! * 0x100 +
-      data[17]!
-    if (sampleRate <= 0) {
-      throw new Error('cannot determine sample rate')
-    }
-    if (bitsPerSample <= 0 || bitsPerSample > 32) {
-      throw new Error(`unsupported bits per sample: ${bitsPerSample}`)
-    }
-
-    return {
-      sampleRate,
-      channels,
-      bitsPerSample,
-      totalSamples,
-      durationSeconds: totalSamples > 0 ? totalSamples / sampleRate : 0
-    }
-  } finally {
-    await handle.close()
-  }
 }
 
 async function decodeFirstSecond(

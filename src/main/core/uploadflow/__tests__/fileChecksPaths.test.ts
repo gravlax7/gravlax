@@ -16,8 +16,8 @@ describe('file-checks paths', () => {
       structure: { ready: true, issues: [], approvedPaths: [], emptyDirectories: [], quarantined: [] },
       audio: {
         tracks: [
-          { relativePath: '01.flac', bitDepth: 16, sampleRate: 44100 },
-          { relativePath: '02.flac', bitDepth: 24, sampleRate: 96000 }
+          { relativePath: '01.flac', bitDepth: 16, sampleRate: 44100, channels: 2, durationSeconds: 0, audioBytes: 0, vendor: '' },
+          { relativePath: '02.flac', bitDepth: 24, sampleRate: 96000, channels: 2, durationSeconds: 0, audioBytes: 0, vendor: '' }
         ],
         highestBitDepth: 24,
         highestSampleRate: 96000,

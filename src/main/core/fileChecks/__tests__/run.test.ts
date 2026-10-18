@@ -11,7 +11,7 @@ const passedIntegrity: IntegritySummary = {
 }
 
 const audioProfile: ReleaseAudioProfile = {
-  tracks: [{ relativePath: '01.flac', bitDepth: 16, sampleRate: 44100 }],
+  tracks: [{ relativePath: '01.flac', bitDepth: 16, sampleRate: 44100, channels: 2, durationSeconds: 0, audioBytes: 0, vendor: '' }],
   highestBitDepth: 16,
   highestSampleRate: 44100,
   mixedBitDepth: false,

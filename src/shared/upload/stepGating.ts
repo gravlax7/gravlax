@@ -6,7 +6,7 @@ import type {
 } from '../types/upload'
 import { pendingSeparatorArtists } from '../tags/editor'
 import { lossyMasterMissingSpectral } from './lossyReport'
-import { upconvertsFound } from './fileChecks/upconvert'
+import { fileChecksBlocker } from './fileChecks/blocker'
 import {
   WORKFLOW_STEPS,
   evaluateStepNavigation,
@@ -41,7 +41,7 @@ export function stepHasError(index: number, state: UploadFlowStateJSON): boolean
     case 'file-checks':
       return !state.fileChecks.structure.ready ||
         state.fileChecks.integrity.status === 'failed' ||
-        upconvertsFound(state.fileChecks) ||
+        Boolean(fileChecksBlocker(state.fileChecks)) ||
         taskById(state.background.tasks, 'file-checks')?.status === 'failed'
     case 'spectrals': {
       const spectrals = taskById(state.background.tasks, 'spectrals')

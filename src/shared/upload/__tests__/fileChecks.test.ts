@@ -5,6 +5,7 @@ import {
   hasLogIssues,
   hasLogResults,
   hasUpconvertResults,
+  integrityTone,
   logHeadline,
   logScores,
   logTone,
@@ -38,6 +39,21 @@ function check(overrides: Partial<LogCheck> = {}): LogCheck {
     ...overrides
   }
 }
+
+describe('integrity reporting', () => {
+  it('marks a failed check red, since it blocks the upload', () => {
+    const s = snapshot({
+      integrity: {
+        status: 'failed',
+        checkedCount: 1,
+        failures: [{ relativePath: '01.flac', message: 'FLAC is not compressed.' }],
+        repairedPaths: [],
+        repairErrors: []
+      }
+    })
+    expect(integrityTone(s)).toBe('error')
+  })
+})
 
 describe('MQA reporting', () => {
   it('flags a release with MQA markers', () => {

@@ -9,7 +9,7 @@ import { applyTagsAndRenames } from '../apply'
 import { defaultConfig } from '@main/core/config/defaults'
 import { initializeFiles, newState, seedTagsProposed } from '@main/core/uploadflow'
 import { buildFilesRenamePlan } from '@shared/upload/naming'
-import { readFLACStreamInfo } from '../../diagnostics/mqa'
+import { readFLACStreamInfo } from '../../flacLayout'
 
 async function binaryAvailable(name: string): Promise<boolean> {
   for (const part of (process.env.PATH ?? '').split(delimiter)) {

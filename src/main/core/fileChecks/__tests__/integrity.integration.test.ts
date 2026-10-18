@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { describe, expect, it, vi } from 'vitest'
 import { writeSyntheticFlac } from '../../tools/__tests__/helpers/audioFixture'
 import { runCommand } from '../../tools/runCommand'
-import { checkFLACIntegrity, repairFLACIntegrity } from '../integrity'
+import { checkFLACCompressed, checkFLACIntegrity, repairFLACIntegrity } from '../integrity'
 
 async function binaryAvailable(name: string): Promise<boolean> {
   for (const part of (process.env.PATH ?? '').split(delimiter)) {
@@ -89,4 +89,28 @@ describe('FLAC integrity repair with real tools', () => {
       await rm(root, { recursive: true, force: true })
     }
   })
+
+  it('flags an uncompressed FLAC that passes -wt, and the repair compresses it', async () => {
+    if (!(await binaryAvailable('flac'))) return
+    const root = await mkdtemp(join(tmpdir(), 'gravlax-integrity-verbatim-'))
+    try {
+      const plain = join(root, 'plain.flac')
+      const verbatim = join(root, 'verbatim.flac')
+      await writeSyntheticFlac(plain)
+      await writeSyntheticFlac(verbatim, {
+        encoderArgs: ['-l', '0', '--disable-constant-subframes', '--disable-fixed-subframes']
+      })
+
+      await checkFLACIntegrity(verbatim)
+      await expect(checkFLACCompressed(plain)).resolves.toBeUndefined()
+      await expect(checkFLACCompressed(verbatim)).rejects.toThrow('FLAC is not compressed.')
+
+      const audio = await decodedHash(verbatim)
+      await repairFLACIntegrity(verbatim)
+      await expect(checkFLACCompressed(verbatim)).resolves.toBeUndefined()
+      expect(await decodedHash(verbatim)).toBe(audio)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }, 30_000)
 })

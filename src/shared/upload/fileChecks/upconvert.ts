@@ -38,7 +38,7 @@ export function upconvertHeadline(fileChecks: FileChecksSnapshot): string {
   return 'No likely 24-bit upconverts found'
 }
 
-export function upconvertTone(fileChecks: FileChecksSnapshot): CheckTone | 'error' {
+export function upconvertTone(fileChecks: FileChecksSnapshot): CheckTone {
   const upconvert = fileChecks.upconvert
   if (upconvertsFound(fileChecks)) return 'error'
   if (upconvert.errors.length > 0) return 'warning'

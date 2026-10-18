@@ -16,7 +16,7 @@ export function integrityHeadline(fileChecks: FileChecksSnapshot): string {
 
 export function integrityTone(fileChecks: FileChecksSnapshot): CheckTone {
   if (fileChecks.integrity.status === 'passed') return 'success'
-  if (fileChecks.integrity.status === 'failed') return 'warning'
+  if (fileChecks.integrity.status === 'failed') return 'error'
   return 'info'
 }
 

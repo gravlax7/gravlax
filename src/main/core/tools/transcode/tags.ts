@@ -1,9 +1,9 @@
-import { mkdtemp, open, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import NodeID3 from 'node-id3'
 import { readFLACTags } from '@main/core/tags/extract'
-import { readExact } from '@main/core/tools/readExact'
+import { PICTURE_BLOCK, readFlacBlocks } from '@main/core/tools/flacLayout'
 import { dateYear } from '@shared/tags/dates'
 import { dropTranscodeOnlyTags, isTranscodeDroppedTag } from '@shared/tags/projection'
 import { automaticToolResolver, type ToolResolver } from '@main/core/tools/binaries'
@@ -94,32 +94,8 @@ export async function readPreparedFlacTags(
 }
 
 export async function readFlacPictures(flacPath: string): Promise<FlacPicture[]> {
-  const handle = await open(flacPath, 'r')
-  try {
-    const magic = Buffer.alloc(4)
-    await readExact(handle, magic)
-    if (magic.toString('utf8') !== 'fLaC') {
-      throw new Error(`not a FLAC file: ${flacPath}`)
-    }
-
-    const pictures: FlacPicture[] = []
-    for (;;) {
-      const header = Buffer.alloc(4)
-      await readExact(handle, header)
-      const isLast = (header[0]! & 0x80) !== 0
-      const blockType = header[0]! & 0x7f
-      const length = (header[1]! << 16) | (header[2]! << 8) | header[3]!
-      const payload = Buffer.alloc(length)
-      await readExact(handle, payload)
-      if (blockType === 6) {
-        pictures.push(parsePictureBlock(payload))
-      }
-      if (isLast) break
-    }
-    return pictures
-  } finally {
-    await handle.close()
-  }
+  const { blocks } = await readFlacBlocks(flacPath, [PICTURE_BLOCK])
+  return blocks.flatMap((block) => (block.payload ? [parsePictureBlock(block.payload)] : []))
 }
 
 export function id3TagsFromFlac(

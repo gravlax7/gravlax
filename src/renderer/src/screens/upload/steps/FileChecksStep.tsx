@@ -8,6 +8,7 @@ import type {
 import { SOURCE_MEDIA_OPTIONS } from '@shared/upload/sourceMedia'
 import { Card, Icon, ProgressBar, Section, SegmentedControl, Spinner } from '../../../ui'
 import {
+  AudioLimitsResult,
   AudioSettingsResult,
   FileChecksResult,
   IntegrityResult,
@@ -177,6 +178,7 @@ export function FileChecksStep(props: { state: UploadFlowStateJSON }) {
 
       <Show when={status() === 'succeeded'}>
         <StructureResult state={props.state} />
+        <AudioLimitsResult fileChecks={fileChecks()} />
         <AudioSettingsResult audio={fileChecks().audio} />
         <IntegrityResult state={props.state} />
         <MqaResult fileChecks={fileChecks()} />

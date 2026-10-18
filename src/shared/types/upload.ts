@@ -391,6 +391,12 @@ export interface AudioTrackProfile {
   relativePath: string
   bitDepth: number
   sampleRate: number
+  channels: number
+  durationSeconds: number
+  /** File size minus metadata. */
+  audioBytes: number
+  /** Encoder name from the Vorbis comment block. */
+  vendor: string
 }
 
 export interface ReleaseAudioProfile {

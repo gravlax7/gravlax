@@ -23,6 +23,7 @@ import {
   gatherReleaseAudioProfile,
   summarizeAudioTracks
 } from '@main/core/tools/audioProfile'
+import { audioLimitsDetail } from '@shared/upload/fileChecks'
 
 const JOB_LABELS = {
   structure: 'Folder rules',
@@ -213,6 +214,7 @@ export async function runFileChecks(options: RunFileChecksOptions): Promise<File
   const detail = [
     structureSummaryDetail(structure, 'FLAC'),
     integrity.status === 'passed' ? audioProfileDetail(audio) : '',
+    audioLimitsDetail(snapshot),
     integritySummaryDetail(integrity),
     integrity.status === 'passed' ? mqaSummaryDetail(mqa) : '',
     integrity.status === 'passed' ? upconvertSummaryDetail(upconvert) : '',

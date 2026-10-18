@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { FlacStreamInfo } from '../../tools/diagnostics/mqa'
+import type { FlacStreamInfo } from '../../tools/flacLayout'
 import {
   analyzeUpconvert,
   checkUpconvert,
