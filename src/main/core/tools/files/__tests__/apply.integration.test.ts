@@ -299,7 +299,7 @@ describe('tag and filename writes', () => {
 
       const renamed = join(result.workspacePath, '01. Short.flac')
       await expect(access(renamed)).resolves.toBeUndefined()
-      expect((await runCommand('metaflac', ['--show-tag=TITLE', renamed])).toString()).toContain(
+      expect((await runCommand('metaflac', ['--no-utf8-convert', '--show-tag=TITLE', renamed])).toString()).toContain(
         'TITLE=Ph\u00e9nix'
       )
     } finally {
@@ -440,7 +440,7 @@ describe('tag and filename writes', () => {
 })
 
 async function tagLines(path: string, key: string): Promise<string[]> {
-  return (await runCommand('metaflac', [`--show-tag=${key}`, path]))
+  return (await runCommand('metaflac', ['--no-utf8-convert', `--show-tag=${key}`, path]))
     .toString('utf8')
     .trim()
     .split(/\r?\n/)

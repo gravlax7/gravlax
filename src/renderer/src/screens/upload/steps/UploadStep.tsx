@@ -457,17 +457,22 @@ export function UploadStep(props: {
     }
     return null
   }
-  const previewTrackerId = createMemo(() =>
-    UPLOAD_TRACKER_IDS.find((id) => (upload().selectedTrackerIds ?? []).includes(id) && !healthProblem(id)) ?? null
+  // Prefer trackers in list order and wait for their checks rather than fall back to the next one.
+  const previewCandidate = createMemo(() =>
+    UPLOAD_TRACKER_IDS.find((id) =>
+      (upload().selectedTrackerIds ?? []).includes(id) && healthProblem(id)?.kind !== 'failed'
+    ) ?? null
   )
+  const previewTrackerId = createMemo(() => {
+    const id = previewCandidate()
+    return id && !healthProblem(id) ? id : null
+  })
   const previewKey = createMemo(() => {
     const id = previewTrackerId()
     return id ? JSON.stringify([id, props.health?.runId, props.config.trackers[id].siteUrl]) : ''
   })
   onCleanup(() => previewBatchers.clear())
-  const previewWaiting = createMemo(() =>
-    (upload().selectedTrackerIds ?? []).some((id) => healthProblem(id)?.kind === 'waiting')
-  )
+  const previewWaiting = createMemo(() => previewCandidate() !== null && previewTrackerId() === null)
   const derivedFromTags = createMemo(() =>
     derivedUploadFieldsFromTags(props.state.tags.proposed, {
       useUpcAsCatNo: props.config.workflow.useUpcAsCatNo
