@@ -504,7 +504,8 @@ describe('config', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: true, apiKey: 'key' },
-        catbox: { enabled: false }
+        catbox: { enabled: false },
+        ptscreens: { enabled: false, apiKey: '' }
       },
       spectral: { ...cfg.spectral, imageHost: 'thesungod' }
     }
@@ -562,7 +563,7 @@ describe('config', () => {
     ).toBe(true)
   })
 
-  it('rejects redacted cover image host for orpheus', () => {
+  it('accepts redacted cover image host for orpheus', () => {
     let cfg = defaultConfig()
     cfg = {
       ...cfg,
@@ -587,16 +588,17 @@ describe('config', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: false, apiKey: '' },
-        catbox: { enabled: false }
+        catbox: { enabled: false },
+        ptscreens: { enabled: false, apiKey: '' }
       }
     }
     const issues = validate(cfg)
     expect(
       issues.some((i) => i.section === 'trackers' && i.field === 'orpheus.coverImageHost')
-    ).toBe(true)
+    ).toBe(false)
   })
 
-  it('keeps the redacted cover host when the tracker is turned off', () => {
+  it('clears the redacted cover host when the tracker is turned off', () => {
     let cfg = defaultConfig()
     cfg.trackers.redacted = {
       ...cfg.trackers.redacted,
@@ -608,7 +610,7 @@ describe('config', () => {
     }
     cfg = setFieldBool(cfg, 'trackers', 'redacted.enabled', false)
     expect(cfg.trackers.redacted.enabled).toBe(false)
-    expect(cfg.trackers.redacted.coverImageHost).toBe('redacted')
+    expect(cfg.trackers.redacted.coverImageHost).toBe('')
   })
 
   it('clears the redacted cover host when the API key is removed', () => {
@@ -650,7 +652,8 @@ describe('config', () => {
       imageHosts: {
         thesungod: { enabled: true, apiKey: 'key' },
         imgbb: { enabled: false, apiKey: '' },
-        catbox: { enabled: false }
+        catbox: { enabled: false },
+        ptscreens: { enabled: false, apiKey: '' }
       }
     })
     expect(cfg.trackers.orpheus.coverImageHost).toBe('')
@@ -663,7 +666,8 @@ describe('config', () => {
     expect(cfg.imageHosts).toEqual({
       thesungod: { enabled: false, apiKey: '' },
       imgbb: { enabled: false, apiKey: '' },
-      catbox: { enabled: false }
+      catbox: { enabled: false },
+      ptscreens: { enabled: false, apiKey: '' }
     })
   })
 })

@@ -5,7 +5,7 @@ import { totalUploads, type UpdateCheckResult, type UploadStats } from '@shared/
 import { UPLOAD_TRACKER_IDS, trackerName, type UploadTrackerId } from '@shared/trackers'
 import { isThemePreference } from '@shared/theme'
 import {
-  coverImageHostOptions,
+  enabledImageHostOptions,
   enabledSpectralImageHostOptions,
   sanitizeCoverImageHosts
 } from '@shared/config/imageHosts'
@@ -1090,8 +1090,7 @@ function enumOptions(cfg: Config, section: SectionID, field: FieldMetadata): str
     return enabledSpectralImageHostOptions(cfg)
   }
   if (section === 'trackers' && field.name.endsWith('.coverImageHost')) {
-    const trackerId = trackerIdFromFieldName(field.name)
-    if (trackerId) return coverImageHostOptions(cfg, trackerId)
+    return enabledImageHostOptions(cfg)
   }
   if (section === 'naming' && field.name === 'albumDescriptionTemplateId') {
     return listDescriptionTemplateIds()

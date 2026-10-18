@@ -29,21 +29,14 @@ export function validate(cfg: Config): ValidationIssue[] {
   for (const trackerId of UPLOAD_TRACKER_IDS) {
     validateTracker(cfg.trackers[trackerId], trackerId, trackerName(trackerId), add)
   }
-  if (!isValidCoverImageHost(cfg, 'redacted', cfg.trackers.redacted.coverImageHost)) {
-    add(
-      'trackers',
-      'redacted.coverImageHost',
-      'cover image host must be one of the enabled image hosts'
-    )
-  }
-  if (!isValidCoverImageHost(cfg, 'orpheus', cfg.trackers.orpheus.coverImageHost)) {
-    add(
-      'trackers',
-      'orpheus.coverImageHost',
-      cfg.trackers.orpheus.coverImageHost === 'redacted'
-        ? 'Redacted image host can only be selected for the Redacted tracker'
-        : 'cover image host must be one of the enabled image hosts'
-    )
+  for (const id of UPLOAD_TRACKER_IDS) {
+    if (!isValidCoverImageHost(cfg, cfg.trackers[id].coverImageHost)) {
+      add(
+        'trackers',
+        `${id}.coverImageHost`,
+        'cover image host must be one of the enabled image hosts'
+      )
+    }
   }
   for (const [field, value] of Object.entries({
     source: cfg.directories.source,
@@ -107,6 +100,9 @@ export function validate(cfg: Config): ValidationIssue[] {
   }
   if (cfg.imageHosts.imgbb.enabled && cfg.imageHosts.imgbb.apiKey === '') {
     add('imageHosts', 'imgbb.apiKey', 'imgbb API key is required when imgbb is enabled')
+  }
+  if (cfg.imageHosts.ptscreens.enabled && cfg.imageHosts.ptscreens.apiKey === '') {
+    add('imageHosts', 'ptscreens.apiKey', 'PTScreens API key is required when PTScreens is enabled')
   }
 
   if (cfg.torrentClient.enabled && cfg.torrentClient.url === '') {

@@ -9,7 +9,6 @@ export {
   setFieldBool,
   setFieldInt,
   cycleFieldEnum,
-  coverImageHostOptions,
   enabledImageHostOptions,
   enabledSpectralImageHostOptions
 } from './fields'

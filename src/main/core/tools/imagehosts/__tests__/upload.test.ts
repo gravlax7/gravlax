@@ -74,6 +74,38 @@ describe('uploadImageToHost', () => {
     )
   })
 
+  it('uploads to ptscreens with the API key header', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-img-'))
+    const file = path.join(dir, 'cover.jpg')
+    await writeFile(file, JPEG)
+    const c = cfg()
+    c.imageHosts.ptscreens.enabled = true
+    c.imageHosts.ptscreens.apiKey = 'pts-key'
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        expect(String(url)).toBe('https://ptscreens.com/api/1/upload')
+        expect(new Headers(init?.headers).get('X-API-Key')).toBe('pts-key')
+        const body = init?.body as FormData
+        expect(body.get('source')).toBeInstanceOf(Blob)
+        expect((body.get('source') as File).name).toBe('cover.jpg')
+        expect(body.get('format')).toBe('json')
+        return Response.json({ status_code: 200, image: { url: 'https://ptscreens.com/a.jpg' } })
+      })
+    )
+
+    expect(await uploadImageToHost(c, 'ptscreens', file)).toBe('https://ptscreens.com/a.jpg')
+  })
+
+  it('returns null when ptscreens has no API key', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await uploadImageToHost(cfg(), 'ptscreens', '/tmp/unused-cover.jpg')).toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('uploads anonymously to catbox', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'gravlax-img-'))
     const file = path.join(dir, 'cover.jpg')
