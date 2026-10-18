@@ -126,6 +126,14 @@ export function validate(cfg: Config): ValidationIssue[] {
         'API key is required when qBittorrent API key authentication is on'
       )
     }
+    if (cfg.torrentClient.useApiKey && cfg.torrentClient.basicAuthUsername !== '') {
+      // Both send an Authorization header, and a request carries only one.
+      add(
+        'torrentClient',
+        'basicAuthUsername',
+        'basic auth cannot be combined with an API key, since both use the Authorization header'
+      )
+    }
     if (cfg.torrentClient.useAutoTMM) {
       // Without a category ATM falls back to qBittorrent's global default save
       // path, which silently puts the torrent somewhere the release is not.

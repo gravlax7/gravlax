@@ -122,6 +122,9 @@ export interface TorrentClientConfig {
   apiKey: string
   username: string
   password: string
+  /** HTTP basic auth in front of the WebUI (some seedboxes). Empty username turns it off. */
+  basicAuthUsername: string
+  basicAuthPassword: string
   category: string
   /**
    * When true qBittorrent decides the location from the category and `savePath`

@@ -28,12 +28,20 @@ export class QBittorrentClient {
   private readonly apiKey: string
   private readonly username: string
   private readonly password: string
+  private readonly basicAuth: string
   private cookie = ''
 
   constructor(
     cfg: Pick<
       TorrentClientConfig,
-      'url' | 'allowInsecureHTTP' | 'useApiKey' | 'apiKey' | 'username' | 'password'
+      | 'url'
+      | 'allowInsecureHTTP'
+      | 'useApiKey'
+      | 'apiKey'
+      | 'username'
+      | 'password'
+      | 'basicAuthUsername'
+      | 'basicAuthPassword'
     >
   ) {
     this.baseUrl = normalizeBaseUrl(cfg.url, cfg.allowInsecureHTTP)
@@ -41,6 +49,9 @@ export class QBittorrentClient {
     this.apiKey = cfg.apiKey.trim()
     this.username = cfg.username
     this.password = cfg.password
+    this.basicAuth = cfg.basicAuthUsername
+      ? `Basic ${Buffer.from(`${cfg.basicAuthUsername}:${cfg.basicAuthPassword}`).toString('base64')}`
+      : ''
   }
 
   async login(): Promise<void> {
@@ -49,7 +60,7 @@ export class QBittorrentClient {
     body.set('password', this.password)
     const res = await fetch(`${this.baseUrl}/api/v2/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: this.withBasicAuth({ 'Content-Type': 'application/x-www-form-urlencoded' }),
       body
     })
     const text = await res.text()
@@ -138,6 +149,12 @@ export class QBittorrentClient {
     }
   }
 
+  private withBasicAuth(init?: ConstructorParameters<typeof Headers>[0]): Headers {
+    const headers = new Headers(init)
+    if (this.basicAuth) headers.set('Authorization', this.basicAuth)
+    return headers
+  }
+
   /**
    * Issues an authenticated request, logging in first when there is no session
    * and retrying once if the server rejects the cookie (SIDs expire, and
@@ -145,7 +162,7 @@ export class QBittorrentClient {
    */
   private async request(path: string, init?: RequestInit): Promise<Response> {
     const send = (): Promise<Response> => {
-      const headers = new Headers(init?.headers)
+      const headers = this.withBasicAuth(init?.headers)
       if (this.useApiKey) headers.set('Authorization', `Bearer ${this.apiKey}`)
       else if (this.cookie) headers.set('Cookie', this.cookie)
       return fetch(`${this.baseUrl}${path}`, { ...init, headers })

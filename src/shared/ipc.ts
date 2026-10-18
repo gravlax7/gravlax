@@ -196,6 +196,8 @@ const configInput: z.ZodType<Config> = z.object({
     apiKey: z.string(),
     username: z.string(),
     password: z.string(),
+    basicAuthUsername: z.string(),
+    basicAuthPassword: z.string(),
     category: z.string(),
     useAutoTMM: z.boolean(),
     savePath: z.string(),

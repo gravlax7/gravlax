@@ -135,6 +135,10 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return c.username
         case 'password':
           return c.password
+        case 'basicAuthUsername':
+          return c.basicAuthUsername
+        case 'basicAuthPassword':
+          return c.basicAuthPassword
         case 'category':
           return c.category
         case 'useAutoTMM':
@@ -278,6 +282,8 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       if (field === 'apiKey') next.torrentClient.apiKey = value
       if (field === 'username') next.torrentClient.username = value
       if (field === 'password') next.torrentClient.password = value
+      if (field === 'basicAuthUsername') next.torrentClient.basicAuthUsername = value
+      if (field === 'basicAuthPassword') next.torrentClient.basicAuthPassword = value
       if (field === 'category') next.torrentClient.category = value
       if (field === 'savePath') next.torrentClient.savePath = value
       break

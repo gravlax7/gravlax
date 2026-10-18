@@ -47,6 +47,8 @@ function defaultConfig(): Config {
       apiKey: '',
       username: '',
       password: '',
+      basicAuthUsername: '',
+      basicAuthPassword: '',
       category: '',
       useAutoTMM: false,
       savePath: '',

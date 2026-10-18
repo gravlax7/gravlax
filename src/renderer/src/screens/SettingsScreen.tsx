@@ -435,7 +435,10 @@ export function SettingsScreen(props: {
                               field.name === 'apiKey' &&
                               !draft().torrentClient.useApiKey) ||
                             (current().id === 'torrentClient' &&
-                              (field.name === 'username' || field.name === 'password') &&
+                              (field.name === 'username' ||
+                                field.name === 'password' ||
+                                field.name === 'basicAuthUsername' ||
+                                field.name === 'basicAuthPassword') &&
                               draft().torrentClient.useApiKey) ||
                             (current().id === 'naming' &&
                               field.name === 'variousArtistsTrackFileTemplate' &&

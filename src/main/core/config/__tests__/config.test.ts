@@ -329,6 +329,29 @@ describe('config', () => {
     expect(resetSection(cfg, 'torrentClient').torrentClient).toEqual(defaultConfig().torrentClient)
   })
 
+  it('loads, updates, and validates qBittorrent basic auth', () => {
+    const loaded = mergeLoadedConfig({
+      torrentClient: { basicAuthUsername: 'box', basicAuthPassword: 'pw' }
+    })
+    expect(loaded.torrentClient.basicAuthUsername).toBe('box')
+    expect(loaded.torrentClient.basicAuthPassword).toBe('pw')
+
+    let cfg = setFieldString(defaultConfig(), 'torrentClient', 'basicAuthUsername', 'box')
+    cfg = setFieldString(cfg, 'torrentClient', 'basicAuthPassword', 'pw')
+    expect(fieldValue(cfg, 'torrentClient', 'basicAuthUsername')).toBe('box')
+    expect(fieldValue(cfg, 'torrentClient', 'basicAuthPassword')).toBe('pw')
+
+    cfg.torrentClient.enabled = true
+    cfg.torrentClient.url = 'http://127.0.0.1:8080'
+    cfg.transfer.enabled = true
+    expect(validate(cfg).some((issue) => issue.field === 'basicAuthUsername')).toBe(false)
+
+    // Both use the Authorization header, so they cannot share a request.
+    cfg.torrentClient.useApiKey = true
+    cfg.torrentClient.apiKey = 'qbt_key'
+    expect(validate(cfg).some((issue) => issue.field === 'basicAuthUsername')).toBe(true)
+  })
+
   it('validate requires a save path only when there is no seedbox to fall back to', () => {
     const cfg = defaultConfig()
     cfg.torrentClient.enabled = true

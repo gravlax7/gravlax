@@ -45,6 +45,8 @@ function cfgWithRedacted(tracker: TrackerConfig): Config {
       apiKey: '',
       username: '',
       password: '',
+      basicAuthUsername: '',
+      basicAuthPassword: '',
       category: '',
       useAutoTMM: false,
       savePath: '',

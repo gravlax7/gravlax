@@ -88,6 +88,43 @@ describe('QBittorrentClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('sends basic auth on login and later requests alongside the session cookie', async () => {
+    const basic = `Basic ${Buffer.from('box:pw').toString('base64')}`
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input)
+      const headers = init?.headers as Headers
+      expect(headers.get('Authorization')).toBe(basic)
+      if (url.endsWith('/api/v2/auth/login')) {
+        return new Response('Ok.', {
+          status: 200,
+          headers: { 'set-cookie': 'SID=abc123; HttpOnly; Path=/' }
+        })
+      }
+      expect(headers.get('Cookie')).toBe('SID=abc123')
+      return new Response('v5.0.0', { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = new QBittorrentClient(
+      clientConfig({ basicAuthUsername: 'box', basicAuthPassword: 'pw' })
+    )
+    await expect(client.version()).resolves.toBe('v5.0.0')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('sends no Authorization header without basic auth', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      expect((init?.headers as Headers).get('Authorization')).toBeNull()
+      if (String(input).endsWith('/api/v2/auth/login')) {
+        return new Response('Ok.', { status: 200, headers: { 'set-cookie': 'SID=abc123; Path=/' } })
+      }
+      return new Response('v5.0.0', { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(new QBittorrentClient(clientConfig()).version()).resolves.toBe('v5.0.0')
+  })
+
   it('uses a trimmed API key without starting a cookie session', async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       expect(String(input)).toBe('http://127.0.0.1:8080/api/v2/app/version')

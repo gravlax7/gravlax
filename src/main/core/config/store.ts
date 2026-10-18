@@ -103,6 +103,8 @@ export function normalizeTorrentClient(raw: unknown, base: Config['torrentClient
   if (typeof obj.apiKey === 'string') next.apiKey = obj.apiKey
   if (typeof obj.username === 'string') next.username = obj.username
   if (typeof obj.password === 'string') next.password = obj.password
+  if (typeof obj.basicAuthUsername === 'string') next.basicAuthUsername = obj.basicAuthUsername
+  if (typeof obj.basicAuthPassword === 'string') next.basicAuthPassword = obj.basicAuthPassword
   if (typeof obj.category === 'string') next.category = obj.category
   else if (typeof obj.label === 'string') next.category = obj.label
   if (typeof obj.useAutoTMM === 'boolean') next.useAutoTMM = obj.useAutoTMM

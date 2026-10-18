@@ -167,6 +167,15 @@ export function sections(): SectionMetadata[] {
         { name: 'apiKey', label: 'API key', type: 'string', sensitive: true },
         { name: 'separator', label: '', type: 'separator' },
         {
+          name: 'basicAuthUsername',
+          label: 'Basic auth username',
+          type: 'string',
+          description:
+            'For seedboxes that put HTTP basic auth in front of the WebUI. Leave empty if yours does not. Cannot combine with an API key.'
+        },
+        { name: 'basicAuthPassword', label: 'Basic auth password', type: 'string', sensitive: true },
+        { name: 'separator', label: '', type: 'separator' },
+        {
           name: 'category',
           label: 'Category',
           type: 'string',

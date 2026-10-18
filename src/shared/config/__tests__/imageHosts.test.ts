@@ -60,6 +60,8 @@ function baseConfig(overrides: Partial<Config> = {}): Config {
       apiKey: '',
       username: '',
       password: '',
+      basicAuthUsername: '',
+      basicAuthPassword: '',
       category: '',
       useAutoTMM: false,
       savePath: '',
