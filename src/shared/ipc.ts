@@ -7,6 +7,7 @@ import {
   type ValidationIssue
 } from './types/config'
 import { THEME_PREFERENCES } from './theme'
+import { TORRENT_PIECE_SIZES } from './upload/pieceSize'
 import { UPLOAD_TRACKER_IDS } from './trackers'
 import { SOURCE_MEDIA_OPTIONS } from './upload/sourceMedia'
 import type { UploadStats } from './types/stats'
@@ -237,7 +238,8 @@ const configInput: z.ZodType<Config> = z.object({
     autoRepairFlacIntegrity: z.boolean(),
     keepExistingTagsByDefault: z.boolean(),
     openGroupsAfterUpload: z.boolean(),
-    skipTranscode: z.boolean()
+    skipTranscode: z.boolean(),
+    torrentPieceSize: z.enum(TORRENT_PIECE_SIZES)
   })
 })
 

@@ -1,5 +1,6 @@
 import type { UploadTrackerId } from '../trackers'
 import type { ThemePreference } from '../theme'
+import type { TorrentPieceSize } from '../upload/pieceSize'
 
 export type { ThemePreference } from '../theme'
 
@@ -179,6 +180,7 @@ export interface WorkflowConfig {
   keepExistingTagsByDefault: boolean
   openGroupsAfterUpload: boolean
   skipTranscode: boolean
+  torrentPieceSize: TorrentPieceSize
 }
 
 export interface ValidationIssue {

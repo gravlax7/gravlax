@@ -2,6 +2,7 @@ import type { FieldMetadata, SectionMetadata } from '@shared/types/config'
 import { THEME_PREFERENCES } from '@shared/theme'
 import { UPLOAD_TRACKER_IDS, trackerName } from '@shared/trackers'
 import { SPECTRAL_SELECTION_OPTIONS } from '@shared/upload/spectralIds'
+import { TORRENT_PIECE_SIZES } from '@shared/upload/pieceSize'
 
 function trackerFields(): FieldMetadata[] {
   return UPLOAD_TRACKER_IDS.flatMap((id, index) => [
@@ -314,6 +315,13 @@ export function sections(): SectionMetadata[] {
           label: 'Skip transcode step',
           description: 'Go from Tags & Filenames straight to Upload and upload only the source.',
           type: 'bool'
+        },
+        {
+          name: 'torrentPieceSize',
+          label: 'Torrent piece size',
+          description: 'Auto picks a size from the release size.',
+          type: 'enum',
+          options: [...TORRENT_PIECE_SIZES]
         }
       ]
     }

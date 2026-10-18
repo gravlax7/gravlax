@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { sanitizeCoverImageHosts, supportsSpectralUpload } from '@shared/config/imageHosts'
 import { isThemePreference } from '@shared/theme'
+import { isTorrentPieceSize } from '@shared/upload/pieceSize'
 import type { Config } from '@shared/types/config'
 import { defaultConfig } from './defaults'
 import { normalizePath } from './paths'
@@ -204,6 +205,9 @@ export function normalizeWorkflow(raw: unknown, base: Config['workflow']): Confi
   }
   if (typeof obj.skipTranscode === 'boolean') {
     next.skipTranscode = obj.skipTranscode
+  }
+  if (isTorrentPieceSize(obj.torrentPieceSize)) {
+    next.torrentPieceSize = obj.torrentPieceSize
   }
   return next
 }

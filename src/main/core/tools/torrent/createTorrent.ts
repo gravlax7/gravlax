@@ -36,6 +36,8 @@ export interface CreateTorrentOptions {
   /** Tracker source tag ("RED" / "OPS"). Part of `info`, so it changes the infohash. */
   source: string
   createdBy: string
+  /** Fixed piece length in bytes. Picked from the release size when absent. */
+  pieceLength?: number
   signal?: AbortSignal
   approvedPaths?: string[]
 }
@@ -67,7 +69,7 @@ export async function createTorrent(options: CreateTorrentOptions): Promise<Crea
   throwIfAborted(signal)
 
   const totalBytes = totalSize(files)
-  const pieceLength = choosePieceLength(totalBytes)
+  const pieceLength = options.pieceLength ?? choosePieceLength(totalBytes)
   const name = basename(folderPath)
 
   const data = await buildTorrent({ files, folderPath, name, announceUrl, source, createdBy, pieceLength, signal })

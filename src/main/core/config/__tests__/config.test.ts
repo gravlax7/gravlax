@@ -32,6 +32,7 @@ describe('config', () => {
     expect(cfg.workflow.keepExistingTagsByDefault).toBe(false)
     expect(cfg.workflow.openGroupsAfterUpload).toBe(false)
     expect(cfg.workflow.skipTranscode).toBe(false)
+    expect(cfg.workflow.torrentPieceSize).toBe('Auto')
     expect(cfg.metadataProviders.requestTimeoutSeconds).toBe(10)
     expect(cfg.metadataProviders.musicBrainz.enabled).toBe(true)
     expect(cfg.metadataProviders.deezer.enabled).toBe(true)
@@ -108,6 +109,15 @@ describe('config', () => {
         'skipTranscode'
       )
     ).toBe(true)
+    expect(mergeLoadedConfig({ workflow: { torrentPieceSize: '4 MiB' } }).workflow.torrentPieceSize).toBe('4 MiB')
+    expect(mergeLoadedConfig({ workflow: { torrentPieceSize: '32 MiB' } }).workflow.torrentPieceSize).toBe('Auto')
+    expect(
+      fieldValue(
+        setFieldString(defaultConfig(), 'workflow', 'torrentPieceSize', '1 MiB'),
+        'workflow',
+        'torrentPieceSize'
+      )
+    ).toBe('1 MiB')
     expect(resetSection(changed, 'workflow').workflow.keepExistingTagsByDefault).toBe(false)
   })
 

@@ -23,6 +23,7 @@ import {
   wrapTranscodeLossyComment
 } from '@main/core/tools/upload/descriptions'
 import { buildLossyMasterComment } from '@shared/upload/lossyReport'
+import { pieceSizeBytes } from '@shared/upload/pieceSize'
 
 export function submissionId(trackerId: UploadTrackerId, formatId: string): string {
   return `${trackerId}:${formatId}`
@@ -190,6 +191,7 @@ async function uploadOneFormat(
     announceUrl: tracker.client.announce,
     source,
     createdBy: `create-torrent`,
+    pieceLength: pieceSizeBytes(cfg.workflow.torrentPieceSize),
     approvedPaths: options.approvedStructurePaths ?? [],
     signal
   })

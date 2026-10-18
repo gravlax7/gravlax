@@ -82,7 +82,7 @@ function defaultConfig(): Config {
       deleteTemporaryFiles: true,
       deleteSpectralsAfterUpload: false
     },
-    workflow: { confirmBeforeWrites: true, useUpcAsCatNo: true, autoRepairFlacIntegrity: false, keepExistingTagsByDefault: false, openGroupsAfterUpload: false, skipTranscode: false }
+    workflow: { confirmBeforeWrites: true, useUpcAsCatNo: true, autoRepairFlacIntegrity: false, keepExistingTagsByDefault: false, openGroupsAfterUpload: false, skipTranscode: false, torrentPieceSize: 'Auto' }
   }
 }
 

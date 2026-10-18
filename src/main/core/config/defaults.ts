@@ -85,7 +85,8 @@ export function defaultConfig(): Config {
       autoRepairFlacIntegrity: false,
       keepExistingTagsByDefault: false,
       openGroupsAfterUpload: false,
-      skipTranscode: false
+      skipTranscode: false,
+      torrentPieceSize: 'Auto'
     }
   }
 }

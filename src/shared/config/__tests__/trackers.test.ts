@@ -86,7 +86,8 @@ function cfgWithRedacted(tracker: TrackerConfig): Config {
       autoRepairFlacIntegrity: false,
       keepExistingTagsByDefault: false,
       openGroupsAfterUpload: false,
-      skipTranscode: false
+      skipTranscode: false,
+      torrentPieceSize: 'Auto'
     }
   }
 }

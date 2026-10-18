@@ -82,6 +82,21 @@ describe('piece length wiring', () => {
     expect(torrent.meta.info['piece length']).toBe(torrent.pieceLength)
   })
 
+  it('uses a fixed piece length when given one', async () => {
+    await writeFile(join(release, 'a.flac'), 'hello')
+    const torrent = await createTorrent({
+      folderPath: release,
+      format: 'FLAC',
+      announceUrl: 'https://tracker.invalid/announce',
+      source: 'RED',
+      createdBy: 'gravlax/test',
+      pieceLength: 1024 * 1024
+    })
+
+    expect(torrent.pieceLength).toBe(1024 * 1024)
+    expect(torrent.meta.info['piece length']).toBe(1024 * 1024)
+  })
+
   it('is not clamped by create-torrent’s own 4 MiB maxPieceLength default', async () => {
     // Guards an assumption we depend on: create-torrent only applies
     // `maxPieceLength` (4 MiB) to its automatic calculation, and uses an

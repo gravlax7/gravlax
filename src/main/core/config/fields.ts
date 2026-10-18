@@ -5,6 +5,7 @@ import {
   sanitizeCoverImageHosts
 } from '@shared/config/imageHosts'
 import { normalizeTrackerHost } from '@shared/config/network'
+import { isTorrentPieceSize } from '@shared/upload/pieceSize'
 import { normalizePath } from './paths'
 
 export {
@@ -229,6 +230,8 @@ export function fieldValue(cfg: Config, section: SectionID, field: string): stri
           return String(c.openGroupsAfterUpload)
         case 'skipTranscode':
           return String(c.skipTranscode)
+        case 'torrentPieceSize':
+          return c.torrentPieceSize
       }
       break
     }
@@ -312,6 +315,9 @@ export function setFieldString(cfg: Config, section: SectionID, field: string, v
       break
     case 'cleanup':
       if (field === 'archiveDirectory') next.cleanup.archiveDirectory = value
+      break
+    case 'workflow':
+      if (field === 'torrentPieceSize' && isTorrentPieceSize(value)) next.workflow.torrentPieceSize = value
       break
   }
   return next
