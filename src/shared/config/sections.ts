@@ -31,6 +31,10 @@ function trackerFields(): FieldMetadata[] {
     {
       name: `${id}.sessionCookie`,
       label: `${trackerName(id)} session cookie`,
+      help:
+        'Log in to the tracker in your browser and open its developer tools (Cmd+Option+I or F12). ' +
+        'Go to Application → Cookies (Chrome) or Storage → Cookies (Firefox), select the tracker site ' +
+        'and copy the value of the cookie named "session".',
       type: 'string' as const,
       sensitive: true
     },

@@ -193,6 +193,7 @@ export interface FieldMetadata {
   name: string
   label: string
   description?: string
+  help?: string
   placeholder?: string
   type: FieldType
   sensitive?: boolean

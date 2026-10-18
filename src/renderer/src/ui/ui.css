@@ -282,6 +282,56 @@
   color: var(--fg-secondary);
 }
 
+.ui-help-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  color: var(--fg-muted);
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  cursor: help;
+}
+
+.ui-help-tip:hover,
+.ui-help-tip:focus-visible {
+  color: var(--fg-primary);
+  border-color: var(--fg-muted);
+  outline: none;
+}
+
+.ui-help-tip-bubble {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: -8px;
+  z-index: 60;
+  width: 320px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+  color: var(--fg-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  line-height: 1.45;
+  cursor: auto;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+.ui-help-tip:hover .ui-help-tip-bubble,
+.ui-help-tip:focus-visible .ui-help-tip-bubble {
+  opacity: 1;
+  visibility: visible;
+}
+
 .ui-kbd {
   display: inline-flex;
   align-items: center;

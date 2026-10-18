@@ -60,3 +60,12 @@ export function Callout(props: {
     <div class={`ui-callout ui-callout-${tone()} ${props.class ?? ''}`}>{props.children}</div>
   )
 }
+
+export function HelpTip(props: { text: string }) {
+  return (
+    <span class="ui-help-tip" tabindex="0" aria-label={props.text}>
+      ?
+      <span class="ui-help-tip-bubble" role="tooltip">{props.text}</span>
+    </span>
+  )
+}

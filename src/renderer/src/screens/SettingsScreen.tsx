@@ -25,7 +25,7 @@ import { ProviderIcon, providerFromFieldName } from '../components/ProviderIcon'
 import { TrackerIcon, trackerIdFromFieldName } from '../components/TrackerIcon'
 import { ImageHostIcon, imageHostIdFromFieldName } from '../components/ImageHostIcon'
 import { hasPrimaryModifier } from '../keybinds'
-import { Badge, Button, Callout, Divider, Icon, IconButton, Kbd, type IconName } from '../ui'
+import { Badge, Button, Callout, Divider, HelpTip, Icon, IconButton, Kbd, type IconName } from '../ui'
 
 /** Not a config section — a pane in the same sidebar. Kept out of SectionID so
  *  Config indexing, resetSection and the IPC enum stay exhaustive. */
@@ -985,6 +985,9 @@ function FieldRow(props: {
           </Show>
           <span>{label()}</span>
         </label>
+        <Show when={props.field.help}>
+          {(help) => <HelpTip text={help()} />}
+        </Show>
         <Show when={inlineIconToggle()}>
           <Toggle
             on={props.value === 'true'}
