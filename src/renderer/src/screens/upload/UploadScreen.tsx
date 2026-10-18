@@ -606,6 +606,7 @@ export function UploadScreen(props: {
               loading={stepId() === 'tags' && (props.state.files.apply.phase === 'applying' || props.state.files.apply.phase === 'restoring')}
               disabled={
                 (stepId() === 'seed' && props.state.seed.phase !== 'done') ||
+                (stepId() === 'file-checks' && !canNavigateToStep(stepIndex() + 1, props.state)) ||
                 (stepId() === 'spectrals' && lossyMasterMissingSpectral(props.state.draft)) ||
                 (stepId() === 'metadata' && !props.state.metadata.selected) ||
                 (stepId() === 'transcode' && props.state.transcode?.phase === 'inspecting') ||

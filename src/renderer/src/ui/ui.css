@@ -1325,6 +1325,11 @@ button.toggle.toggle-on .toggle-thumb {
   color: var(--warning);
 }
 
+.file-checks-score-value.is-blocked {
+  background: color-mix(in srgb, var(--error) 18%, transparent);
+  color: var(--error);
+}
+
 .file-checks-score-meta {
   display: flex;
   flex-direction: column;

@@ -11,6 +11,7 @@ import {
   transcodeStepHidden,
   UPLOAD_STEPS
 } from '../stepGating'
+import { UPCONVERT_BLOCKED } from '../fileChecks'
 import { LOSSY_MASTER_SPECTRAL_REQUIRED } from '../lossyReport'
 import { evaluateStepNavigation } from '../workflow'
 
@@ -131,6 +132,23 @@ describe('highestReachableStep', () => {
     })
     expect(highestReachableStep(state)).toBe(0)
     expect(canNavigateToStep(1, state)).toBe(false)
+    expect(stepHasError(0, state)).toBe(true)
+  })
+
+  it('blocks every later step while a file is upconverted', () => {
+    const state = baseState({
+      draft: { ...baseState().draft, sourcePath: '/a', workspacePath: '/w', sourceMedia: 'WEB' },
+      fileChecks: {
+        ...baseState().fileChecks,
+        upconvert: {
+          checkedCount: 1,
+          results: [{ relativePath: '01.flac', bitDepth: 24, wastedBits: 8, isUpconverted: true }],
+          errors: []
+        }
+      }
+    })
+    expect(highestReachableStep(state)).toBe(0)
+    expect(evaluateStepNavigation(state, 1)).toEqual({ ok: false, error: UPCONVERT_BLOCKED })
     expect(stepHasError(0, state)).toBe(true)
   })
 

@@ -150,7 +150,7 @@ import { UploadSessionRuntime, type UploadSessionRuntimeDeps } from '@main/servi
 import { UploadSessionFileChanges } from '@main/services/uploadSessionFileChanges'
 import { evaluateStepNavigation } from '@shared/upload/workflow'
 import { transcodeStepHidden } from '@shared/upload/stepGating'
-import { flacIntegrityRepairAllowed } from '@shared/upload/fileChecks'
+import { UPCONVERT_BLOCKED, flacIntegrityRepairAllowed, upconvertsFound } from '@shared/upload/fileChecks'
 import { listUploadStartEntries } from '@main/services/uploadStartService'
 import type { UploadStatsRecord } from '@main/services/uploadStatsService'
 import type { ToolResolver } from '@main/core/tools/binaries'
@@ -531,6 +531,11 @@ export class UploadSession {
       this.apply(failUploadReport(this.state, error))
       this.notify('error', error)
       return { ok: false, error }
+    }
+    if (upconvertsFound(this.state.fileChecks)) {
+      this.apply(failUploadReport(this.state, UPCONVERT_BLOCKED))
+      this.notify('error', UPCONVERT_BLOCKED)
+      return { ok: false, error: UPCONVERT_BLOCKED }
     }
     let cfg = this.deps.getConfig()
     const transcodeError = validateSelectedTranscodes(this.state.transcode)
@@ -1197,6 +1202,7 @@ export class UploadSession {
   private fileChecksNeedAttention(): boolean {
     return !this.state.fileChecks.structure.ready ||
       this.state.fileChecks.integrity.status === 'failed' ||
+      upconvertsFound(this.state.fileChecks) ||
       getTask(this.state.background, 'file-checks')?.status === 'failed'
   }
 

@@ -71,8 +71,8 @@ describe('upconvert reporting', () => {
         errors: []
       }
     })
-    expect(upconvertHeadline(s)).toBe('Possible 24-bit upconvert detected')
-    expect(upconvertTone(s)).toBe('warning')
+    expect(upconvertHeadline(s)).toBe('24-bit upconvert found')
+    expect(upconvertTone(s)).toBe('error')
     expect(upconvertFindings(s)).toEqual([
       { fileName: '01.flac', wastedBits: 8, bitDepth: 24 }
     ])

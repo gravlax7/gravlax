@@ -34,23 +34,49 @@ async function workspace(...files: string[]): Promise<string> {
   return root
 }
 
+function subframes(values: number[], type: string): string {
+  return values.map((value) => `subframe=0\twasted_bits=${value}\ttype=${type}\n`).join('')
+}
+
 describe('upconvert analysis', () => {
-  it('parses each wasted-bits value from FLAC analysis output', () => {
-    expect(parseWastedBits('subframe=0 wasted_bits=2\nsubframe=1 wasted_bits=9')).toEqual([2, 9])
+  it('parses wasted bits and skips silent subframes', () => {
+    expect(
+      parseWastedBits(
+        'subframe=0\twasted_bits=2\ttype=LPC\nsubframe=1\twasted_bits=0\ttype=CONSTANT\nsubframe=0\twasted_bits=9\ttype=FIXED'
+      )
+    ).toEqual([2, 9])
   })
 
-  it('rounds the mean up and flags the eight-bit boundary', async () => {
-    const run = vi.fn(async () => Buffer.from('wasted_bits=7\nwasted_bits=8'))
+  it('flags a track when 90% of non-silent subframes have 8 or more wasted bits', async () => {
+    const run = vi.fn(async () =>
+      Buffer.from(subframes([...Array(9).fill(8), 0], 'FIXED') + subframes([0, 0, 0, 0], 'CONSTANT'))
+    )
     await expect(analyzeUpconvert('/music/track.flac', { run })).resolves.toEqual({
       wastedBits: 8,
       isUpconverted: true
     })
   })
 
-  it('does not flag an exact seven-bit mean', async () => {
-    const run = vi.fn(async () => Buffer.from('wasted_bits=6\nwasted_bits=8'))
+  it('does not flag a track below the 90% share', async () => {
+    const run = vi.fn(async () => Buffer.from(subframes([...Array(8).fill(8), 0, 0], 'LPC')))
+    await expect(analyzeUpconvert('/music/track.flac', { run })).resolves.toEqual({
+      wastedBits: 8,
+      isUpconverted: false
+    })
+  })
+
+  it('does not flag seven wasted bits', async () => {
+    const run = vi.fn(async () => Buffer.from(subframes([7, 7, 7], 'LPC')))
     await expect(analyzeUpconvert('/music/track.flac', { run })).resolves.toEqual({
       wastedBits: 7,
+      isUpconverted: false
+    })
+  })
+
+  it('does not flag a silent track', async () => {
+    const run = vi.fn(async () => Buffer.from(subframes([0, 0], 'CONSTANT')))
+    await expect(analyzeUpconvert('/music/track.flac', { run })).resolves.toEqual({
+      wastedBits: 0,
       isUpconverted: false
     })
   })
@@ -127,7 +153,7 @@ describe('workspace upconvert checks', () => {
     expect(summary.checkedCount).toBe(2)
     expect(summary.results).toHaveLength(1)
     expect(summary.errors).toEqual([{ relativePath: '02.flac', message: 'corrupt stream' }])
-    expect(upconvertSummaryDetail(summary)).toContain('Possible upconverts detected in 1')
+    expect(upconvertSummaryDetail(summary)).toContain('Upconverts found in 1. Upload is blocked.')
     expect(upconvertSummaryDetail(summary)).toContain('Upconvert check errors (1)')
   })
 })

@@ -18,7 +18,12 @@ async function binaryAvailable(name: string): Promise<boolean> {
 }
 
 describe('upconvert integration', () => {
-  it('finds wasted bits in a 24-bit FLAC made from 16-bit samples when FLAC is available', async () => {
+  it.each([
+    ['16-bit audio', { effectiveBits: 16 as const }, true],
+    ['16-bit audio followed by silence', { effectiveBits: 16 as const, silenceSeconds: 1 }, true],
+    ['24-bit audio', { effectiveBits: 24 as const }, false],
+    ['digital silence', { durationSeconds: 0, silenceSeconds: 1 }, false]
+  ])('checks a 24-bit FLAC holding %s when FLAC is available', async (_, audio, upconverted) => {
     if (!(await binaryAvailable('flac'))) return
 
     const root = await mkdtemp(join(tmpdir(), 'gravlax-upconvert-integration-'))
@@ -26,11 +31,13 @@ describe('upconvert integration', () => {
       const path = join(root, '01 - Tone.flac')
       await writeSyntheticFlac(path, {
         bitsPerSample: 24,
-        effectiveBits: 16,
-        distinctChannels: true
+        distinctChannels: true,
+        durationSeconds: 1,
+        ...audio
       })
       const result = await checkUpconvert(path)
-      expect(result).toMatchObject({ bitDepth: 24, wastedBits: 8, isUpconverted: true })
+      expect(result).toMatchObject({ bitDepth: 24, isUpconverted: upconverted })
+      if (upconverted) expect(result?.wastedBits).toBe(8)
     } finally {
       await rm(root, { recursive: true, force: true })
     }

@@ -5,6 +5,7 @@ import { runCommand } from '@main/core/tools/runCommand'
 import { readFLACStreamInfo, type FlacStreamInfo } from '../tools/diagnostics/mqa'
 
 const UPCONVERT_WASTED_BITS = 8
+const UPCONVERT_SHARE = 0.9
 
 type CommandRunner = typeof runCommand
 type StreamInfoReader = (path: string) => Promise<FlacStreamInfo>
@@ -14,8 +15,11 @@ export interface UpconvertAnalysis {
   isUpconverted: boolean
 }
 
+// Digital silence is a CONSTANT subframe with 0 wasted bits, so it would hide padding.
 export function parseWastedBits(output: string): number[] {
-  return Array.from(output.matchAll(/wasted_bits=(\d+)/g), (match) => Number(match[1]))
+  return Array.from(output.matchAll(/wasted_bits=(\d+)\s+type=(\w+)/g))
+    .filter((match) => match[2] !== 'CONSTANT')
+    .map((match) => Number(match[1]))
 }
 
 export async function analyzeUpconvert(
@@ -34,12 +38,16 @@ export async function analyzeUpconvert(
     undefined,
     options.tools ?? automaticToolResolver
   )
-  const values = parseWastedBits(output.toString('utf8'))
-  if (values.length === 0) {
+  const text = output.toString('utf8')
+  if (!text.includes('wasted_bits=')) {
     throw new Error('Could not determine wasted bits.')
   }
-  const wastedBits = Math.ceil(values.reduce((sum, value) => sum + value, 0) / values.length)
-  return { wastedBits, isUpconverted: wastedBits >= UPCONVERT_WASTED_BITS }
+  const values = parseWastedBits(text).sort((a, b) => a - b)
+  const padded = values.filter((value) => value >= UPCONVERT_WASTED_BITS).length
+  return {
+    wastedBits: values[Math.floor(values.length / 2)] ?? 0,
+    isUpconverted: values.length > 0 && padded >= values.length * UPCONVERT_SHARE
+  }
 }
 
 export async function checkUpconvert(
@@ -117,14 +125,16 @@ export function upconvertSummaryDetail(summary: UpconvertSummary): string {
   const upconverts = summary.results.filter((result) => result.isUpconverted)
   let headline = `Checked ${summary.checkedCount} 24-bit FLAC files. No likely upconverts found.`
   if (upconverts.length > 0) {
-    headline = `Checked ${summary.checkedCount} 24-bit FLAC files. Possible upconverts detected in ${upconverts.length}.`
+    headline = `Checked ${summary.checkedCount} 24-bit FLAC files. Upconverts found in ${upconverts.length}. Upload is blocked.`
   } else if (summary.errors.length > 0) {
     headline = `Checked ${summary.checkedCount} 24-bit FLAC files. Upconvert check incomplete.`
   }
   const lines = [headline]
   for (const result of summary.results) {
     lines.push(
-      `- ${result.relativePath}: ${result.isUpconverted ? 'likely upconverted' : 'passed'} (wasted bits: ${result.wastedBits}/${result.bitDepth})`
+      result.isUpconverted
+        ? `- ${result.relativePath}: likely upconverted (looks like ${result.bitDepth - result.wastedBits}-bit audio in a ${result.bitDepth}-bit file)`
+        : `- ${result.relativePath}: passed (wasted bits: ${result.wastedBits}/${result.bitDepth})`
     )
   }
   if (summary.errors.length > 0) {

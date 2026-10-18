@@ -2,6 +2,7 @@ import type { BackgroundTask, StepID, TagsSnapshot, UploadFlowStateJSON } from '
 import { pendingSeparatorArtists } from '../tags/editor'
 import { WORKFLOW_STEPS, type WorkflowStep } from './steps'
 import { LOSSY_MASTER_SPECTRAL_REQUIRED, lossyMasterMissingSpectral } from './lossyReport'
+import { UPCONVERT_BLOCKED, upconvertsFound } from './fileChecks/upconvert'
 
 export { WORKFLOW_STEPS, type WorkflowStep } from './steps'
 
@@ -28,7 +29,7 @@ export function highestReachableStep(state: UploadFlowStateJSON): number {
   let highest = index('file-checks')
 
   if (
-    state.fileChecks.integrity.status !== 'passed' &&
+    (state.fileChecks.integrity.status !== 'passed' || upconvertsFound(state.fileChecks)) &&
     state.upload.phase !== 'submitting' &&
     state.upload.phase !== 'done'
   ) {
@@ -106,6 +107,15 @@ export function evaluateStepNavigation(
         ? 'Wait for the FLAC integrity check to finish.'
         : 'Repair failed FLAC integrity checks before continuing.'
     }
+  }
+  if (
+    goingForward &&
+    targetIndex >= firstStepAfterMedia &&
+    upconvertsFound(state.fileChecks) &&
+    state.upload.phase !== 'submitting' &&
+    state.upload.phase !== 'done'
+  ) {
+    return { ok: false, error: UPCONVERT_BLOCKED }
   }
   const metadataStep = workflowStepIndex('metadata') ?? WORKFLOW_STEPS.length
   if (

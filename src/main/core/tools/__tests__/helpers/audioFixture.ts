@@ -10,6 +10,7 @@ export async function writeSyntheticFlac(
     effectiveBits?: 16 | 24
     distinctChannels?: boolean
     durationSeconds?: number
+    silenceSeconds?: number
   } = {}
 ): Promise<void> {
   const bitsPerSample = options.bitsPerSample ?? 16
@@ -17,7 +18,8 @@ export async function writeSyntheticFlac(
   const sampleRate = options.sampleRate ?? 44_100
   const channels = 2
   const bytesPerSample = bitsPerSample / 8
-  const sampleCount = Math.floor(sampleRate * (options.durationSeconds ?? 0.25))
+  const toneCount = Math.floor(sampleRate * (options.durationSeconds ?? 0.25))
+  const sampleCount = toneCount + Math.floor(sampleRate * (options.silenceSeconds ?? 0))
   const dataSize = sampleCount * channels * bytesPerSample
   const wav = Buffer.alloc(44 + dataSize)
 
@@ -36,7 +38,7 @@ export async function writeSyntheticFlac(
   wav.writeUInt32LE(dataSize, 40)
 
   const peak = effectiveBits === 16 ? 8_000 : 2_000_000
-  for (let frame = 0; frame < sampleCount; frame++) {
+  for (let frame = 0; frame < toneCount; frame++) {
     const sourceValue = Math.round(Math.sin((frame * 2 * Math.PI * 440) / sampleRate) * peak)
     for (let channel = 0; channel < channels; channel++) {
       const channelValue =
