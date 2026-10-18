@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
+import { binaryAvailable } from '../../__tests__/helpers/audioFixture'
 import { runCommand } from '../../runCommand'
 import { checkMQA, plantSyncword } from '../mqa'
 
@@ -37,6 +38,7 @@ async function writeFlac(bits: 16 | 24, planted: boolean): Promise<string> {
 
 describe('checkMQA on a real FLAC', () => {
   it.each([16, 24] as const)('finds a planted marker in %i-bit audio', async (bits) => {
+    if (!(await binaryAvailable('flac'))) return
     expect(await checkMQA(await writeFlac(bits, true))).toBe(true)
     expect(await checkMQA(await writeFlac(bits, false))).toBe(false)
   })

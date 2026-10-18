@@ -1,21 +1,9 @@
-import { access, mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { writeSyntheticFlac } from '../../tools/__tests__/helpers/audioFixture'
+import { binaryAvailable, writeSyntheticFlac } from '../../tools/__tests__/helpers/audioFixture'
 import { checkUpconvert } from '../upconvert'
-
-async function binaryAvailable(name: string): Promise<boolean> {
-  for (const part of (process.env.PATH ?? '').split(delimiter)) {
-    try {
-      await access(join(part, process.platform === 'win32' ? `${name}.exe` : name))
-      return true
-    } catch {
-      /* continue */
-    }
-  }
-  return false
-}
 
 describe('upconvert integration', () => {
   it.each([

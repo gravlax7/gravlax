@@ -1,18 +1,11 @@
 import { createHash } from 'node:crypto'
-import { access, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
-import { delimiter, join } from 'node:path'
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it, vi } from 'vitest'
-import { writeSyntheticFlac } from '../../tools/__tests__/helpers/audioFixture'
+import { binaryAvailable, writeSyntheticFlac } from '../../tools/__tests__/helpers/audioFixture'
 import { runCommand } from '../../tools/runCommand'
 import { checkFLACCompressed, checkFLACIntegrity, repairFLACIntegrity } from '../integrity'
-
-async function binaryAvailable(name: string): Promise<boolean> {
-  for (const part of (process.env.PATH ?? '').split(delimiter)) {
-    try { await access(join(part, name)); return true } catch { /* continue */ }
-  }
-  return false
-}
 
 async function decodedHash(path: string): Promise<string> {
   const raw = await runCommand('flac', [

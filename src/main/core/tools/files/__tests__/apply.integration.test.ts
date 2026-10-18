@@ -1,8 +1,8 @@
 import { access, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { delimiter, join } from 'node:path'
+import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it } from 'vitest'
-import { writeSyntheticFlac } from '../../__tests__/helpers/audioFixture'
+import { binaryAvailable, writeSyntheticFlac } from '../../__tests__/helpers/audioFixture'
 import { runCommand } from '../../runCommand'
 import { extractAlbumReleaseWithEmbeddedCoverArt } from '../../../tags/extract'
 import { applyTagsAndRenames } from '../apply'
@@ -10,13 +10,6 @@ import { defaultConfig } from '@main/core/config/defaults'
 import { initializeFiles, newState, seedTagsProposed } from '@main/core/uploadflow'
 import { buildFilesRenamePlan } from '@shared/upload/naming'
 import { readFLACStreamInfo } from '../../flacLayout'
-
-async function binaryAvailable(name: string): Promise<boolean> {
-  for (const part of (process.env.PATH ?? '').split(delimiter)) {
-    try { await access(join(part, name)); return true } catch { /* continue */ }
-  }
-  return false
-}
 
 describe('tag and filename writes', () => {
   it.each([true, false])('writes the right metadata to artist-first files with renaming %s', async (rename) => {

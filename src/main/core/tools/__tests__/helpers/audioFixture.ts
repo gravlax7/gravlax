@@ -1,6 +1,19 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { access, mkdir, rm, writeFile } from 'node:fs/promises'
+import { delimiter, dirname, join } from 'node:path'
 import { runCommand } from '../../runCommand'
+
+export async function binaryAvailable(name: string): Promise<boolean> {
+  const file = process.platform === 'win32' ? `${name}.exe` : name
+  for (const part of (process.env.PATH ?? '').split(delimiter)) {
+    try {
+      await access(join(part, file))
+      return true
+    } catch {
+      /* continue */
+    }
+  }
+  return false
+}
 
 export async function writeSyntheticFlac(
   destination: string,

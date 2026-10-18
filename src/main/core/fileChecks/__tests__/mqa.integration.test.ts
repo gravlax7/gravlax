@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
-import { writeSyntheticFlac } from '../../tools/__tests__/helpers/audioFixture'
+import { binaryAvailable, writeSyntheticFlac } from '../../tools/__tests__/helpers/audioFixture'
 import { runCommand } from '../../tools/runCommand'
 import { inspectTranscode } from '../../tools/transcode'
 import { checkMQAWorkspace } from '../mqa'
@@ -26,6 +26,7 @@ async function release(tags: string[][]): Promise<string> {
 
 describe('MQA', () => {
   it('finds MQA by tag when the syncword check misses it', async () => {
+    if (!(await binaryAvailable('flac')) || !(await binaryAvailable('metaflac'))) return
     const root = await release([
       [],
       ['--set-tag=MQAENCODER=MQAEncode v1.1, 2.4.0+0 (a6e3fa0)'],
@@ -37,6 +38,7 @@ describe('MQA', () => {
   })
 
   it('offers no transcodes for an MQA release', async () => {
+    if (!(await binaryAvailable('flac'))) return
     const root = await release([[]])
     expect((await inspectTranscode(root)).options.length).toBeGreaterThan(0)
 

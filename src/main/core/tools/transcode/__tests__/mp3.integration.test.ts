@@ -1,35 +1,15 @@
 import { access, copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import NodeID3 from 'node-id3'
-import { writeSyntheticFlac } from '../../__tests__/helpers/audioFixture'
+import { binaryAvailable, writeSyntheticFlac } from '../../__tests__/helpers/audioFixture'
 import { readFLACStreamInfo } from '@main/core/tools/flacLayout'
 import { runCommand } from '../../runCommand'
 import { convertFolder } from '../flacConvert'
 import { transcodeFolder } from '../mp3'
 import { buildDownconvertOutputPath, buildMp3OutputPath } from '../naming'
 import { readFLACTags } from '@main/core/tags/extract'
-
-async function binaryAvailable(name: string): Promise<boolean> {
-  for (const part of (process.env.PATH ?? '').split(delimiter)) {
-    try {
-      await access(join(part, name))
-      return true
-    } catch {
-      /* continue */
-    }
-    if (process.platform === 'win32') {
-      try {
-        await access(join(part, `${name}.exe`))
-        return true
-      } catch {
-        /* continue */
-      }
-    }
-  }
-  return false
-}
 
 describe('transcode integration', () => {
   it('encodes a FLAC fixture to MP3 V0 when binaries are available', async () => {

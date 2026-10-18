@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFlacLayout } from '../flacLayout'
 import { runCommand } from '../runCommand'
-import { writeSyntheticFlac } from './helpers/audioFixture'
+import { binaryAvailable, writeSyntheticFlac } from './helpers/audioFixture'
 
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
 const roots: string[] = []
@@ -15,6 +15,7 @@ afterEach(async () => {
 
 describe('readFlacLayout', () => {
   it('reads stream info, vendor and byte totals', async () => {
+    if (!(await binaryAvailable('flac')) || !(await binaryAvailable('metaflac'))) return
     const root = await mkdtemp(join(tmpdir(), 'gravlax-layout-'))
     roots.push(root)
     const path = join(root, 'track.flac')
