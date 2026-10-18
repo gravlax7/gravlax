@@ -13,6 +13,7 @@ import {
   newState,
   selectSourcePath,
   setCurrentStep,
+  setLineage,
   setLossyComment,
   setLossyMaster,
   setSourceMedia,
@@ -24,6 +25,7 @@ import {
   currentStep as getCurrentStep,
   sourcePath as getSourcePath,
   sourceMedia as getSourceMedia,
+  lineage as getLineage,
   lossyComment as getLossyComment,
   lossyMaster as getLossyMaster,
   spectralIds as getSpectralIds,
@@ -39,6 +41,7 @@ export function snapshot(s: State): UploadFlowSnapshot {
     sourcePath: getSourcePath(s),
     currentStepID: getCurrentStep(s).id,
     sourceMedia: getSourceMedia(s) || undefined,
+    lineage: getLineage(s),
     lossyMaster: getLossyMaster(s) || undefined,
     lossyComment: getLossyComment(s) || undefined,
     // Kept even when auto, so a `Random` pre-selection survives a restart
@@ -88,6 +91,9 @@ export function restoreState(
   let state = setWorkspacePath(selectSourcePath(newState(), snap.sourcePath), workspacePath)
   if (snap.sourceMedia) {
     state = setSourceMedia(state, snap.sourceMedia)
+  }
+  if (snap.lineage) {
+    state = setLineage(state, snap.lineage)
   }
   if (snap.lossyMaster) {
     state = setLossyMaster(state, true)

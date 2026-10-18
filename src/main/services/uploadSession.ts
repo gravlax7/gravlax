@@ -1,7 +1,8 @@
-import { access, rm } from 'node:fs/promises'
+import { access, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 import { validateLossyMasterReport } from '@shared/upload/lossyReport'
+import { PASTED_LINEAGE_FILE, lineageFilePath, validateVinylLineage } from '@shared/upload/vinyl'
 import type { Config } from '@shared/types/config'
 import type { WorkspaceInfo } from '@shared/ipc'
 import type {
@@ -18,7 +19,8 @@ import type {
   UploadStartEntries,
   UploadSnapshot,
   UploadSubmission,
-  UploadTrackerId
+  UploadTrackerId,
+  VinylLineage
 } from '@shared/types'
 import {
   clearMetadataSelection,
@@ -36,6 +38,7 @@ import {
   setFileChecks,
   setFileChecksRunning,
   setFileChecksRepairProgress,
+  setLineage,
   setLossyComment,
   setLossyMaster,
   setSpectralIds,
@@ -125,7 +128,8 @@ import {
   workspaceRoot,
   workspaceSize,
   workspaceAvailable,
-  sourceRestoreStatus
+  sourceRestoreStatus,
+  pathExists
 } from '@main/core/appdata/workspace'
 import { expandPath } from '@main/core/config/paths'
 import { saveUploadedRelease } from '@main/core/appdata/uploadHistory'
@@ -138,6 +142,11 @@ import {
   runFileChecks
 } from '@main/core/fileChecks'
 import { detectSourceMedia } from '@main/core/tools/diagnostics/sourceMedia'
+import {
+  listLineageCandidates,
+  pickLineageFile,
+  readLineageText
+} from '@main/core/tools/upload/lineage'
 import { createEnabledTrackers } from '@main/core/tools/trackers'
 import { extractAlbumReleaseWithEmbeddedCoverArt } from '@main/core/tags/extract'
 import { discoverFLACFiles } from '@main/core/tools/flacFiles'
@@ -562,6 +571,7 @@ export class UploadSession {
       validateUploadReport(this.state.upload) ??
       validateLossyMasterReport(this.state.draft) ??
       validateMqaEditionTitle(this.state.fileChecks, this.state.upload) ??
+      validateVinylLineage(this.state.draft) ??
       validateUploadTargets(this.state.upload, cfg, pendingTrackerIds)
     if (error) {
       this.apply(failUploadReport(this.state, error))
@@ -1134,8 +1144,21 @@ export class UploadSession {
   ): Promise<void> {
     const detected = (await detectSourceMedia(folderPath)) ?? 'WEB'
     if (!stillCurrent() || this.state.draft.workspacePath !== folderPath) return
-    if (this.state.draft.sourceMedia !== '') return
-    this.apply(setSourceMedia(this.state, detected))
+    if (this.state.draft.sourceMedia === '') this.apply(setSourceMedia(this.state, detected))
+    await this.maybePickLineage(folderPath, stillCurrent)
+  }
+
+  // Picks the one root text file named as lineage. Anything less clear is left
+  // for the user, since the wrong file would go out as the rip's lineage.
+  private async maybePickLineage(
+    workspacePath: string,
+    stillCurrent: () => boolean = () => true
+  ): Promise<void> {
+    if (this.state.draft.sourceMedia !== 'Vinyl' || this.state.draft.lineage) return
+    const picked = pickLineageFile(await listLineageCandidates(workspacePath))
+    if (!picked || !stillCurrent() || this.state.draft.workspacePath !== workspacePath) return
+    if (this.state.draft.sourceMedia !== 'Vinyl' || this.state.draft.lineage) return
+    this.apply(setLineage(this.state, { kind: 'file', path: picked }))
   }
 
   private async ensureFilesInitialized(
@@ -1218,12 +1241,76 @@ export class UploadSession {
     await this.runFileChecksIfReady()
   }
 
-  selectSourceMedia(media: SourceMedia): void {
+  async selectSourceMedia(media: SourceMedia): Promise<void> {
     if (media === this.state.draft.sourceMedia) return
     // Only file checks reads the media type, so only file checks is thrown away.
+    // Its rerun also picks up the pasted lineage file going away.
     this.fileChecks.cancel()
+    const workspacePath = this.state.draft.workspacePath
+    const dropsPasted = media !== 'Vinyl' && this.state.draft.lineage?.kind === 'pasted'
+    // The state changes before any await, so a second call sees it.
     this.apply(setSourceMedia(this.state, media))
+    if (dropsPasted) await rm(join(workspacePath, PASTED_LINEAGE_FILE), { force: true })
+    await this.maybePickLineage(workspacePath)
     this.scheduleReadyTasks()
+  }
+
+  /** Root text files that could hold the lineage, with their text. */
+  async listLineageFiles(): Promise<Array<{ path: string; text: string }>> {
+    const workspacePath = this.state.draft.workspacePath
+    const names = await listLineageCandidates(workspacePath)
+    return Promise.all(names.map(async (path) => ({
+      path,
+      text: readLineageText(await readFile(join(workspacePath, path)))
+    })))
+  }
+
+  /** Null takes the decision back, so the step asks again. */
+  async setLineage(next: VinylLineage | null): Promise<{ ok: true } | { ok: false; error: string }> {
+    const workspacePath = this.state.draft.workspacePath
+    if (!workspacePath || this.state.draft.sourceMedia !== 'Vinyl') {
+      return { ok: false, error: 'Lineage applies to vinyl rips only.' }
+    }
+    if (
+      (this.state.upload.submissions ?? []).some((item) => item.status === 'done') ||
+      this.state.upload.phase === 'submitting' ||
+      this.state.seed.phase !== 'idle'
+    ) {
+      return { ok: false, error: 'Lineage cannot change after upload or seeding has started.' }
+    }
+    const previous = this.state.draft.lineage
+    if (isDeepStrictEqual(previous ?? null, next)) return { ok: true }
+    const pastedPath = join(workspacePath, PASTED_LINEAGE_FILE)
+    if (next?.kind === 'file') {
+      const candidates = (await listLineageCandidates(workspacePath)).filter(
+        (name) => previous?.kind !== 'pasted' || name !== PASTED_LINEAGE_FILE
+      )
+      if (!candidates.includes(next.path)) {
+        return { ok: false, error: `${next.path} is not a text file in the release folder.` }
+      }
+    }
+    if (next?.kind === 'pasted') {
+      if (!next.text.trim()) return { ok: false, error: 'The lineage is empty.' }
+      if (previous?.kind !== 'pasted' && (await pathExists(pastedPath))) {
+        return { ok: false, error: `A ${PASTED_LINEAGE_FILE} already exists. Pick it, or rename it first.` }
+      }
+      await writeFile(pastedPath, next.text)
+    } else if (previous?.kind === 'pasted') {
+      await rm(pastedPath, { force: true })
+    }
+    await this.applyLineage(workspacePath, next ?? undefined)
+    return { ok: true }
+  }
+
+  private async applyLineage(workspacePath: string, lineage: VinylLineage | undefined): Promise<void> {
+    const payload = await enumerateReleasePaths(workspacePath)
+    if (this.state.draft.workspacePath !== workspacePath) return
+    this.apply(setLineage(reconcilePayloadPaths(this.state, payload), lineage))
+    // Derived folders hold a copy of the lineage file, so they are made again.
+    if ((this.state.transcode.jobs ?? []).length > 0) {
+      await this.fileChangesService.invalidateGeneratedFiles()
+      this.scheduleReadyTasks()
+    }
   }
 
   setLossyMaster(value: boolean): void {
@@ -1317,7 +1404,16 @@ export class UploadSession {
   }
 
   async revertFiles(): Promise<{ ok: true } | { ok: false; error: string }> {
-    return this.fileChangesService.revertFiles()
+    const result = await this.fileChangesService.revertFiles()
+    // Restoring copies the source folder back, which has no pasted lineage file.
+    const lineage = this.state.draft.lineage
+    const workspacePath = this.state.draft.workspacePath
+    const pastedPath = join(workspacePath, PASTED_LINEAGE_FILE)
+    if (result.ok && lineage?.kind === 'pasted' && workspacePath && !(await pathExists(pastedPath))) {
+      await writeFile(pastedPath, lineage.text)
+      await this.applyLineage(workspacePath, lineage)
+    }
+    return result
   }
 
   setTagsCursor(cursor: number): void {
@@ -1494,6 +1590,9 @@ export class UploadSession {
 
     const workspacePath = this.state.draft.workspacePath
     const essentialOnly = this.state.transcode.essentialOnly ?? true
+    // The lineage goes in every torrent, whatever `essentialOnly` says.
+    const lineagePath = lineageFilePath(this.state.draft.lineage)
+    const alwaysCopy = new Set(lineagePath ? [lineagePath] : [])
 
     const jobs: TranscodeJobResult[] = selected.map((option) => ({
       optionId: option.id,
@@ -1545,6 +1644,7 @@ export class UploadSession {
               if (!option.bitrate) throw new Error(`missing bitrate for ${option.id}`)
               const result = await transcodeFolder(workspacePath, option.bitrate, {
                 essentialOnly,
+                alwaysCopy,
                 signal: task.signal,
                 tools: this.deps.tools,
                 onProgress
@@ -1558,6 +1658,7 @@ export class UploadSession {
                 bitDepth: option.targetBitDepth,
                 sampleRate: option.targetSampleRate,
                 essentialOnly,
+                alwaysCopy,
                 signal: task.signal,
                 tools: this.deps.tools,
                 onProgress

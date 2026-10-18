@@ -27,7 +27,7 @@ describe('IPC argument contract', () => {
   })
 
   it('rejects values outside shared domain catalogs', () => {
-    expect(() => parseIpcArguments('upload:selectSourceMedia', ['Vinyl'])).toThrow()
+    expect(() => parseIpcArguments('upload:selectSourceMedia', ['Cassette'])).toThrow()
     expect(() => parseIpcArguments('config:resetSection', ['other'])).toThrow()
     const cfg = configInput()
     ;(cfg.appearance as { theme: string }).theme = 'other'

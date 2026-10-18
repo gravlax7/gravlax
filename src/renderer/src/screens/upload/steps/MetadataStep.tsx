@@ -6,6 +6,7 @@ import {
 } from '@shared/types/upload'
 import { ProviderIcon } from '../../../components/ProviderIcon'
 import { Badge, Button, Callout, Card, Icon, IconButton, Section } from '../../../ui'
+import { metadataMediaMismatch } from '@shared/upload/vinyl'
 import {
   metadataDisplayText,
   providerStatusTone,
@@ -44,6 +45,11 @@ export function MetadataStep(props: {
       (selected.url ?? '') === (result.url ?? '')
     )
   }
+
+  const mediaMismatch = createMemo(() => {
+    const results = (props.state.metadata.providers ?? []).flatMap((p) => p.results ?? [])
+    return metadataMediaMismatch(props.state.draft.sourceMedia, results.find(isSelected))
+  })
 
   const loadReleaseUrl = async (): Promise<void> => {
     const url = releaseUrl().trim()
@@ -144,6 +150,9 @@ export function MetadataStep(props: {
       </form>
       <Show when={urlError()}>
         {(error) => <Callout tone="error">{error()}</Callout>}
+      </Show>
+      <Show when={mediaMismatch()}>
+        {(warning) => <Callout tone="warning">{warning()}</Callout>}
       </Show>
 
       <For

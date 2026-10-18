@@ -148,6 +148,15 @@ export function TranscodeStep(props: { state: UploadFlowStateJSON }) {
                             <div class="mono transcode-option-folder">
                               → {option.outputFolderName}
                             </div>
+                            <Show when={
+                              props.state.draft.sourceMedia === 'Vinyl' &&
+                              option.targetBitDepth === 24 &&
+                              option.targetSampleRate === 88200
+                            }>
+                              <div class="transcode-essential-help">
+                                A 24/96 vinyl rip of the same edition replaces a 24/88.2 one.
+                              </div>
+                            </Show>
                             <Show when={job()?.status}>
                               <Badge tone={jobTone(job()?.status)}>
                                 {jobStatusLabel(job()?.status)}

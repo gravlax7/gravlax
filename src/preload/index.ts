@@ -50,6 +50,8 @@ const api = {
     selectSourceMedia: (media: IpcInvokeArgs<'upload:selectSourceMedia'>[0]) =>
       invoke('upload:selectSourceMedia', media),
     setLossyMaster: (value: boolean) => invoke('upload:setLossyMaster', value),
+    listLineageFiles: () => invoke('upload:listLineageFiles'),
+    setLineage: (lineage: IpcInvokeArgs<'upload:setLineage'>[0]) => invoke('upload:setLineage', lineage),
     setLossyComment: (value: string) => invoke('upload:setLossyComment', value),
     resolveMetadataUrl: (url: string) => invoke('upload:resolveMetadataUrl', url),
     selectMetadataMatch: (selection: IpcInvokeArgs<'upload:selectMetadataMatch'>[0]) =>

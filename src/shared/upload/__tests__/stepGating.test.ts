@@ -582,3 +582,45 @@ describe('skipped transcode step', () => {
     expect(adjacentStepIndex(failed, 1, true)).toBe(transcode)
   })
 })
+
+describe('vinyl lineage gate', () => {
+  const fileChecksDone = {
+    id: 'file-checks' as const,
+    step: 'file-checks' as const,
+    title: 'File checks',
+    status: 'succeeded' as const,
+    detail: '',
+    progressCurrent: 1,
+    progressTotal: 1,
+    progressLabel: ''
+  }
+  const stateWith = (draft: Partial<UploadFlowStateJSON['draft']>): UploadFlowStateJSON => {
+    const base = baseState()
+    return baseState({
+      draft: { ...base.draft, sourcePath: '/a', workspacePath: '/w', ...draft },
+      background: { sourcePath: '/a', sourceMedia: draft.sourceMedia ?? '', tasks: [fileChecksDone] }
+    })
+  }
+
+  it('blocks leaving File Checks while a vinyl lineage is undecided', () => {
+    expect(evaluateStepNavigation(stateWith({ sourceMedia: 'Vinyl' }), 1)).toEqual({
+      ok: false,
+      error: 'Choose the lineage for this vinyl rip, or confirm uploading without one.'
+    })
+  })
+
+  it('passes once the lineage is decided, whatever its kind', () => {
+    for (const lineage of [
+      { kind: 'file' as const, path: 'lineage.txt' },
+      { kind: 'pasted' as const, text: 'Turntable' },
+      { kind: 'none' as const }
+    ]) {
+      expect(evaluateStepNavigation(stateWith({ sourceMedia: 'Vinyl', lineage }), 1).ok).toBe(true)
+    }
+  })
+
+  it('never blocks WEB or CD', () => {
+    expect(evaluateStepNavigation(stateWith({ sourceMedia: 'WEB' }), 1).ok).toBe(true)
+    expect(evaluateStepNavigation(stateWith({ sourceMedia: 'CD' }), 1).ok).toBe(true)
+  })
+})

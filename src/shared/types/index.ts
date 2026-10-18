@@ -8,6 +8,7 @@ export type {
   Release,
   StepID,
   SourceMedia,
+  VinylLineage,
   UploadStartEntries,
   UploadStartNewEntry,
   UploadStartResumeEntry,

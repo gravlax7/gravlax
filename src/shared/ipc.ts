@@ -19,6 +19,7 @@ import type {
   MetadataUrlResolution,
   Release,
   SourceMedia,
+  VinylLineage,
   TrackerGroupDetail,
   UploadFlowStateJSON,
   UploadStartEntries,
@@ -73,6 +74,8 @@ export interface IpcInvokeMap {
   'upload:resume': { args: [string]; result: void }
   'upload:selectSourceMedia': { args: [SourceMedia]; result: void }
   'upload:setLossyMaster': { args: [boolean]; result: void }
+  'upload:listLineageFiles': { args: []; result: Array<{ path: string; text: string }> }
+  'upload:setLineage': { args: [VinylLineage | null]; result: { ok: true } | { ok: false; error: string } }
   'upload:setLossyComment': { args: [string]; result: void }
   'upload:resolveMetadataUrl': { args: [string]; result: MetadataUrlResolution }
   'upload:selectMetadataMatch': { args: [MetadataSelection | null]; result: void }
@@ -273,6 +276,14 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'upload:resume': z.tuple([z.string().min(1)]),
   'upload:selectSourceMedia': z.tuple([z.enum(SOURCE_MEDIA_OPTIONS)]),
   'upload:setLossyMaster': z.tuple([z.boolean()]),
+  'upload:listLineageFiles': noArgs,
+  'upload:setLineage': z.tuple([
+    z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('file'), path: z.string().min(1) }),
+      z.object({ kind: z.literal('pasted'), text: z.string() }),
+      z.object({ kind: z.literal('none') })
+    ]).nullable()
+  ]),
   'upload:setLossyComment': z.tuple([z.string()]),
   'upload:resolveMetadataUrl': z.tuple([z.string().min(1)]),
   'upload:selectMetadataMatch': z.tuple([objectInput<MetadataSelection>().nullable()]),

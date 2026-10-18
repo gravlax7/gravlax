@@ -1,11 +1,14 @@
 import { readdir } from 'node:fs/promises'
 import { extname, join, relative, sep } from 'node:path'
 import type { SourceMedia } from '@shared/types'
+import { listLineageCandidates } from '../upload/lineage'
 
 export async function detectSourceMedia(root: string): Promise<SourceMedia | null> {
   if (!root) return null
   const logs = await discoverLogFiles(root)
   if (logs.length > 0) return 'CD'
+  const candidates = await listLineageCandidates(root)
+  if (candidates.some((name) => name.toLowerCase().includes('lineage'))) return 'Vinyl'
   return null
 }
 

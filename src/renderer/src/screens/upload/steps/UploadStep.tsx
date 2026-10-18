@@ -38,6 +38,7 @@ import {
   buildLossyMasterComment,
   validateLossyMasterReport
 } from '@shared/upload/lossyReport'
+import { validateVinylLineage } from '@shared/upload/vinyl'
 import { anySelectedTrackerHasGroupId } from '@shared/upload/groupIds'
 import { mixedWebTrackerGuidance } from '@shared/upload/mixedAudio'
 import { validateMqaEditionTitle } from '@shared/upload/fileChecks'
@@ -140,6 +141,7 @@ function uploadBlockedReason(
     validateUploadReport(state.upload) ??
     validateLossyMasterReport(state.draft) ??
     validateMqaEditionTitle(state.fileChecks, state.upload) ??
+    validateVinylLineage(state.draft) ??
     validateUploadTargets(
       state.upload,
       config,
@@ -876,7 +878,9 @@ export function UploadStep(props: {
             label="Report comment"
             description={`${props.state.draft.sourceMedia === 'CD'
               ? 'Describe where you obtained or borrowed the disc.'
-              : 'Add where you obtained these files, ideally with a link to the release.'} You can include proof without personal information in this comment.`}
+              : props.state.draft.sourceMedia === 'Vinyl'
+                ? 'Describe the record and where the rip came from.'
+                : 'Add where you obtained these files, ideally with a link to the release.'} You can include proof without personal information in this comment.`}
             previewReady={previewReady()}
             previewTrackerId={previewTrackerId()}
             previewKey={previewKey()}

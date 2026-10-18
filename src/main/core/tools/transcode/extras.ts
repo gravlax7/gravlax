@@ -15,12 +15,15 @@ export async function copyExtraFiles(
     skipFlac?: boolean
     skipSources?: ReadonlySet<string>
     skipExtensions?: ReadonlySet<string>
+    /** Relative paths copied whatever the other options say, such as the lineage file. */
+    alwaysCopy?: ReadonlySet<string>
   } = {}
 ): Promise<CopiedExtra[]> {
   const essentialOnly = options.essentialOnly ?? false
   const skipFlac = options.skipFlac ?? false
   const skipSources = options.skipSources ?? new Set<string>()
   const skipExtensions = options.skipExtensions ?? new Set<string>()
+  const alwaysCopy = options.alwaysCopy ?? new Set<string>()
   const results: CopiedExtra[] = []
 
   async function walk(dir: string): Promise<void> {
@@ -38,11 +41,12 @@ export async function copyExtraFiles(
       const rel = relative(sourcePath, path).split(sep).join('/')
 
       if (skipFlac && ext === '.flac') continue
-      if (skipExtensions.has(ext)) {
+      const kept = alwaysCopy.has(rel)
+      if (!kept && skipExtensions.has(ext)) {
         results.push({ relativePath: rel, action: 'skip' })
         continue
       }
-      if (essentialOnly && ext !== '.flac' && !IMAGE_EXTENSIONS.has(ext)) {
+      if (!kept && essentialOnly && ext !== '.flac' && !IMAGE_EXTENSIONS.has(ext)) {
         results.push({ relativePath: rel, action: 'skip' })
         continue
       }

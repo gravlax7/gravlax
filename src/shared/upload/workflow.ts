@@ -3,6 +3,7 @@ import { pendingSeparatorArtists } from '../tags/editor'
 import { WORKFLOW_STEPS, type WorkflowStep } from './steps'
 import { LOSSY_MASTER_SPECTRAL_REQUIRED, lossyMasterMissingSpectral } from './lossyReport'
 import { fileChecksBlocker } from './fileChecks/blocker'
+import { validateVinylLineage } from './vinyl'
 
 export { WORKFLOW_STEPS, type WorkflowStep } from './steps'
 
@@ -80,7 +81,11 @@ export function evaluateStepNavigation(
   const goingForward = targetIndex > state.currentStep
   const firstStepAfterMedia = workflowStepIndex('spectrals') ?? 0
   if (goingForward && targetIndex >= firstStepAfterMedia && !state.draft.sourceMedia) {
-    return { ok: false, error: 'Choose WEB or CD source media before continuing.' }
+    return { ok: false, error: 'Choose a source media before continuing.' }
+  }
+  const lineageError = validateVinylLineage(state.draft)
+  if (goingForward && targetIndex >= firstStepAfterMedia && lineageError) {
+    return { ok: false, error: lineageError }
   }
   if (
     goingForward &&

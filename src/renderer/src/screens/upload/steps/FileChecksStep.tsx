@@ -15,7 +15,9 @@ import {
   LogcheckerResult,
   MqaResult,
   StructureResult,
-  UpconvertResult
+  UpconvertResult,
+  LineageCard,
+  VinylNotes
 } from '../fileChecks'
 
 const REPAIR_STAGES: Array<{ id: RepairFlowStage; label: string }> = [
@@ -96,19 +98,27 @@ export function FileChecksStep(props: { state: UploadFlowStateJSON }) {
   const fileChecks = () => props.state.fileChecks
   const media = () => props.state.draft.sourceMedia
   const logCount = () => props.state.fileChecks.logs.logFiles.length
+  const mediaText = (): string => {
+    if (media() === 'CD') {
+      return logCount() > 0
+        ? `Read as a CD rip from ${logCount()} log file${logCount() === 1 ? '' : 's'}. Rip logs go to the tracker's logchecker.`
+        : "Read as a CD rip. Rip logs go to the tracker's logchecker."
+    }
+    if (media() === 'Vinyl') {
+      const lineage = props.state.draft.lineage
+      return lineage?.kind === 'file' && lineage.path.toLowerCase().includes('lineage')
+        ? `Found ${lineage.path}, so this is read as a vinyl rip.`
+        : 'Read as a vinyl rip.'
+    }
+    return 'No rip logs or lineage file found, so this is read as WEB. Switch to CD to run the logchecker, or to Vinyl for a vinyl rip.'
+  }
   return (
     <Section>
       <Show when={media()}>
         <Card class="file-checks-media">
           <div class="file-checks-media-text">
             <div class="file-checks-media-label">Source media</div>
-            <div class="file-checks-sub">
-              {media() === 'CD'
-                ? logCount() > 0
-                  ? `Read as a CD rip from ${logCount()} log file${logCount() === 1 ? '' : 's'}. Rip logs go to the tracker's logchecker.`
-                  : "Read as a CD rip. Rip logs go to the tracker's logchecker."
-                : 'No rip logs found, so this is read as WEB. Switch to CD to run the logchecker.'}
-            </div>
+            <div class="file-checks-sub">{mediaText()}</div>
           </div>
           <SegmentedControl
             value={media() || 'WEB'}
@@ -116,6 +126,11 @@ export function FileChecksStep(props: { state: UploadFlowStateJSON }) {
             onChange={(next) => void window.gravlax.upload.selectSourceMedia(next)}
           />
         </Card>
+      </Show>
+
+      <Show when={media() === 'Vinyl'}>
+        <LineageCard state={props.state} />
+        <VinylNotes audio={fileChecks().audio} />
       </Show>
 
       <Show when={!task()}>
@@ -131,7 +146,7 @@ export function FileChecksStep(props: { state: UploadFlowStateJSON }) {
           >
             <div class="file-checks-headline">Preparing the working copy…</div>
             <div class="file-checks-sub">
-              Copying the release, then reading it to work out WEB or CD.
+              Copying the release, then reading it to work out the source media.
             </div>
           </Show>
         </FileChecksResult>

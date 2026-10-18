@@ -93,6 +93,64 @@ describe('source selection', () => {
 
     expect(session.getState().draft.sourceMedia).toBe('CD')
   })
+
+  it('reads a folder carrying a lineage file as vinyl and picks that file', async () => {
+    const album = await makeSource('vinyl-album')
+    await writeFile(join(album, 'Lineage.txt'), 'Turntable')
+    await writeFile(join(album, 'info.nfo'), 'Notes')
+
+    const session = newSession()
+    await session.startNew(album)
+
+    expect(session.getState().draft.sourceMedia).toBe('Vinyl')
+    expect(session.getState().draft.lineage).toEqual({ kind: 'file', path: 'Lineage.txt' })
+  })
+
+  it('writes pasted lineage into the release and removes only the file it wrote', async () => {
+    const session = newSession()
+    await session.startNew(await makeSource('pasted-album'))
+    await session.selectSourceMedia('Vinyl')
+    const workspace = session.getState().draft.workspacePath
+    const pasted = join(workspace, 'lineage.txt')
+    expect(session.getState().draft.lineage).toBeUndefined()
+
+    await expect(session.setLineage({ kind: 'pasted', text: 'Turntable\n' })).resolves.toEqual({ ok: true })
+    expect(await readFile(pasted, 'utf8')).toBe('Turntable\n')
+    expect(session.getState().files.apply.payloadPaths?.some((item) => item.currentPath === 'lineage.txt')).toBe(true)
+
+    await session.setLineage({ kind: 'none' })
+    await expect(readFile(pasted)).rejects.toThrow()
+
+    await writeFile(pasted, 'From the ripper')
+    await expect(session.setLineage({ kind: 'pasted', text: 'Other' })).resolves.toEqual({
+      ok: false,
+      error: 'A lineage.txt already exists. Pick it, or rename it first.'
+    })
+    expect(await readFile(pasted, 'utf8')).toBe('From the ripper')
+  })
+
+  it('removes pasted lineage when the media stops being vinyl', async () => {
+    const session = newSession()
+    await session.startNew(await makeSource('switch-album'))
+    await session.selectSourceMedia('Vinyl')
+    await session.setLineage({ kind: 'pasted', text: 'Turntable' })
+
+    await session.selectSourceMedia('WEB')
+
+    expect(session.getState().draft.lineage).toBeUndefined()
+    await expect(readFile(join(session.getState().draft.workspacePath, 'lineage.txt'))).rejects.toThrow()
+  })
+
+  it('refuses a lineage file outside the release root', async () => {
+    const session = newSession()
+    await session.startNew(await makeSource('escape-album'))
+    await session.selectSourceMedia('Vinyl')
+
+    const result = await session.setLineage({ kind: 'file', path: '../upload.json' })
+
+    expect(result.ok).toBe(false)
+    expect(session.getState().draft.lineage).toBeUndefined()
+  })
 })
 
 describe('workspace lifecycle', () => {
