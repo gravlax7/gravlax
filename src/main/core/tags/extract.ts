@@ -28,6 +28,7 @@ import {
   uniqueStringsStable
 } from '@shared/tags/editor'
 import { metadataDate } from '@shared/tags/dates'
+import { EMBEDDED_ART_LIMIT_BYTES } from '@shared/upload/naming'
 import { numericTrackPositions, sameTrackPaths, TRACK_ORDER_FALLBACK_NOTICE } from '@shared/tags/trackOrder'
 import {
   firstAliasValue,
@@ -38,6 +39,8 @@ import {
 interface FlacTags {
   values: Record<string, string[]>
   pictureCount: number
+  /** PICTURE and PADDING blocks plus legacy COVERART comments. */
+  artAndPaddingBytes: number
 }
 
 const urlTagKeys = ['URL', 'URLS', 'WWW', 'WEBSITE']
@@ -52,6 +55,7 @@ export async function extractAlbumReleaseWithEmbeddedCoverArt(
 ): Promise<{
   release: Release
   embeddedCoverArtCount: number
+  oversizeArtCount: number
   relativePaths: string[]
   orderingNotice?: string
 }> {
@@ -70,10 +74,12 @@ export async function extractAlbumReleaseWithEmbeddedCoverArt(
 
   let records: Array<{ file: FlacFile; tagSet: FlacTags; track: Track }> = []
   let embeddedCoverArtCount = 0
+  let oversizeArtCount = 0
   for (const file of files) {
     const tagSet = await readFLACTags(file.absolutePath)
     records.push({ file, tagSet, track: buildTrack(tagSet) })
-    embeddedCoverArtCount += tagSet.pictureCount + (tagSet.values.COVERART?.length ?? 0)
+    embeddedCoverArtCount += embeddedArtCount(tagSet)
+    if (tagSet.artAndPaddingBytes > EMBEDDED_ART_LIMIT_BYTES) oversizeArtCount++
   }
 
   let orderingNotice: string | undefined
@@ -155,6 +161,7 @@ export async function extractAlbumReleaseWithEmbeddedCoverArt(
   return {
     release,
     embeddedCoverArtCount,
+    oversizeArtCount,
     relativePaths: records.map((record) => record.file.relativePath),
     orderingNotice
   }
@@ -183,6 +190,7 @@ export async function readFLACTags(path: string): Promise<FlacTags> {
     let position = 4
     let values: Record<string, string[]> = {}
     let pictureCount = 0
+    let artAndPaddingBytes = 0
     for (;;) {
       const blockHeader = Buffer.alloc(4)
       await readExact(handle, blockHeader, position)
@@ -193,20 +201,24 @@ export async function readFLACTags(path: string): Promise<FlacTags> {
       if (blockType === 4) {
         const payload = Buffer.alloc(blockLength)
         await readExact(handle, payload, position)
-        values = parseVorbisComments(payload).values
+        values = parseVorbisComments(payload)
       } else if (blockType === 6) {
         pictureCount += 1
+        artAndPaddingBytes += blockLength
+      } else if (blockType === 1) {
+        artAndPaddingBytes += blockLength
       }
       position += blockLength
       if (isLast) break
     }
-    return { values, pictureCount }
+    for (const value of values.COVERART ?? []) artAndPaddingBytes += Buffer.byteLength(value)
+    return { values, pictureCount, artAndPaddingBytes }
   } finally {
     await handle.close()
   }
 }
 
-function parseVorbisComments(payload: Buffer): FlacTags {
+function parseVorbisComments(payload: Buffer): Record<string, string[]> {
   let offset = 0
   const readUint32 = (): number => {
     const value = payload.readUInt32LE(offset)
@@ -232,7 +244,12 @@ function parseVorbisComments(payload: Buffer): FlacTags {
     if (!key || !value) continue
     ;(values[key] ??= []).push(value)
   }
-  return { values, pictureCount: 0 }
+  return values
+}
+
+/** Picture blocks plus legacy COVERART comments: what a strip removes. */
+export function embeddedArtCount(tags: FlacTags): number {
+  return tags.pictureCount + (tags.values.COVERART?.length ?? 0)
 }
 
 function buildTrack(tagSet: FlacTags): Track {

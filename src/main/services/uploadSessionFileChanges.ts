@@ -22,7 +22,7 @@ import {
   setRenameTrackFiles,
   setRenameFlags,
   setFilesApplyProgress,
-  setEmbeddedCoverArtCount,
+  setEmbeddedArt,
   setStripEmbeddedCoverArt,
   setTagsCurrent,
   setTagsProposed,
@@ -225,9 +225,12 @@ export class UploadSessionFileChanges {
       await this.invalidateGeneratedFiles()
       if (!stillCurrent()) return { ok: false, error: 'File changes were cancelled.' }
       let applied = writeTags ? release : (state.tags.current ?? release)
-      let embeddedCoverArtCount = stripCover
-        ? Math.max(0, (state.files.original.embeddedCoverArtCount ?? 0) - result.strippedPictureCount)
-        : state.files.original.embeddedCoverArtCount
+      let art = stripCover
+        ? {
+            embeddedCoverArtCount: Math.max(0, (state.files.original.embeddedCoverArtCount ?? 0) - result.strippedPictureCount),
+            oversizeArtCount: 0
+          }
+        : state.files.original
       try {
         const pathsById = new Map(result.currentPaths.map((file) => [file.id, file.currentPath]))
         const orderedPaths = state.files.apply.files.map((file) => {
@@ -237,7 +240,7 @@ export class UploadSessionFileChanges {
         })
         const extracted = await extractAlbumReleaseWithEmbeddedCoverArt(result.workspacePath, orderedPaths)
         applied = extracted.release
-        embeddedCoverArtCount = extracted.embeddedCoverArtCount
+        art = extracted
         if (writeTags && release.artists) {
           applied.artists = release.artists.map((artist) => ({ ...artist }))
         }
@@ -267,8 +270,8 @@ export class UploadSessionFileChanges {
         result.payloadPaths
       )
       next = writeTags ? acceptAppliedTags(next, applied) : setTagsCurrent(next, applied)
-      if (embeddedCoverArtCount !== undefined) {
-        next = setEmbeddedCoverArtCount(next, embeddedCoverArtCount)
+      if (art.embeddedCoverArtCount !== undefined) {
+        next = setEmbeddedArt(next, art)
       }
       // Reading tags back and renaming paths changes the plan inputs. Save
       // their accepted state so revisiting Metadata does not repeat the writes.
@@ -387,7 +390,7 @@ export class UploadSessionFileChanges {
           extracted.release
         )
       )
-      this.context.apply(setEmbeddedCoverArtCount(this.context.getState(), extracted.embeddedCoverArtCount))
+      this.context.apply(setEmbeddedArt(this.context.getState(), extracted))
       stillCurrent = this.context.createWorkspaceGuard(restoredPath)
       await this.context.persistNow()
       if (!stillCurrent()) return { ok: false, error: 'Restore was cancelled.' }

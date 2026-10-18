@@ -27,6 +27,32 @@ describe('extractAlbumReleaseWithEmbeddedCoverArt', () => {
 
     expect(result.release.title).toBe('With Art')
     expect(result.embeddedCoverArtCount).toBe(3)
+    expect(result.oversizeArtCount).toBe(0)
+  })
+
+  it('counts files whose art and padding exceed 1024 KiB', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'gravlax-tags-'))
+    temporaryPaths.push(directory)
+    const padded = join(directory, 'padded.flac')
+    await writeFile(padded, Buffer.concat([
+      Buffer.from('fLaC'),
+      metadataBlock(4, vorbisComments(['TRACKNUMBER=1', 'COVERART=abcd']), false),
+      metadataBlock(6, Buffer.alloc(1000), false),
+      metadataBlock(1, Buffer.alloc(1024 * 1024 - 1004), true)
+    ]))
+    await writeFlac(join(directory, 'plain.flac'), ['TRACKNUMBER=2'])
+
+    expect((await readFLACTags(padded)).artAndPaddingBytes).toBe(1024 * 1024)
+    expect((await extractAlbumReleaseWithEmbeddedCoverArt(directory)).oversizeArtCount).toBe(0)
+
+    await writeFile(padded, Buffer.concat([
+      Buffer.from('fLaC'),
+      metadataBlock(4, vorbisComments(['TRACKNUMBER=1']), false),
+      metadataBlock(1, Buffer.alloc(1024 * 1024 + 1), true)
+    ]))
+    const result = await extractAlbumReleaseWithEmbeddedCoverArt(directory)
+    expect(result.embeddedCoverArtCount).toBe(0)
+    expect(result.oversizeArtCount).toBe(1)
   })
 
   it('unions mixed genres across a multi-disc album', async () => {

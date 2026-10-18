@@ -86,7 +86,7 @@ import {
   initializeFiles,
   reorderFiles,
   reconcilePayloadPaths,
-  setEmbeddedCoverArtCount,
+  setEmbeddedArt,
   setSourceRestoreStatus,
   setKeepExistingFileChoices,
   emptyFileChecks
@@ -1925,7 +1925,8 @@ export class UploadSession {
     if (status === 'loading') return
     if (
       status === 'ready' &&
-      this.state.files.original.embeddedCoverArtCount !== undefined
+      this.state.files.original.embeddedCoverArtCount !== undefined &&
+      this.state.files.original.oversizeArtCount !== undefined
     ) return
     const workspacePath = this.state.draft.workspacePath
     this.apply(setTagsCurrentLoading(this.state))
@@ -1944,8 +1945,8 @@ export class UploadSession {
         const orderedPaths = !recomputeOrder && savedFiles.length > 0
           ? savedFiles.map((file) => file.currentPath)
           : undefined
-        const { release, embeddedCoverArtCount, relativePaths, orderingNotice } =
-          await extractAlbumReleaseWithEmbeddedCoverArt(workspacePath, orderedPaths)
+        const extracted = await extractAlbumReleaseWithEmbeddedCoverArt(workspacePath, orderedPaths)
+        const { release, relativePaths, orderingNotice } = extracted
         if (!task.fresh()) return
         if ((!release.urls || release.urls.length === 0) && (preservedUrls?.length ?? 0) > 0) {
           release.urls = [...(preservedUrls ?? [])]
@@ -1961,7 +1962,7 @@ export class UploadSession {
           ? reorderFiles(next, relativePaths)
           : initializeFiles(next, basename(workspacePath), relativePaths, payload)
         if (recomputeOrder) next = reconcilePayloadPaths(next, payload)
-        this.apply(setEmbeddedCoverArtCount(next, embeddedCoverArtCount))
+        this.apply(setEmbeddedArt(next, extracted))
         void this.startTagsReleaseIfNeeded()
       },
       {

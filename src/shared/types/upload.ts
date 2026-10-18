@@ -231,6 +231,8 @@ export interface SourceFingerprint {
 
 export interface FilesOriginalSnapshot {
   embeddedCoverArtCount?: number
+  /** FLACs whose embedded art and padding exceed `EMBEDDED_ART_LIMIT_BYTES`. */
+  oversizeArtCount?: number
   restoreAvailable?: boolean
   restoreUnavailableReason?: SourceRestoreUnavailableReason
 }

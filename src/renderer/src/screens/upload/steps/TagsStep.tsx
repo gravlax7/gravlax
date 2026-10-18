@@ -316,14 +316,17 @@ export function TagsStep(props: {
           </table>
         </div>
 
-        <Show when={(props.state.files.original.embeddedCoverArtCount ?? 0) > 0}>
+        <Show when={
+          (props.state.files.original.embeddedCoverArtCount ?? 0) > 0 ||
+          (props.state.files.original.oversizeArtCount ?? 0) > 0
+        }>
           <label class="tags-toggle-row">
             <Toggle
               on={props.state.files.apply.stripEmbeddedCoverArt}
               disabled={busy() || locked()}
               onChange={(value) => void window.gravlax.upload.setStripEmbeddedCoverArt(value)}
             />
-            <span><strong>Strip embedded cover art</strong><small>External cover files stay unchanged.</small></span>
+            <span><strong>Strip embedded cover art</strong><small>Also removes padding. External cover files stay unchanged.</small></span>
           </label>
         </Show>
 

@@ -7,9 +7,12 @@ import { removeEmptyDirectories } from '../directories'
 import { runCommand } from '../runCommand'
 import { finishStagedFolderRename, prepareStagedFolderRename, uploadWorkspaceRootForPath } from '../../appdata/workspace'
 import { managedRemovalKeys, managedTagProjection } from '@shared/tags/projection'
+import { EMBEDDED_ART_LIMIT_BYTES } from '@shared/upload/naming'
+import { embeddedArtCount, readFLACTags } from '../../tags/extract'
 
 const MANAGED_TAG_KEYS = managedRemovalKeys()
 const COVER_KEYS = ['COVERART', 'COVERARTMIME']
+const REMOVE_ART_AND_PADDING = ['--dont-use-padding', '--remove', '--block-type=PICTURE,PADDING']
 
 export interface ApplyFilesResult {
   workspacePath: string
@@ -72,10 +75,9 @@ export async function applyTagsAndRenames(input: {
       const absolutePath = join(input.workspacePath, fromPosix(file.currentPath))
       if (input.writeTags) {
         const values = await tagValues(release, index, absolutePath, signal, tools)
-        if (input.stripEmbeddedCoverArt) {
-          strippedPictureCount += await countEmbeddedCoverArt(absolutePath, signal, tools)
-        }
-        await rewriteFlac(absolutePath, values, input.stripEmbeddedCoverArt, signal, tools)
+        const art = input.stripEmbeddedCoverArt ? await artToStrip(absolutePath) : undefined
+        if (art !== undefined) strippedPictureCount += art
+        await rewriteFlac(absolutePath, values, art !== undefined, signal, tools)
       } else {
         strippedPictureCount += await stripFlacCoverArt(absolutePath, signal, tools)
       }
@@ -119,8 +121,8 @@ async function stripFlacCoverArt(
   signal: AbortSignal | undefined,
   tools: ToolResolver
 ): Promise<number> {
-  const count = await countEmbeddedCoverArt(sourcePath, signal, tools)
-  if (count === 0) return 0
+  const count = await artToStrip(sourcePath)
+  if (count === undefined) return 0
   const sourceInfo = await stat(sourcePath)
   const workDir = await mkdtemp(join(dirname(sourcePath), '.gravlax-cover-'))
   const temporary = join(workDir, 'output.flac')
@@ -133,13 +135,7 @@ async function stripFlacCoverArt(
       undefined,
       tools
     )
-    await runCommand(
-      'metaflac',
-      ['--dont-use-padding', '--remove', '--block-type=PICTURE', temporary],
-      signal,
-      undefined,
-      tools
-    )
+    await runCommand('metaflac', [...REMOVE_ART_AND_PADDING, temporary], signal, undefined, tools)
     await runCommand('flac', ['-t', '--silent', temporary], signal, undefined, tools)
     await chmod(temporary, sourceInfo.mode)
     await utimes(temporary, sourceInfo.atime, sourceInfo.mtime)
@@ -174,7 +170,7 @@ async function rewriteFlac(
     args.push(sourcePath)
     await runCommand('metaflac', args, signal, undefined, tools)
     if (stripCover) {
-      await runCommand('metaflac', ['--dont-use-padding', '--remove', '--block-type=PICTURE', temporary], signal, undefined, tools)
+      await runCommand('metaflac', [...REMOVE_ART_AND_PADDING, temporary], signal, undefined, tools)
     }
     await runCommand('flac', ['-t', '--silent', temporary], signal, undefined, tools)
     const actual = await readManagedComments(temporary, signal, tools)
@@ -203,22 +199,15 @@ async function readManagedComments(
   return comments
 }
 
-async function countEmbeddedCoverArt(
-  path: string,
-  signal: AbortSignal | undefined,
-  tools: ToolResolver
-): Promise<number> {
-  const metadata = (await runCommand('metaflac', ['--list', path], signal, undefined, tools)).toString('utf8')
-  const pictures = metadata.split(/\r?\n/).filter((line) => /type:\s+6 \(PICTURE\)/.test(line)).length
-  const output = (await runCommand(
-    'metaflac',
-    ['--no-utf8-convert', '--show-tag=COVERART', path],
-    signal,
-    undefined,
-    tools
-  )).toString('utf8')
-  const covers = output.replace(/\r\n/g, '\n').split('\n').filter((line) => /^COVERART=/i.test(line)).length
-  return pictures + covers
+/**
+ * The art count a strip removes, or undefined when the file needs no strip.
+ * Removing art also removes all padding, so a file over the art-and-padding
+ * limit is stripped even without pictures.
+ */
+async function artToStrip(path: string): Promise<number | undefined> {
+  const tags = await readFLACTags(path)
+  const count = embeddedArtCount(tags)
+  return count > 0 || tags.artAndPaddingBytes > EMBEDDED_ART_LIMIT_BYTES ? count : undefined
 }
 
 async function tagValues(

@@ -99,6 +99,23 @@ describe('buildFilesRenamePlan', () => {
     expect(plan.errors).toEqual([])
   })
 
+  it('requires the strip while art and padding are over the limit', () => {
+    const plan = (stripEmbeddedCoverArt: boolean) => buildFilesRenamePlan({
+      release: { title: 'Album', tracks: [{ title: 'Song' }, { title: 'Other' }] },
+      files: {
+        original: { oversizeArtCount: 2 },
+        apply: { phase: 'idle', onDiskModified: false, stripEmbeddedCoverArt, renameReleaseFolder: false, renameTrackFiles: false, currentFolderName: 'Album', files: [{ id: 'a', currentPath: 'a.flac' }, { id: 'b', currentPath: 'b.flac' }] }
+      },
+      naming,
+      sourceMedia: 'WEB',
+      writeTags: false
+    })
+    expect(plan(false).errors).toEqual([
+      '2 FLAC files carry more than 1024 KiB of embedded art and padding. Turn on Strip embedded cover art.'
+    ])
+    expect(plan(true).errors).toEqual([])
+  })
+
   it('uses four-digit years in folder tokens', () => {
     const plan = buildFilesRenamePlan({
       release: {

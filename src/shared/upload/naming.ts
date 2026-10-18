@@ -135,6 +135,8 @@ export type FilesRenamePlanInput = {
 }
 
 const PATH_LENGTH_LIMIT = 180
+/** Embedded images plus padding allowed in one FLAC. */
+export const EMBEDDED_ART_LIMIT_BYTES = 1024 * 1024
 
 export function buildFilesRenamePlan(input: FilesRenamePlanInput): FilesRenamePlan {
   const { release, files, naming } = input
@@ -152,6 +154,12 @@ export function buildFilesRenamePlan(input: FilesRenamePlanInput): FilesRenamePl
   const trackTotal = release.tracks?.length ?? 0
   if ((writeTags || renameTrackFiles) && trackTotal !== files.apply.files.length) {
     errors.push(`The release has ${trackTotal} tracks but the folder has ${files.apply.files.length} FLAC files.`)
+  }
+  const oversizeArt = files.original.oversizeArtCount ?? 0
+  if (oversizeArt > 0 && !files.apply.stripEmbeddedCoverArt) {
+    errors.push(
+      `${oversizeArt} FLAC file${oversizeArt === 1 ? ' carries' : 's carry'} more than 1024 KiB of embedded art and padding. Turn on Strip embedded cover art.`
+    )
   }
   const discTotal = Math.max(1, ...(release.tracks ?? []).map((track) => numberValue(track.discNumber)))
   const proposedTracks = files.apply.files.map((file, index): PlannedFileName => {

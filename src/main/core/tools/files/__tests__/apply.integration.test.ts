@@ -437,7 +437,54 @@ describe('tag and filename writes', () => {
       await rm(root, { recursive: true, force: true })
     }
   }, 30_000)
+
+  it.each([true, false])('removes padding with the art and leaves files that need no strip, writing tags %s', async (writeTags) => {
+    if (!(await binaryAvailable('metaflac')) || !(await binaryAvailable('flac'))) return
+    const root = await mkdtemp(join(tmpdir(), 'gravlax-padding-'))
+    try {
+      const album = join(root, 'Album')
+      const image = join(root, 'cover.png')
+      await mkdir(album)
+      await writeFile(image, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'))
+      const files = { art: 'art.flac', padded: 'padded.flac', plain: 'plain.flac' }
+      for (const name of Object.values(files)) await writeSyntheticFlac(join(album, name))
+      await runCommand('metaflac', [`--import-picture-from=${image}`, '--add-padding=300000', join(album, files.art)])
+      await runCommand('metaflac', ['--add-padding=1100000', join(album, files.padded)])
+      expect(await paddingBytes(join(album, files.plain))).toBeGreaterThan(0)
+
+      const names = Object.values(files)
+      await applyTagsAndRenames({
+        workspacePath: album,
+        writeTags,
+        release: { title: 'Album', tracks: names.map((title) => ({ title, trackNumber: '1' })) },
+        plan: {
+          folderName: 'Album',
+          files: names.map((name, index) => ({
+            id: `track-${index + 1}`, currentPath: name, targetPath: name, targetFilename: name, changed: false
+          })),
+          errors: [],
+          warnings: [],
+          hash: 'padding'
+        },
+        stripEmbeddedCoverArt: true
+      })
+
+      expect(await paddingBytes(join(album, files.art))).toBe(0)
+      expect((await runCommand('metaflac', ['--list', join(album, files.art)])).toString()).not.toContain('(PICTURE)')
+      expect(await paddingBytes(join(album, files.padded))).toBe(0)
+      // Tag writes may resize padding; only a strip removes it.
+      expect(await paddingBytes(join(album, files.plain))).toBeGreaterThan(0)
+      for (const name of names) await runCommand('flac', ['-t', '--silent', join(album, name)])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }, 30_000)
 })
+
+async function paddingBytes(path: string): Promise<number> {
+  const blocks = (await runCommand('metaflac', ['--list', '--block-type=PADDING', path])).toString('utf8')
+  return [...blocks.matchAll(/^\s*length: (\d+)$/gm)].reduce((sum, match) => sum + Number(match[1]), 0)
+}
 
 async function tagLines(path: string, key: string): Promise<string[]> {
   return (await runCommand('metaflac', ['--no-utf8-convert', `--show-tag=${key}`, path]))

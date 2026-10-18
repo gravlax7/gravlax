@@ -1,4 +1,9 @@
-import type { FileNameState, FilesSnapshot, SourceRestoreUnavailableReason } from '@shared/types'
+import type {
+  FileNameState,
+  FilesOriginalSnapshot,
+  FilesSnapshot,
+  SourceRestoreUnavailableReason
+} from '@shared/types'
 import { sameTrackPaths } from '@shared/tags/trackOrder'
 import type { State } from './state'
 
@@ -24,6 +29,7 @@ export function setFiles(s: State, files: FilesSnapshot): State {
     files: {
       original: {
         embeddedCoverArtCount: files.original.embeddedCoverArtCount,
+        oversizeArtCount: files.original.oversizeArtCount,
         restoreAvailable: files.original.restoreAvailable,
         restoreUnavailableReason: files.original.restoreUnavailableReason
       },
@@ -38,12 +44,19 @@ export function setFiles(s: State, files: FilesSnapshot): State {
   }
 }
 
-export function setEmbeddedCoverArtCount(s: State, count: number): State {
+export function setEmbeddedArt(
+  s: State,
+  art: Pick<FilesOriginalSnapshot, 'embeddedCoverArtCount' | 'oversizeArtCount'>
+): State {
   return {
     ...s,
     files: {
       ...s.files,
-      original: { ...s.files.original, embeddedCoverArtCount: count }
+      original: {
+        ...s.files.original,
+        embeddedCoverArtCount: art.embeddedCoverArtCount,
+        oversizeArtCount: art.oversizeArtCount
+      }
     }
   }
 }
