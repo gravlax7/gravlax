@@ -13,10 +13,9 @@
     "target": "ESNext",
     "lib": ["ESNext"],
     "types": ["node"],
-    "baseUrl": ".",
     "paths": {
-      "@main/*": ["src/main/*"],
-      "@shared/*": ["src/shared/*"]
+      "@main/*": ["./src/main/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   },
   "include": [
