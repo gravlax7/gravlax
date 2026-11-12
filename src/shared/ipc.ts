@@ -143,7 +143,7 @@ export type IpcInvokeResult<C extends IpcInvokeChannel> = IpcInvokeMap[C]['resul
 export type IpcEventChannel = keyof IpcEventMap
 
 const objectInput = <T>(): z.ZodType<T> =>
-  z.object({}).passthrough().refine((value) => value !== null) as unknown as z.ZodType<T>
+  z.looseObject({}).refine((value) => value !== null) as unknown as z.ZodType<T>
 
 const noArgs = z.tuple([])
 const trackerID = z.enum(UPLOAD_TRACKER_IDS)
@@ -319,7 +319,7 @@ export const IPC_ARGUMENT_SCHEMAS: {
   'dialog:pickFile': optionalOneArgument(z.object({ filters: z.array(z.object({ name: z.string(), extensions: z.array(z.string()) })).optional() })),
   'shell:revealPath': z.tuple([z.string().min(1)]),
   'shell:openPath': z.tuple([z.string().min(1)]),
-  'shell:openExternal': z.tuple([z.string().url()]),
+  'shell:openExternal': z.tuple([z.url()]),
   'clipboard:writeText': z.tuple([z.string().min(1)]),
   'health:refresh': optionalOneArgument(z.enum(['startup', 'settings-save', 'manual'])),
   'diagnostics:report': noArgs,

@@ -1,5 +1,5 @@
 import { resolve } from 'path'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { defineConfig } from 'electron-vite'
 import solid from 'vite-plugin-solid'
 
 // The main process builds to CommonJS, but these three ship as ESM only —
@@ -9,9 +9,13 @@ import solid from 'vite-plugin-solid'
 // instead.
 const BUNDLE_ESM_ONLY = ['create-torrent', 'bencode', 'junk']
 
+// Rolldown only emits "use strict" in CommonJS output when the source has it.
+// Force it so the bundles keep the strict-mode semantics of the ESM sources.
+const STRICT_CJS = { rolldownOptions: { output: { strict: true } } }
+
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: BUNDLE_ESM_ONLY })],
+    build: { ...STRICT_CJS, externalizeDeps: { exclude: BUNDLE_ESM_ONLY } },
     resolve: {
       alias: {
         '@main': resolve('src/main'),
@@ -20,7 +24,7 @@ export default defineConfig({
     }
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    build: STRICT_CJS,
     resolve: {
       alias: {
         '@shared': resolve('src/shared')
