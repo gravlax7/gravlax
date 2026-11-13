@@ -36,6 +36,10 @@ describe('upload report helpers', () => {
     expect(genresToTags(['Electronic', ' Ambient '])).toBe('electronic, ambient')
   })
 
+  it('swaps spaces for dots in multi-word genres', () => {
+    expect(genresToTags(['Chamber Music', 'Hip  Hop'])).toBe('chamber.music, hip.hop')
+  })
+
   it('falls back to current file genres when proposed has none', () => {
     expect(
       resolveUploadTags({

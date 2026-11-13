@@ -6,6 +6,7 @@ import {
   invalidReleaseTypeMessage,
   releaseTypeId
 } from '@shared/upload/releaseTypes'
+import { normalizeTrackerTags } from '@shared/upload/trackerTags'
 import type { TrackerUploadData, TrackerUploadFiles } from '@main/core/tools/trackers/types'
 
 export interface BuildUploadDataInput {
@@ -67,7 +68,7 @@ export function buildTrackerUploadData(input: BuildUploadDataInput): TrackerUplo
     releasetype: releaseType,
     record_label: upload.remasterRecordLabel ?? '',
     catalogue_number: upload.remasterCatalogueNumber ?? '',
-    tags: upload.tags ?? '',
+    tags: normalizeTrackerTags(upload.tags ?? ''),
     image: manualImage || hostedImage,
     album_desc: upload.albumDesc ?? '',
     unknown: upload.unknown ?? false

@@ -46,6 +46,7 @@ import {
   importanceToArtistRole
 } from '@shared/upload/artists'
 import { SPECTRAL_PLACEHOLDER, spectralDescriptionPreview } from '@shared/upload/spectralDescription'
+import { normalizeTrackerTags } from '@shared/upload/trackerTags'
 import {
   effectiveReleaseType,
   isOrpheusSplitEligible,
@@ -745,6 +746,10 @@ export function UploadStep(props: {
               value={upload().tags ?? ''}
               placeholder="electronic, ambient"
               onInput={(e) => patch({ tags: e.currentTarget.value })}
+              onBlur={(e) => {
+                const tags = normalizeTrackerTags(e.currentTarget.value)
+                if (tags !== e.currentTarget.value) patch({ tags })
+              }}
             />
           </div>
 

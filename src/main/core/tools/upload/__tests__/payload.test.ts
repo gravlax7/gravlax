@@ -72,7 +72,7 @@ describe('buildTrackerUploadData', () => {
       other_bitrate: '',
       vbr: false,
       media: 'WEB',
-      tags: 'electronic,ambient',
+      tags: 'electronic, ambient',
       image: 'https://img/cover.jpg',
       album_desc: 'album description',
       release_desc: 'release description',

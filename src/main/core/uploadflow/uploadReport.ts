@@ -32,14 +32,12 @@ import { uploadImageToHost } from '@main/core/tools/imagehosts/upload'
 import { isCoverImageHostId, isValidCoverImageHost } from '@shared/config/imageHosts'
 import { trackerEncoding } from '@shared/upload/encodings'
 import { emptyGroupIds } from '@shared/upload/groupIds'
+import { formatTrackerTags } from '@shared/upload/trackerTags'
 import type { State } from './state'
 import { emptyGroupSearch } from './groupSearch'
 
 export function genresToTags(genres: string[] | undefined): string {
-  return (genres ?? [])
-    .map((genre) => genre.trim().toLowerCase())
-    .filter(Boolean)
-    .join(', ')
+  return formatTrackerTags(genres ?? [])
 }
 
 export function resolveUploadTags(s: State): string {
