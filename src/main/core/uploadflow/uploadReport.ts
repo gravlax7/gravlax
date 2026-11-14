@@ -119,6 +119,7 @@ export async function buildUploadSnapshot(
     sampleRate,
     hybrid,
     lossyMaster: s.draft.lossyMaster,
+    sourceMedia: s.draft.sourceMedia,
     sourceUrl,
     metadataUrls: proposed.urls,
     tracks: hybrid ? trackInputs : undefined,

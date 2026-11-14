@@ -36,6 +36,8 @@ import { createBbcodePreview } from '@shared/upload/bbcodePreview'
 import {
   addLossySource,
   buildLossyMasterComment,
+  lossyReportLabel,
+  lossyReportPhrase,
   validateLossyMasterReport
 } from '@shared/upload/lossyReport'
 import { anySelectedTrackerHasGroupId } from '@shared/upload/groupIds'
@@ -415,7 +417,7 @@ function submissionTone(status: UploadSubmission['status']): BadgeTone {
   }
 }
 
-function SubmissionRow(props: { submission: UploadSubmission }) {
+function SubmissionRow(props: { submission: UploadSubmission; sourceMedia?: string }) {
   const sub = () => props.submission
   return (
     <div class="upload-submission">
@@ -429,7 +431,7 @@ function SubmissionRow(props: { submission: UploadSubmission }) {
         <Badge tone={submissionTone(sub().status)}>{sub().status}</Badge>
       </div>
 
-      <SubmissionLinks submission={sub()} />
+      <SubmissionLinks submission={sub()} sourceMedia={props.sourceMedia} />
 
       <Show when={sub().error}>
         {(error) => <div class="upload-submission-error">{error()}</div>}
@@ -573,7 +575,9 @@ export function UploadStep(props: {
           <Show when={submissions().length > 0}>
             <div class="upload-submission-list">
               <For each={submissions()}>
-                {(submission) => <SubmissionRow submission={submission} />}
+                {(submission) => (
+                  <SubmissionRow submission={submission} sourceMedia={props.state.draft.sourceMedia} />
+                )}
               </For>
             </div>
           </Show>
@@ -828,7 +832,9 @@ export function UploadStep(props: {
       <Show when={props.state.draft.lossyMaster}>
         <Card class="upload-report-card upload-lossy-card">
           <div class="upload-lossy-header">
-            <div class="upload-report-heading">Lossy master report</div>
+            <div class="upload-report-heading">
+              {lossyReportLabel(props.state.draft.sourceMedia)} report
+            </div>
             <div class="upload-report-field-note">
               Spectrals you selected for hosting are included in the report.
             </div>
@@ -840,9 +846,9 @@ export function UploadStep(props: {
                 <span>This report comment will be visible to other tracker members.</span>
               </div>
               <p>
-                If your proof of purchase or borrowing contains personal information, file your lossy master report through
-                the website and use the staff-only proof field. Do not
-                include personal information here.
+                If your proof of purchase or borrowing contains personal information, file your{' '}
+                {lossyReportPhrase(props.state.draft.sourceMedia)} report through the website and use
+                the staff-only proof field. Do not include personal information here.
               </p>
             </div>
             <Button

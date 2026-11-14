@@ -179,7 +179,10 @@ export function SeedStep(props: {
                       {(submission) => (
                         <div class="seed-link-row">
                           <span>{formatLabel(submission)}</span>
-                          <SubmissionLinks submission={submission} />
+                          <SubmissionLinks
+                            submission={submission}
+                            sourceMedia={props.state.draft.sourceMedia}
+                          />
                         </div>
                       )}
                     </For>

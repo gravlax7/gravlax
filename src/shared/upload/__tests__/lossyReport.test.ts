@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   addLossySource,
   buildLossyMasterComment,
-  LOSSY_MASTER_SPECTRAL_REQUIRED,
+  lossyReportLabel,
+  lossyReportPhrase,
+  lossySpectralRequired,
   validateLossyMasterReport
 } from '../lossyReport'
 
@@ -34,10 +36,28 @@ describe('lossy report drafts', () => {
         lossyComment: 'Sourced from Bandcamp',
         spectralIds: []
       })
-    ).toBe(LOSSY_MASTER_SPECTRAL_REQUIRED)
+    ).toBe(lossySpectralRequired('CD'))
     expect(
       validateLossyMasterReport({ lossyMaster: true, lossyComment: '  ', spectralIds: [1] })
     ).toBe('Add a comment about the source to the lossy master report.')
+    expect(
+      validateLossyMasterReport({
+        lossyMaster: true,
+        lossyComment: 'Sourced from Bandcamp',
+        spectralIds: [],
+        sourceMedia: 'WEB'
+      })
+    ).toBe(lossySpectralRequired('WEB'))
+    expect(
+      validateLossyMasterReport({
+        lossyMaster: true,
+        lossyComment: '  ',
+        spectralIds: [1],
+        sourceMedia: 'WEB'
+      })
+    ).toBe('Add a comment about the source to the lossy WEB report.')
+    expect(lossyReportLabel('WEB')).toBe('Lossy WEB')
+    expect(lossyReportLabel('CD')).toBe('Lossy master')
   })
 })
 

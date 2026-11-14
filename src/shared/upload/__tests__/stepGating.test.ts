@@ -12,7 +12,7 @@ import {
   UPLOAD_STEPS
 } from '../stepGating'
 import { UPCONVERT_BLOCKED } from '../fileChecks'
-import { LOSSY_MASTER_SPECTRAL_REQUIRED } from '../lossyReport'
+import { lossySpectralRequired } from '../lossyReport'
 import { evaluateStepNavigation } from '../workflow'
 
 function baseState(overrides: Partial<UploadFlowStateJSON> = {}): UploadFlowStateJSON {
@@ -342,7 +342,7 @@ describe('stepHasError', () => {
     expect(canNavigateToStep(2, blocked)).toBe(false)
     expect(evaluateStepNavigation(blocked, 2)).toEqual({
       ok: false,
-      error: LOSSY_MASTER_SPECTRAL_REQUIRED
+      error: lossySpectralRequired('WEB')
     })
     expect(canNavigateToStep(0, blocked)).toBe(true)
     expect(

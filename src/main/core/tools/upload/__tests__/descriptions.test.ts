@@ -259,6 +259,17 @@ describe('generateReleaseDescription', () => {
     expect(desc).toContain('[hr]Uploaded with [b]gravlax[/b] v0.1.0')
   })
 
+  it('says lossy WEB in the lossy notice for WEB releases', () => {
+    const desc = generateReleaseDescription({
+      lossyMaster: true,
+      sourceMedia: 'WEB',
+      version: '0.1.0'
+    })
+    expect(desc).toContain('[u]Lossy Notes:[/u]')
+    expect(desc).toContain('Reported as lossy WEB.')
+    expect(desc).not.toContain('Reported as lossy master.')
+  })
+
   it('labels mixed audio without claiming a bit depth and rate pair no track has', () => {
     const desc = generateReleaseDescription({
       bitDepth: 24,

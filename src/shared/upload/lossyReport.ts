@@ -21,16 +21,28 @@ export function lossyMasterMissingSpectral(
   return draft.lossyMaster && draft.spectralIds.length === 0
 }
 
-export const LOSSY_MASTER_SPECTRAL_REQUIRED =
-  'Select at least one spectral for the lossy master report.'
+export function lossyReportPhrase(sourceMedia?: string): 'lossy WEB' | 'lossy master' {
+  return sourceMedia === 'WEB' ? 'lossy WEB' : 'lossy master'
+}
+
+export function lossyReportLabel(sourceMedia?: string): string {
+  const phrase = lossyReportPhrase(sourceMedia)
+  return phrase.charAt(0).toUpperCase() + phrase.slice(1)
+}
+
+export function lossySpectralRequired(sourceMedia?: string): string {
+  return `Select at least one spectral for the ${lossyReportPhrase(sourceMedia)} report.`
+}
 
 export function validateLossyMasterReport(
-  draft: Pick<Draft, 'lossyMaster' | 'lossyComment' | 'spectralIds'>
+  draft: Pick<Draft, 'lossyMaster' | 'lossyComment' | 'spectralIds'> & {
+    sourceMedia?: Draft['sourceMedia']
+  }
 ): string | null {
   if (!draft.lossyMaster) return null
-  if (lossyMasterMissingSpectral(draft)) return LOSSY_MASTER_SPECTRAL_REQUIRED
+  if (lossyMasterMissingSpectral(draft)) return lossySpectralRequired(draft.sourceMedia)
   if (!draft.lossyComment.trim()) {
-    return 'Add a comment about the source to the lossy master report.'
+    return `Add a comment about the source to the ${lossyReportPhrase(draft.sourceMedia)} report.`
   }
   return null
 }

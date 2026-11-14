@@ -1,5 +1,6 @@
 import { For, Show } from 'solid-js'
 import type { UploadFlowStateJSON } from '@shared/types'
+import { lossyReportLabel, lossyReportPhrase } from '@shared/upload/lossyReport'
 import { toggleSpectralId } from '@shared/upload/spectralIds'
 import {
   Button,
@@ -64,7 +65,7 @@ export function SpectralsStep(props: {
           value={props.state.draft.lossyMaster ? 'lossy' : 'not-lossy'}
           options={[
             { value: 'not-lossy', label: 'Not lossy' },
-            { value: 'lossy', label: 'Lossy master' }
+            { value: 'lossy', label: lossyReportLabel(props.state.draft.sourceMedia) }
           ]}
           onChange={(value: string) => void window.gravlax.upload.setLossyMaster(value === 'lossy')}
         />
@@ -104,7 +105,7 @@ export function SpectralsStep(props: {
         <Show when={selectedIds().length === 0}>
           <Callout tone="warning">
             {props.state.draft.lossyMaster
-              ? 'A lossy master report needs at least one spectral. Select the tracks that show the problem.'
+              ? `A ${lossyReportPhrase(props.state.draft.sourceMedia)} report needs at least one spectral. Select the tracks that show the problem.`
               : 'No spectrals selected — the release description will not show any.'}
           </Callout>
         </Show>

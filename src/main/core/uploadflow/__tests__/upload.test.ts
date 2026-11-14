@@ -352,6 +352,7 @@ describe('resumeSubmit', () => {
     const next = await ensureUploadReport(state, cfgWithTrackers(['redacted']), TEST_VERSION)
     expect(next.upload.title).toBe('Override')
     expect(next.upload.derivedFromTags?.title).toBe('Album')
+    expect(next.upload.formats?.[0]?.releaseDesc).toContain('Reported as lossy WEB.')
   })
 
   it('adopts a new tag title even if the upload title was overridden', async () => {

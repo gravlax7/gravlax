@@ -4,6 +4,7 @@ import { dateYear } from '@shared/tags/dates'
 import { isMultiDisc as discNumbersAreMultiDisc } from '@shared/upload/naming'
 import { getDescriptionTemplate } from '@shared/upload/templates'
 import { renderTemplate, type TemplateContext } from '@shared/upload/templateRender'
+import { lossyReportPhrase } from '@shared/upload/lossyReport'
 import {
   SPECTRAL_PLACEHOLDER,
   substituteSpectralBbcode
@@ -42,6 +43,7 @@ export interface ReleaseDescInput {
   hybrid?: boolean
   releaseDate?: string
   lossyMaster?: boolean
+  sourceMedia?: string
   sourceUrl?: string
   metadataUrls?: string[]
   tracks?: TrackDescInput[]
@@ -279,7 +281,7 @@ export function generateReleaseDescription(input: ReleaseDescInput): string {
   }
 
   if (input.lossyMaster) {
-    description += '[u]Lossy Notes:[/u]\nReported as lossy master.\n\n'
+    description += `[u]Lossy Notes:[/u]\nReported as ${lossyReportPhrase(input.sourceMedia)}.\n\n`
   }
 
   if (input.sourceUrl) {
