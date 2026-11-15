@@ -26,6 +26,7 @@ import {
 import { Modal } from '../../../components/Modal'
 import { Select } from '../../../components/Select'
 import { Toggle } from '../../../components/Toggle'
+import { blurOnEnter } from '../../../keybinds'
 import { TrackerIcon, trackerLabel } from '../../../components/TrackerIcon'
 import { ArtistsEditor, type ArtistEditAction } from '../ArtistsEditor'
 import { spectralUrl } from '../pathUtil'
@@ -379,6 +380,9 @@ function CoverImageField(props: {
               value={props.value}
               placeholder="https://"
               onInput={(e) => props.onChange(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (blurOnEnter(e)) setEditing(false)
+              }}
             />
             <Show when={editing()}>
               <Button variant="secondary" size="sm" onClick={() => setEditing(false)}>
@@ -686,6 +690,7 @@ export function UploadStep(props: {
               class="mono"
               value={upload().title ?? ''}
               onInput={(e) => patch({ title: e.currentTarget.value })}
+              onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('title')} />
           </div>
@@ -697,6 +702,7 @@ export function UploadStep(props: {
               inputMode="numeric"
               value={upload().year ?? ''}
               onInput={(e) => patch({ year: parseYear(e.currentTarget.value) })}
+              onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('year')} />
           </div>
@@ -750,6 +756,7 @@ export function UploadStep(props: {
               value={upload().tags ?? ''}
               placeholder="electronic, ambient"
               onInput={(e) => patch({ tags: e.currentTarget.value })}
+              onKeyDown={blurOnEnter}
               onBlur={(e) => {
                 const tags = normalizeTrackerTags(e.currentTarget.value)
                 if (tags !== e.currentTarget.value) patch({ tags })
@@ -770,6 +777,7 @@ export function UploadStep(props: {
               inputMode="numeric"
               value={upload().remasterYear ?? ''}
               onInput={(e) => patch({ remasterYear: parseYear(e.currentTarget.value) })}
+              onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('remasterYear')} />
           </div>
@@ -780,6 +788,7 @@ export function UploadStep(props: {
               class="mono"
               value={upload().remasterTitle ?? ''}
               onInput={(e) => patch({ remasterTitle: e.currentTarget.value })}
+              onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('remasterTitle')} />
           </div>
@@ -790,6 +799,7 @@ export function UploadStep(props: {
               class="mono"
               value={upload().remasterRecordLabel ?? ''}
               onInput={(e) => patch({ remasterRecordLabel: e.currentTarget.value })}
+              onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('remasterRecordLabel')} />
           </div>
@@ -800,6 +810,7 @@ export function UploadStep(props: {
               class="mono"
               value={upload().remasterCatalogueNumber ?? ''}
               onInput={(e) => patch({ remasterCatalogueNumber: e.currentTarget.value })}
+              onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('remasterCatalogueNumber')} />
           </div>

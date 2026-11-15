@@ -10,6 +10,7 @@ import {
   TRACK_FIELD_ORDER
 } from '@shared/types/upload'
 import { STANDARD_RELEASE_TYPES } from '@shared/upload/releaseTypes'
+import { blurOnEnter } from '../../../keybinds'
 import {
   displayTrackValueLines,
   displayValueLines,
@@ -515,6 +516,7 @@ export function TagsStep(props: {
               disabled={busy() || locked()}
               value={props.state.files.apply.folderNameOverride ?? plan().folderName}
               onChange={(event) => void window.gravlax.upload.setFolderNameOverride(event.currentTarget.value)}
+              onKeyDown={blurOnEnter}
               aria-label="Release folder name"
             />
             <IconButton
@@ -574,6 +576,7 @@ export function TagsStep(props: {
                         disabled={busy() || locked()}
                         value={payloadState(folder.id)?.nameOverride ?? folder.targetName}
                         onChange={(event) => void window.gravlax.upload.setPayloadNameOverride(folder.id, event.currentTarget.value)}
+                        onKeyDown={blurOnEnter}
                         aria-label={`Folder name for ${folder.currentPath}`}
                       />
                     </div>
@@ -692,6 +695,7 @@ export function TagsStep(props: {
                               disabled={busy() || locked()}
                               value={payloadState(file.id)?.nameOverride ?? file.targetName}
                               onChange={(event) => void window.gravlax.upload.setPayloadNameOverride(file.id, event.currentTarget.value)}
+                              onKeyDown={blurOnEnter}
                               aria-label={`Filename for ${file.currentPath}`}
                             />
                           }
@@ -764,6 +768,7 @@ function FixedExtensionInput(props: {
         disabled={props.disabled}
         value={props.value}
         onChange={(event) => props.onChange(event.currentTarget.value)}
+        onKeyDown={blurOnEnter}
         aria-label={props.label}
       />
       <span class="mono filename-extension" aria-hidden="true">{props.extension}</span>

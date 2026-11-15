@@ -24,7 +24,7 @@ import { Toggle } from '../components/Toggle'
 import { ProviderIcon, providerFromFieldName } from '../components/ProviderIcon'
 import { TrackerIcon, trackerIdFromFieldName } from '../components/TrackerIcon'
 import { ImageHostIcon, imageHostIdFromFieldName } from '../components/ImageHostIcon'
-import { hasPrimaryModifier } from '../keybinds'
+import { blurOnEnter, hasPrimaryModifier } from '../keybinds'
 import { Badge, Button, Callout, Divider, HelpTip, Icon, IconButton, Kbd, type IconName } from '../ui'
 
 /** Not a config section — a pane in the same sidebar. Kept out of SectionID so
@@ -702,6 +702,7 @@ function WorkspacePanel(props: {
             value={props.workspace}
             placeholder={info() ? `Default: ${info()!.defaultPath}` : 'Default app data folder'}
             onInput={(event) => props.onChange(event.currentTarget.value)}
+            onKeyDown={blurOnEnter}
           />
           <Button
             variant="secondary"
@@ -1027,6 +1028,7 @@ function FieldRow(props: {
             placeholder={props.field.placeholder}
             disabled={props.disabled}
             onInput={(e) => props.onChange(e.currentTarget.value)}
+            onKeyDown={blurOnEnter}
           />
           <Button variant="secondary" disabled={props.disabled} onClick={props.onPickPath}>
             Browse
@@ -1058,6 +1060,7 @@ function FieldRow(props: {
                 props.field.type === 'number' ? Number(e.currentTarget.value) : e.currentTarget.value
               )
             }
+            onKeyDown={blurOnEnter}
           />
           <Show when={props.field.sensitive}>
             <IconButton
@@ -1078,6 +1081,7 @@ function FieldRow(props: {
             placeholder={props.field.placeholder}
             disabled={props.disabled}
             onInput={(e) => props.onChange(e.currentTarget.value)}
+            onKeyDown={blurOnEnter}
             onBlur={props.onBlur}
           />
         </div>

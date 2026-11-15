@@ -46,3 +46,10 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 export function hasPrimaryModifier(event: KeyboardEvent): boolean {
   return event.metaKey || event.ctrlKey
 }
+
+/** Blurs a single-line input on Enter so its change and blur handlers run. */
+export function blurOnEnter(event: KeyboardEvent & { currentTarget: HTMLElement }): boolean {
+  if (event.key !== 'Enter' || event.isComposing) return false
+  event.currentTarget.blur()
+  return true
+}
