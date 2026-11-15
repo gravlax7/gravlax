@@ -1,4 +1,15 @@
-import { For, Index, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
+import {
+  For,
+  Index,
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+  splitProps,
+  type JSX
+} from 'solid-js'
 import type { Config } from '@shared/types/config'
 import type {
   HealthResult,
@@ -30,6 +41,7 @@ import { blurOnEnter } from '../../../keybinds'
 import { TrackerIcon, trackerLabel } from '../../../components/TrackerIcon'
 import { ArtistsEditor, type ArtistEditAction } from '../ArtistsEditor'
 import { spectralUrl } from '../pathUtil'
+import { createFocusBuffer } from '../focusBuffer'
 import { GroupSuggestions } from '../GroupSuggestions'
 import { SubmissionLinks } from '../SubmissionLinks'
 import { createBbcodePreviewBatcher } from '@shared/upload/bbcodePreviewBatcher'
@@ -123,6 +135,29 @@ function applyArtistEdit(artists: Artist[], action: ArtistEditAction): Artist[] 
   }
 }
 
+function BufferedInput(
+  props: Omit<JSX.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onInput' | 'onFocus' | 'onBlur'> & {
+    value: string
+    onChange: (value: string) => void
+    onBlur?: (value: string) => void
+  }
+) {
+  const [own, rest] = splitProps(props, ['value', 'onChange', 'onBlur'])
+  const buffer = createFocusBuffer(() => own.value, (value) => own.onChange(value))
+  return (
+    <input
+      {...rest}
+      value={buffer.value()}
+      onFocus={(e) => buffer.focus(e.currentTarget.value)}
+      onInput={(e) => buffer.input(e.currentTarget.value)}
+      onBlur={(e) => {
+        buffer.blur()
+        own.onBlur?.(e.currentTarget.value)
+      }}
+    />
+  )
+}
+
 function TagMismatchNote(props: { message: string | null }) {
   return (
     <Show when={props.message}>
@@ -168,6 +203,7 @@ function BbcodeDescriptionField(props: {
   onChange: (value: string) => void
 }) {
   const [editing, setEditing] = createSignal(false)
+  const buffer = createFocusBuffer(() => props.value, (value) => props.onChange(value))
   const [html, setHtml] = createSignal('')
   const [loading, setLoading] = createSignal(false)
   const [previewError, setPreviewError] = createSignal<string | null>(null)
@@ -260,8 +296,10 @@ function BbcodeDescriptionField(props: {
           class="mono upload-report-textarea"
           aria-label={props.label}
           rows={props.rows}
-          value={props.value}
-          onInput={(e) => props.onChange(e.currentTarget.value)}
+          value={buffer.value()}
+          onFocus={(e) => buffer.focus(e.currentTarget.value)}
+          onInput={(e) => buffer.input(e.currentTarget.value)}
+          onBlur={buffer.blur}
         />
       </Show>
     </div>
@@ -375,11 +413,11 @@ function CoverImageField(props: {
         when={showPreview()}
         fallback={
           <div class="upload-report-cover-editor">
-            <input
+            <BufferedInput
               class="mono"
               value={props.value}
               placeholder="https://"
-              onInput={(e) => props.onChange(e.currentTarget.value)}
+              onChange={props.onChange}
               onKeyDown={(e) => {
                 if (blurOnEnter(e)) setEditing(false)
               }}
@@ -686,10 +724,10 @@ export function UploadStep(props: {
 
           <div class="upload-report-field">
             <span>Title</span>
-            <input
+            <BufferedInput
               class="mono"
               value={upload().title ?? ''}
-              onInput={(e) => patch({ title: e.currentTarget.value })}
+              onChange={(value) => patch({ title: value })}
               onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('title')} />
@@ -697,11 +735,11 @@ export function UploadStep(props: {
 
           <div class="upload-report-field">
             <span>Year</span>
-            <input
+            <BufferedInput
               class="mono"
               inputMode="numeric"
-              value={upload().year ?? ''}
-              onInput={(e) => patch({ year: parseYear(e.currentTarget.value) })}
+              value={String(upload().year ?? '')}
+              onChange={(value) => patch({ year: parseYear(value) })}
               onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('year')} />
@@ -751,15 +789,15 @@ export function UploadStep(props: {
                 <Badge tone="warning">Ignored for destinations with a group ID</Badge>
               </Show>
             </span>
-            <input
+            <BufferedInput
               class="mono"
               value={upload().tags ?? ''}
               placeholder="electronic, ambient"
-              onInput={(e) => patch({ tags: e.currentTarget.value })}
+              onChange={(value) => patch({ tags: value })}
               onKeyDown={blurOnEnter}
-              onBlur={(e) => {
-                const tags = normalizeTrackerTags(e.currentTarget.value)
-                if (tags !== e.currentTarget.value) patch({ tags })
+              onBlur={(value) => {
+                const tags = normalizeTrackerTags(value)
+                if (tags !== value) patch({ tags })
               }}
             />
           </div>
@@ -772,11 +810,11 @@ export function UploadStep(props: {
 
           <div class="upload-report-field">
             <span>Edition year</span>
-            <input
+            <BufferedInput
               class="mono"
               inputMode="numeric"
-              value={upload().remasterYear ?? ''}
-              onInput={(e) => patch({ remasterYear: parseYear(e.currentTarget.value) })}
+              value={String(upload().remasterYear ?? '')}
+              onChange={(value) => patch({ remasterYear: parseYear(value) })}
               onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('remasterYear')} />
@@ -784,10 +822,10 @@ export function UploadStep(props: {
 
           <div class="upload-report-field">
             <span>Edition title</span>
-            <input
+            <BufferedInput
               class="mono"
               value={upload().remasterTitle ?? ''}
-              onInput={(e) => patch({ remasterTitle: e.currentTarget.value })}
+              onChange={(value) => patch({ remasterTitle: value })}
               onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('remasterTitle')} />
@@ -795,10 +833,10 @@ export function UploadStep(props: {
 
           <div class="upload-report-field">
             <span>Record label</span>
-            <input
+            <BufferedInput
               class="mono"
               value={upload().remasterRecordLabel ?? ''}
-              onInput={(e) => patch({ remasterRecordLabel: e.currentTarget.value })}
+              onChange={(value) => patch({ remasterRecordLabel: value })}
               onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('remasterRecordLabel')} />
@@ -806,10 +844,10 @@ export function UploadStep(props: {
 
           <div class="upload-report-field">
             <span>Catalogue number</span>
-            <input
+            <BufferedInput
               class="mono"
               value={upload().remasterCatalogueNumber ?? ''}
-              onInput={(e) => patch({ remasterCatalogueNumber: e.currentTarget.value })}
+              onChange={(value) => patch({ remasterCatalogueNumber: value })}
               onKeyDown={blurOnEnter}
             />
             <TagMismatchNote message={mismatch('remasterCatalogueNumber')} />
