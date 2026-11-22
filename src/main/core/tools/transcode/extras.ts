@@ -1,12 +1,12 @@
 import { copyFile, mkdir, readdir } from 'node:fs/promises'
-import { dirname, extname, join, relative, sep } from 'node:path'
-import { IMAGE_EXTENSIONS, SKIP_EXTENSIONS } from './audioInfo'
+import { dirname, extname, join, relative } from 'node:path'
+import { IMAGE_EXTENSIONS } from './audioInfo'
 
-export interface CopiedExtra {
-  relativePath: string
-  action: 'copy' | 'skip'
-}
-
+/**
+ * Copies non-converted files into the output folder. With `essentialOnly`, only
+ * FLACs and images are kept, and only in folders that hold audio, so folders
+ * like `Artwork/` are dropped.
+ */
 export async function copyExtraFiles(
   sourcePath: string,
   destPath: string,
@@ -16,46 +16,32 @@ export async function copyExtraFiles(
     skipSources?: ReadonlySet<string>
     skipExtensions?: ReadonlySet<string>
   } = {}
-): Promise<CopiedExtra[]> {
-  const essentialOnly = options.essentialOnly ?? false
-  const skipFlac = options.skipFlac ?? false
-  const skipSources = options.skipSources ?? new Set<string>()
-  const skipExtensions = options.skipExtensions ?? new Set<string>()
-  const results: CopiedExtra[] = []
+): Promise<void> {
+  const files = (await readdir(sourcePath, { recursive: true, withFileTypes: true }))
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name))
 
-  async function walk(dir: string): Promise<void> {
-    const entries = await readdir(dir, { withFileTypes: true })
-    for (const entry of entries) {
-      const path = join(dir, entry.name)
-      if (entry.isDirectory()) {
-        await walk(path)
-        continue
-      }
-      if (!entry.isFile()) continue
-      if (skipSources.has(path)) continue
-
-      const ext = extname(entry.name).toLowerCase()
-      const rel = relative(sourcePath, path).split(sep).join('/')
-
-      if (skipFlac && ext === '.flac') continue
-      if (skipExtensions.has(ext)) {
-        results.push({ relativePath: rel, action: 'skip' })
-        continue
-      }
-      if (essentialOnly && ext !== '.flac' && !IMAGE_EXTENSIONS.has(ext)) {
-        results.push({ relativePath: rel, action: 'skip' })
-        continue
-      }
-
-      const out = join(destPath, relative(sourcePath, path))
-      await mkdir(dirname(out), { recursive: true })
-      await copyFile(path, out)
-      results.push({ relativePath: rel, action: 'copy' })
+  const audioDirs = new Set<string>()
+  for (const file of files) {
+    if (extname(file).toLowerCase() !== '.flac') continue
+    for (let dir = dirname(file); !audioDirs.has(dir); dir = dirname(dir)) {
+      audioDirs.add(dir)
+      if (dir === sourcePath) break
     }
   }
 
-  await walk(sourcePath)
-  return results
-}
+  for (const file of files) {
+    const ext = extname(file).toLowerCase()
+    if (options.skipSources?.has(file)) continue
+    if (options.skipFlac && ext === '.flac') continue
+    if (options.skipExtensions?.has(ext)) continue
+    if (options.essentialOnly) {
+      if (ext !== '.flac' && !IMAGE_EXTENSIONS.has(ext)) continue
+      if (!audioDirs.has(dirname(file))) continue
+    }
 
-export { SKIP_EXTENSIONS }
+    const out = join(destPath, relative(sourcePath, file))
+    await mkdir(dirname(out), { recursive: true })
+    await copyFile(file, out)
+  }
+}

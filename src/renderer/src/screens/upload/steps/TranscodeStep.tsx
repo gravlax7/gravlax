@@ -172,7 +172,7 @@ export function TranscodeStep(props: { state: UploadFlowStateJSON }) {
                   label="Copy essential only"
                 />
                 <span class="transcode-essential-help">
-                  Essential only (images + audio)
+                  Only images next to audio; folders without audio are dropped
                 </span>
               </div>
             </Show>
