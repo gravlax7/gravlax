@@ -1,4 +1,4 @@
-import { Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js'
+import { Errored, Show, createEffect, createSignal, createStore, onSettled, reconcile } from 'solid-js'
 import type {
   HealthResult,
   NotifyPayload,
@@ -23,7 +23,7 @@ import { UploadStartMenu, UploadedSummary } from './screens/upload/UploadStartMe
 import { SettingsScreen } from './screens/SettingsScreen'
 import { HealthcheckScreen } from './screens/HealthcheckScreen'
 import { useTheme } from './theme/useTheme'
-import { Icon, type IconName } from './ui'
+import { Button, Callout, Icon, type IconName } from './ui'
 import gravlaxLogo from './assets/gravlax-logo.svg'
 
 type Screen = 'upload' | 'settings' | 'health'
@@ -34,7 +34,19 @@ type UploadView =
 
 export default function App() {
   const [screen, setScreen] = createSignal<Screen>('upload')
-  const [state, setState] = createSignal<UploadFlowStateJSON | null>(null)
+  // A store, so each snapshot only notifies readers of the fields that changed.
+  const [upload, setUpload] = createStore<{ state: UploadFlowStateJSON | null }>({ state: null })
+  const state = () => upload.state
+  // The last state event as sent. The step gates read nearly all of it, so they
+  // read this one plain value instead of hundreds of store fields.
+  const [stateEvent, setStateEvent] = createSignal<UploadFlowStateJSON | null>(null)
+  const setState = (next: UploadFlowStateJSON): void => {
+    setStateEvent(next)
+    setUpload((draft) => {
+      if (draft.state) reconcile(next, 'id')(draft.state)
+      else draft.state = next
+    })
+  }
   const [config, setConfig] = createSignal<Config | null>(null)
   const [stats, setStats] = createSignal<UploadStats | null>(null)
   const [health, setHealth] = createSignal<HealthResult | null>(null)
@@ -44,7 +56,8 @@ export default function App() {
   const [settingsTrackerId, setSettingsTrackerId] = createSignal<UploadTrackerId | undefined>()
   const [toasts, setToasts] = createSignal<ToastItem[]>([])
   const [uploadView, setUploadView] = createSignal<UploadView>({ kind: 'menu' })
-  const [startEntries, setStartEntries] = createSignal<UploadStartEntries | null>(null)
+  const [start, setStart] = createStore<{ entries: UploadStartEntries | null }>({ entries: null })
+  const startEntries = () => start.entries
   const [startLoading, setStartLoading] = createSignal(false)
   const [update, setUpdate] = createSignal<UpdateCheckResult | null>(null)
   const [updateChecking, setUpdateChecking] = createSignal(false)
@@ -59,7 +72,12 @@ export default function App() {
   const loadStartEntries = async (): Promise<void> => {
     setStartLoading(true)
     try {
-      setStartEntries(await window.gravlax.upload.listStartEntries())
+      const next = await window.gravlax.upload.listStartEntries()
+      // Reconcile so a reload keeps the rows that did not change.
+      setStart((draft) => {
+        if (draft.entries) reconcile(next, startEntryKey)(draft.entries)
+        else draft.entries = next
+      })
     } catch (err) {
       showToast({ level: 'error', message: `Could not load uploads: ${String(err)}` })
     } finally {
@@ -199,27 +217,39 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }
 
-  onMount(async () => {
-    const offHealth = window.gravlax.health.onUpdate((result) => {
-      applyHealth(result)
-    })
-    setConfig(await window.gravlax.config.load())
-    setStats(await window.gravlax.stats.load())
-    setState(await window.gravlax.upload.getState())
-    await loadStartEntries()
-    void refreshHealth('startup')
-    void checkForUpdates(true)
-    const offState = window.gravlax.upload.onState(setState)
-    const offNotify = window.gravlax.upload.onNotify(showToast)
-    const offStats = window.gravlax.stats.onChange(setStats)
-    onCleanup(() => {
-      offHealth()
-      offState()
-      offNotify()
-      offStats()
+  onSettled(() => {
+    let disposed = false
+    const offs = [
+      window.gravlax.health.onUpdate((result) => {
+        applyHealth(result)
+      })
+    ]
+    void (async () => {
+      const config = await window.gravlax.config.load()
+      if (disposed) return
+      setConfig(config)
+      const stats = await window.gravlax.stats.load()
+      if (disposed) return
+      setStats(stats)
+      const flowState = await window.gravlax.upload.getState()
+      if (disposed) return
+      setState(flowState)
+      await loadStartEntries()
+      if (disposed) return
+      void refreshHealth('startup')
+      void checkForUpdates(true)
+      offs.push(
+        window.gravlax.upload.onState(setState),
+        window.gravlax.upload.onNotify(showToast),
+        window.gravlax.stats.onChange(setStats)
+      )
+    })()
+    return () => {
+      disposed = true
+      for (const off of offs) off()
       for (const timer of toastTimers.values()) window.clearTimeout(timer)
       void window.gravlax.upload.cancel()
-    })
+    }
   })
 
   const onKeyDown = (event: KeyboardEvent): void => {
@@ -234,9 +264,9 @@ export default function App() {
     }
   }
 
-  onMount(() => {
+  onSettled(() => {
     window.addEventListener('keydown', onKeyDown)
-    onCleanup(() => window.removeEventListener('keydown', onKeyDown))
+    return () => window.removeEventListener('keydown', onKeyDown)
   })
 
   const jumpToTaskStep = (stepId: string): void => {
@@ -299,16 +329,17 @@ export default function App() {
     }
   }
 
-  createEffect(() => {
-    const reason = toolsBlockedReason()
-    if (!reason || reason === 'Waiting for tool health checks to finish.') return
-    if (uploadView().kind === 'flow') openUploadMenu()
-  })
+  createEffect(
+    () => ({ reason: toolsBlockedReason(), view: uploadView().kind }),
+    ({ reason, view }) => {
+      if (!reason || reason === 'Waiting for tool health checks to finish.') return
+      if (view === 'flow') openUploadMenu()
+    }
+  )
 
   return (
     <div
-      class="app-shell"
-      classList={{ 'app-shell-native-titlebar': window.gravlax.platform !== 'darwin' }}
+      class={['app-shell', { 'app-shell-native-titlebar': window.gravlax.platform !== 'darwin' }]}
       style={{ display: 'flex', height: '100%', 'flex-direction': 'column' }}
     >
       <Show when={window.gravlax.platform === 'darwin'}>
@@ -407,58 +438,68 @@ export default function App() {
           class="app-no-drag"
           style={{ flex: 1, 'min-width': 0, display: 'flex', 'flex-direction': 'column' }}
         >
-          <Show when={screen() === 'upload' && state() && config()}>
-            <Show when={uploadView().kind === 'menu'}>
-              <UploadStartMenu
-                entries={startEntries()}
-                loading={startLoading()}
-                toolsBlockedReason={toolsBlockedReason()}
-                onRefresh={() => void loadStartEntries()}
-                onOpenPath={openPath}
-                onResume={(entry) => void resumeUpload(entry)}
-                onRestart={(entry) => startNew(entry.sourcePath)}
-                onUploaded={(entry) => setUploadView({ kind: 'uploaded', entry })}
-                onOpenHealth={() => setScreen('health')}
-              />
+          <Errored
+            fallback={(error, reset) => (
+              <div style={{ padding: 'var(--space-5)' }}>
+                <Callout tone="error">Something went wrong: {String(error())}</Callout>
+                <Button onClick={reset}>Try again</Button>
+              </div>
+            )}
+          >
+            <Show when={screen() === 'upload' && state() && config()}>
+              <Show when={uploadView().kind === 'menu'}>
+                <UploadStartMenu
+                  entries={startEntries()}
+                  loading={startLoading()}
+                  toolsBlockedReason={toolsBlockedReason()}
+                  onRefresh={() => void loadStartEntries()}
+                  onOpenPath={openPath}
+                  onResume={(entry) => void resumeUpload(entry)}
+                  onRestart={(entry) => startNew(entry.sourcePath)}
+                  onUploaded={(entry) => setUploadView({ kind: 'uploaded', entry })}
+                  onOpenHealth={() => setScreen('health')}
+                />
+              </Show>
+              <Show when={uploadView().kind === 'flow'}>
+                <UploadScreen
+                  state={state()!}
+                  stateEvent={stateEvent()!}
+                  config={config()!}
+                  health={health()}
+                  healthLoading={healthLoading()}
+                  onExit={openUploadMenu}
+                  onOpenTrackerSettings={openTrackerSettings}
+                />
+              </Show>
+              <Show when={uploadView().kind === 'uploaded'}>
+                <UploadedSummary
+                  entry={(uploadView() as { kind: 'uploaded'; entry: UploadedReleaseRecord }).entry}
+                  onBack={openUploadMenu}
+                />
+              </Show>
             </Show>
-            <Show when={uploadView().kind === 'flow'}>
-              <UploadScreen
-                state={state()!}
+            <Show when={screen() === 'settings' && config()}>
+              <SettingsScreen
                 config={config()!}
-                health={health()}
-                healthLoading={healthLoading()}
-                onExit={openUploadMenu}
-                onOpenTrackerSettings={openTrackerSettings}
+                stats={stats()}
+                update={update()}
+                updateChecking={updateChecking()}
+                onChange={onConfigChange}
+                initialPane={settingsInitialPane()}
+                initialTrackerId={settingsTrackerId()}
+                onBack={leaveSettings}
+                onNotify={showToast}
+                onCheckUpdates={() => void checkForUpdates()}
               />
             </Show>
-            <Show when={uploadView().kind === 'uploaded'}>
-              <UploadedSummary
-                entry={(uploadView() as { kind: 'uploaded'; entry: UploadedReleaseRecord }).entry}
-                onBack={openUploadMenu}
+            <Show when={screen() === 'health'}>
+              <HealthcheckScreen
+                result={health()}
+                loading={healthLoading()}
+                onRefresh={() => void refreshHealth('manual')}
               />
             </Show>
-          </Show>
-          <Show when={screen() === 'settings' && config()}>
-            <SettingsScreen
-              config={config()!}
-              stats={stats()}
-              update={update()}
-              updateChecking={updateChecking()}
-              onChange={onConfigChange}
-              initialPane={settingsInitialPane()}
-              initialTrackerId={settingsTrackerId()}
-              onBack={leaveSettings}
-              onNotify={showToast}
-              onCheckUpdates={() => void checkForUpdates()}
-            />
-          </Show>
-          <Show when={screen() === 'health'}>
-            <HealthcheckScreen
-              result={health()}
-              loading={healthLoading()}
-              onRefresh={() => void refreshHealth('manual')}
-            />
-          </Show>
+          </Errored>
         </main>
       </div>
       <StatusBar
@@ -472,6 +513,12 @@ export default function App() {
       <ToastStack items={toasts()} onDismiss={dismissToast} />
     </div>
   )
+}
+
+function startEntryKey(item: { kind?: string; sourcePath?: string; workspacePath?: string; completedAt?: number }) {
+  if (item.kind === 'resume') return item.workspacePath
+  if (item.kind === 'uploaded') return `${item.sourcePath}:${item.completedAt}`
+  return item.kind === 'new' ? item.sourcePath : undefined
 }
 
 function NavButton(props: {

@@ -1,6 +1,6 @@
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
-import solid from 'vite-plugin-solid'
+import solid from '@solidjs/vite-plugin'
 
 // The main process builds to CommonJS, but these three ship as ESM only —
 // their package `exports` declare an `import` condition and no `require` one,

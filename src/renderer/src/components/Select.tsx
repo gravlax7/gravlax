@@ -1,5 +1,6 @@
-import { For, Show, createEffect, createSignal, onCleanup, type JSX } from 'solid-js'
-import { Icon } from '../ui'
+import { For, Show, createEffect, createSignal } from 'solid-js'
+import type { JSX } from '@solidjs/web'
+import { Icon, ariaBool } from '../ui'
 
 export function Select(props: {
   value: string
@@ -20,11 +21,10 @@ export function Select(props: {
     return idx >= 0 ? idx : 0
   }
 
-  createEffect(() => {
-    if (open()) {
-      setHighlight(selectedIndex())
-    }
-  })
+  const openMenu = (): void => {
+    setHighlight(selectedIndex())
+    setOpen(true)
+  }
 
   const close = (): void => {
     setOpen(false)
@@ -45,7 +45,7 @@ export function Select(props: {
     if (!open()) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter' || event.key === ' ') {
         event.preventDefault()
-        setOpen(true)
+        openMenu()
       }
       return
     }
@@ -67,16 +67,19 @@ export function Select(props: {
     }
   }
 
-  createEffect(() => {
-    if (!open()) return
-    document.addEventListener('pointerdown', onDocPointer, true)
-    onCleanup(() => document.removeEventListener('pointerdown', onDocPointer, true))
-  })
+  createEffect(
+    () => open(),
+    (isOpen) => {
+      if (!isOpen) return
+      document.addEventListener('pointerdown', onDocPointer, true)
+      return () => document.removeEventListener('pointerdown', onDocPointer, true)
+    }
+  )
 
   return (
     <div
       ref={root}
-      class={`app-no-drag ${props.class ?? ''}`}
+      class={['app-no-drag', props.class]}
       style={{
         position: 'relative',
         display: 'inline-block',
@@ -87,8 +90,8 @@ export function Select(props: {
       <button
         type="button"
         aria-haspopup="listbox"
-        aria-expanded={open()}
-        onClick={() => setOpen((v) => !v)}
+        aria-expanded={ariaBool(open())}
+        onClick={() => (open() ? close() : openMenu())}
         onKeyDown={onKey}
         style={{
           display: 'flex',
@@ -133,7 +136,7 @@ export function Select(props: {
                 <button
                   type="button"
                   role="option"
-                  aria-selected={selected()}
+                  aria-selected={ariaBool(selected())}
                   onMouseEnter={() => setHighlight(i())}
                   onClick={() => choose(option)}
                   style={{

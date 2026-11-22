@@ -162,7 +162,7 @@ export function TranscodeStep(props: { state: UploadFlowStateJSON }) {
                 </For>
               </div>
 
-              <div class="transcode-essential" classList={{ 'transcode-essential-busy': busy() }}>
+              <div class={['transcode-essential', { 'transcode-essential-busy': busy() }]}>
                 <Toggle
                   on={props.state.transcode?.essentialOnly ?? true}
                   onChange={(on) => {

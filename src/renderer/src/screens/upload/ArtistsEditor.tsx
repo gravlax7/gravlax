@@ -1,4 +1,4 @@
-import { Index } from 'solid-js'
+import { For } from 'solid-js'
 import type { Artist } from '@shared/types'
 import {
   ARTIST_ROLE_PRESETS,
@@ -69,7 +69,7 @@ export function ArtistsEditor(props: {
         }
       }}
     >
-      <Index each={props.artists}>
+      <For each={props.artists} keyed={false}>
         {(artist, index) => (
           <div style={{ display: 'flex', gap: '6px', 'align-items': 'center' }}>
             <input
@@ -125,7 +125,7 @@ export function ArtistsEditor(props: {
             </button>
           </div>
         )}
-      </Index>
+      </For>
       <button
         type="button"
         aria-label="Add artist"

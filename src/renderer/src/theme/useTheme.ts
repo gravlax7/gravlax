@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup, onMount } from 'solid-js'
+import { createEffect, createMemo, createSignal, onSettled } from 'solid-js'
 import type { ThemePreference } from '@shared/types/config'
 import { resolveTheme, type ResolvedTheme } from '@shared/theme'
 
@@ -8,22 +8,24 @@ export function useTheme(preference: () => ThemePreference | undefined): () => R
       ? window.matchMedia('(prefers-color-scheme: dark)').matches
       : true
   )
-  const [resolved, setResolved] = createSignal<ResolvedTheme>('dark')
 
-  onMount(() => {
+  onSettled(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const onChange = (): void => {
       setSystemDark(mq.matches)
     }
     mq.addEventListener('change', onChange)
-    onCleanup(() => mq.removeEventListener('change', onChange))
+    return () => mq.removeEventListener('change', onChange)
   })
 
-  createEffect(() => {
-    const next = resolveTheme(preference(), systemDark())
-    setResolved(next)
-    document.documentElement.dataset.theme = next
-  })
+  const resolved = createMemo(() => resolveTheme(preference(), systemDark()))
+
+  createEffect(
+    () => resolved(),
+    (theme) => {
+      document.documentElement.dataset.theme = theme
+    }
+  )
 
   return resolved
 }

@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 
 export type IconName =
   | 'folder'
@@ -213,7 +213,7 @@ export function Icon(props: {
       stroke-width="1.75"
       stroke-linecap="round"
       stroke-linejoin="round"
-      aria-hidden={props.title ? undefined : true}
+      aria-hidden={props.title ? undefined : 'true'}
       role={props.title ? 'img' : undefined}
     >
       {props.title ? <title>{props.title}</title> : null}

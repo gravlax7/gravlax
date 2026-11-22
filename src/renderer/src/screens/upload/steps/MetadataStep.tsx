@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal, untrack } from 'solid-js'
 import type { MetadataSearchResult, MetadataSelection, UploadFlowStateJSON } from '@shared/types'
 import {
   METADATA_PROVIDER_KEEP_EXISTING,
@@ -17,7 +17,7 @@ export function MetadataStep(props: {
   onSelect: (selection: MetadataSelection) => void
 }) {
   const [expandedProviders, setExpandedProviders] = createSignal<Set<string>>(new Set())
-  const [releaseUrl, setReleaseUrl] = createSignal(props.state.metadata.selected?.url ?? '')
+  const [releaseUrl, setReleaseUrl] = createSignal(untrack(() => props.state.metadata.selected?.url ?? ''))
   const [urlError, setUrlError] = createSignal('')
   const [resolvingUrl, setResolvingUrl] = createSignal(false)
 

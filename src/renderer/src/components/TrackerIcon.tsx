@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import type { UploadTrackerId } from '@shared/types'
 import { UPLOAD_TRACKER_IDS, trackerName } from '@shared/trackers'
 import redactedIcon from '../assets/trackers/redacted.png'

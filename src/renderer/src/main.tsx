@@ -1,4 +1,4 @@
-import { render } from 'solid-js/web'
+import { render } from '@solidjs/web'
 import '@fontsource-variable/inter/wght.css'
 import '@fontsource-variable/jetbrains-mono/wght.css'
 import App from './App'

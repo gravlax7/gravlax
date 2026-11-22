@@ -15,7 +15,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@main': resolve('src/main'),
-      'solid-js': resolve('node_modules/solid-js/dist/solid.js'),
+      'solid-js': resolve('node_modules/solid-js/dist/solid.dev.js'),
       '@shared': resolve('src/shared')
     }
   }

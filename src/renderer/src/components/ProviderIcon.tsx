@@ -1,4 +1,5 @@
-import { Show, type JSX } from 'solid-js'
+import { Show } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import musicBrainzIcon from '../assets/providers/musicbrainz.png'
 import deezerIcon from '../assets/providers/deezer.png'
 import bandcampIcon from '../assets/providers/bandcamp.png'

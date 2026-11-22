@@ -1,5 +1,6 @@
 import { For } from 'solid-js'
 import { formatKeybind } from '../keybinds'
+import { ariaBool } from './aria'
 
 export function Kbd(props: { keys: string[]; platform: NodeJS.Platform; class?: string }) {
   return (
@@ -16,17 +17,17 @@ export function SegmentedControl<T extends string>(props: {
 }) {
   return (
     <div class={`ui-segmented ${props.class ?? ''}`} role="radiogroup">
-      <For each={props.options}>
+      <For each={props.options} keyed={(option) => option.value}>
         {(option) => (
           <button
             type="button"
             role="radio"
             class="ui-segmented-item"
-            aria-checked={props.value === option.value}
+            aria-checked={ariaBool(props.value === option().value)}
             disabled={props.disabled}
-            onClick={() => props.onChange(option.value)}
+            onClick={() => props.onChange(option().value)}
           >
-            {option.label}
+            {option().label}
           </button>
         )}
       </For>
@@ -52,7 +53,7 @@ export function Skeleton(props: { width?: string; height?: string; class?: strin
 
 export function Callout(props: {
   tone?: 'info' | 'warning' | 'error'
-  children: import('solid-js').JSX.Element
+  children: import('@solidjs/web').JSX.Element
   class?: string
 }) {
   const tone = () => props.tone ?? 'info'

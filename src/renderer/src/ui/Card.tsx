@@ -1,5 +1,5 @@
-import type { JSX } from 'solid-js'
-import { splitProps } from 'solid-js'
+import type { JSX } from '@solidjs/web'
+import { omit } from 'solid-js'
 
 export function Card(
   props: {
@@ -8,15 +8,17 @@ export function Card(
     children?: JSX.Element
   } & JSX.HTMLAttributes<HTMLDivElement>
 ) {
-  const [local, rest] = splitProps(props, ['selected', 'interactive', 'children', 'class'])
+  const rest = omit(props, 'selected', 'interactive', 'children', 'class')
   return (
     <div
       {...rest}
-      class={`ui-card ${local.interactive ? 'ui-card-interactive' : ''} ${
-        local.selected ? 'ui-card-selected' : ''
-      } ${local.class ?? ''}`}
+      class={[
+        'ui-card',
+        { 'ui-card-interactive': props.interactive, 'ui-card-selected': props.selected },
+        props.class
+      ]}
     >
-      {local.children}
+      {props.children}
     </div>
   )
 }

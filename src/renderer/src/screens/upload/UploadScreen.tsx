@@ -1,4 +1,4 @@
-import { Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
+import { Show, createEffect, createMemo, createSignal, onSettled, untrack, snapshot } from 'solid-js'
 import type { Config } from '@shared/types/config'
 import type {
   Artist,
@@ -66,6 +66,7 @@ function sameMetadataSelection(
 
 export function UploadScreen(props: {
   state: UploadFlowStateJSON
+  stateEvent: UploadFlowStateJSON
   config: Config
   health: HealthResult | null
   healthLoading: boolean
@@ -86,7 +87,7 @@ export function UploadScreen(props: {
   const [pendingWriteStep, setPendingWriteStep] = createSignal<number | null>(null)
   const [submitRequestActive, setSubmitRequestActive] = createSignal(false)
   const [submitErrorAwaited, setSubmitErrorAwaited] = createSignal<string | null>(null)
-  let uploadAtSubmit = props.state.upload
+  let eventAtSubmit = untrack(() => props.stateEvent)
 
   const stepIndex = () => props.state.currentStep
   const stepId = () => UPLOAD_STEPS[stepIndex()]?.id
@@ -138,19 +139,23 @@ export function UploadScreen(props: {
     return 'No uploads have started.'
   }
 
-  createEffect(() => {
-    const error = submitErrorAwaited()
-    // The IPC reply can arrive before the throttled state event. Keep the busy
-    // UI in place until the matching failure reaches the renderer.
-    if (
-      error &&
-      props.state.upload !== uploadAtSubmit &&
-      props.state.upload.error === error
-    ) {
+  createEffect(
+    () => {
+      const error = submitErrorAwaited()
+      // The IPC reply can arrive before the throttled state event. Keep the busy
+      // UI in place until the matching failure reaches the renderer.
+      return Boolean(
+        error &&
+          props.stateEvent !== eventAtSubmit &&
+          props.state.upload.error === error
+      )
+    },
+    (matched) => {
+      if (!matched) return
       setSubmitErrorAwaited(null)
       setSubmitRequestActive(false)
     }
-  })
+  )
 
   const title = createMemo(() =>
     props.state.draft.sourcePath ? basename(props.state.draft.sourcePath) : 'Uploader'
@@ -164,7 +169,7 @@ export function UploadScreen(props: {
   )
 
   const navigateToStep = (index: number): void => {
-    if (!canNavigateToStep(index, props.state)) return
+    if (!canNavigateToStep(index, props.stateEvent)) return
     void window.gravlax.upload.setCurrentStep(index).then((result) => {
       if (!result.ok && result.needsConfirmation) setPendingWriteStep(index)
     })
@@ -172,7 +177,7 @@ export function UploadScreen(props: {
 
   const submitUpload = (): void => {
     if (submitRequestActive()) return
-    uploadAtSubmit = props.state.upload
+    eventAtSubmit = props.stateEvent
     setSubmitErrorAwaited(null)
     setSubmitRequestActive(true)
     void window.gravlax.upload.submitUpload().then(
@@ -188,7 +193,7 @@ export function UploadScreen(props: {
   }
 
   const selectMetadataAndOpenTags = (selection: MetadataSelection): void => {
-    void window.gravlax.upload.selectMetadataMatch(selection).then(() => {
+    void window.gravlax.upload.selectMetadataMatch(snapshot(selection)).then(() => {
       if (tagsStepIndex >= 0) navigateToStep(tagsStepIndex)
     })
   }
@@ -312,7 +317,7 @@ export function UploadScreen(props: {
         }
       }
     }
-    void window.gravlax.upload.updateTagsProposed(next)
+    void window.gravlax.upload.updateTagsProposed(snapshot(next))
     setEditingField(null)
     setEditingTrackIndex(null)
   }
@@ -411,7 +416,7 @@ export function UploadScreen(props: {
     }
   }
 
-  onMount(() => {
+  onSettled(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (lightboxIndex() !== null) return
       if (editingField() && event.key === 'Escape') {
@@ -421,7 +426,7 @@ export function UploadScreen(props: {
       }
     }
     window.addEventListener('keydown', onKey, true)
-    onCleanup(() => window.removeEventListener('keydown', onKey, true))
+    return () => window.removeEventListener('keydown', onKey, true)
   })
 
   // Selection updates must not reload and replace the gallery's checkboxes.
@@ -429,26 +434,30 @@ export function UploadScreen(props: {
   const spectralTaskStatus = createMemo(
     () => props.state.background.tasks.find((t) => t.id === 'spectrals')?.status
   )
-  createEffect(() => {
-    const workspacePath = spectralWorkspacePath()
-    const spectralsStatus = spectralTaskStatus()
-    if (workspacePath && (spectralsStatus === 'succeeded' || spectralsStatus === undefined)) {
-      void window.gravlax.upload.listSpectrals().then(setSpectrals)
-    } else if (!workspacePath) {
-      setSpectrals([])
+  createEffect(
+    () => ({ workspacePath: spectralWorkspacePath(), spectralsStatus: spectralTaskStatus() }),
+    ({ workspacePath, spectralsStatus }) => {
+      if (workspacePath && (spectralsStatus === 'succeeded' || spectralsStatus === undefined)) {
+        void window.gravlax.upload.listSpectrals().then(setSpectrals)
+      } else if (!workspacePath) {
+        setSpectrals([])
+      }
     }
-  })
+  )
 
-  createEffect(() => {
-    if (stepId() !== 'tags' && editingField()) cancelFieldEdit()
-  })
+  createEffect(
+    () => stepId() !== 'tags' && Boolean(editingField()),
+    (leftTagsWhileEditing) => {
+      if (leftTagsWhileEditing) cancelFieldEdit()
+    }
+  )
 
   return (
     <div class="upload-screen">
       <header class="upload-header">
         <div class="upload-title">{title()}</div>
         <Stepper
-          state={props.state}
+          state={props.stateEvent}
           skipTranscode={props.config.workflow.skipTranscode}
           onNavigate={navigateToStep}
         />
@@ -607,7 +616,7 @@ export function UploadScreen(props: {
               loading={stepId() === 'tags' && (props.state.files.apply.phase === 'applying' || props.state.files.apply.phase === 'restoring')}
               disabled={
                 (stepId() === 'seed' && props.state.seed.phase !== 'done') ||
-                (stepId() === 'file-checks' && !canNavigateToStep(stepIndex() + 1, props.state)) ||
+                (stepId() === 'file-checks' && !canNavigateToStep(stepIndex() + 1, props.stateEvent)) ||
                 (stepId() === 'spectrals' && lossyMasterMissingSpectral(props.state.draft)) ||
                 (stepId() === 'metadata' && !props.state.metadata.selected) ||
                 (stepId() === 'transcode' && props.state.transcode?.phase === 'inspecting') ||

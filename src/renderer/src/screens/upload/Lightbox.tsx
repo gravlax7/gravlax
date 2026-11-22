@@ -1,4 +1,4 @@
-import { Show, createSignal, onCleanup, onMount } from 'solid-js'
+import { Show, createSignal, onSettled } from 'solid-js'
 import { Button, IconButton } from '../../ui'
 import { spectralUrl } from './pathUtil'
 
@@ -10,7 +10,7 @@ export function Lightbox(props: {
 }) {
   const [zoomed, setZoomed] = createSignal(false)
 
-  onMount(() => {
+  onSettled(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.preventDefault()
@@ -29,7 +29,7 @@ export function Lightbox(props: {
       }
     }
     window.addEventListener('keydown', onKey, true)
-    onCleanup(() => window.removeEventListener('keydown', onKey, true))
+    return () => window.removeEventListener('keydown', onKey, true)
   })
 
   const current = () => props.images[props.index]

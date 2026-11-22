@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
+import { For, Show, createMemo, createSignal, onSettled } from 'solid-js'
 import type { HealthResult, HealthRow, HealthStatus } from '@shared/types'
 import { isEditableTarget } from '../keybinds'
 import { Badge, Button, Callout, Card, EmptyState, Icon, Spinner, type BadgeTone, type IconName } from '../ui'
@@ -8,23 +8,21 @@ export function HealthcheckScreen(props: {
   loading: boolean
   onRefresh: () => void
 }) {
-  const [expanded, setExpanded] = createSignal<Set<string>>(new Set())
-  const [checkedAt, setCheckedAt] = createSignal<Date | null>(null)
   const [reportCopied, setReportCopied] = createSignal(false)
   const [diagnosticError, setDiagnosticError] = createSignal('')
   let copiedTimer: number | undefined
 
-  createEffect(() => {
-    if (props.result && !props.loading) setCheckedAt(new Date())
-  })
+  // The last result that finished loading; a refresh in flight keeps the previous one.
+  const settled = createMemo<HealthResult | null>((prev) =>
+    props.result && !props.loading ? props.result : (prev ?? null)
+  )
+  const checkedAt = createMemo(() => (settled() ? new Date() : null))
+  // Starts from the failed rows of each settled result; the user's toggles override it.
+  const [expanded, setExpanded] = createSignal(
+    () => new Set(settled()?.rows.filter(isFailedCheck).map((row) => row.id))
+  )
 
-  createEffect(() => {
-    const result = props.result
-    if (!result || props.loading) return
-    setExpanded(new Set(result.rows.filter(isFailedCheck).map((row) => row.id)))
-  })
-
-  onMount(() => {
+  onSettled(() => {
     if (!props.result) props.onRefresh()
     const onKey = (event: KeyboardEvent): void => {
       if (event.key.toLowerCase() !== 'r') return
@@ -34,10 +32,10 @@ export function HealthcheckScreen(props: {
       props.onRefresh()
     }
     window.addEventListener('keydown', onKey)
-    onCleanup(() => {
+    return () => {
       window.removeEventListener('keydown', onKey)
       if (copiedTimer !== undefined) window.clearTimeout(copiedTimer)
-    })
+    }
   })
 
   const copyReport = async (): Promise<void> => {
@@ -143,8 +141,8 @@ export function HealthcheckScreen(props: {
             when={(props.result?.rows.length ?? 0) > 0}
             fallback={<EmptyState icon="activity" title="No health checks" description="Nothing to report." />}
           >
-            <For each={groups()}>
-              {([group, rows]) => (
+            <For each={groups()} keyed={([group]) => group}>
+              {(entry) => (
                 <div style={{ 'margin-bottom': 'var(--space-5)' }}>
                   <div
                     style={{
@@ -156,20 +154,20 @@ export function HealthcheckScreen(props: {
                       'letter-spacing': '0.04em'
                     }}
                   >
-                    {group}
+                    {entry()[0]}
                   </div>
                   <div style={{ display: 'flex', 'flex-direction': 'column', gap: '8px' }}>
-                    <For each={rows}>
+                    <For each={entry()[1]} keyed={(row) => row.id}>
                       {(row) => (
                         <Card>
                           <button
                             type="button"
                             onClick={() => {
-                              if (isFailedCheck(row)) {
+                              if (isFailedCheck(row())) {
                                 setExpanded((ids) => {
                                   const next = new Set(ids)
-                                  if (next.has(row.id)) next.delete(row.id)
-                                  else next.add(row.id)
+                                  if (next.has(row().id)) next.delete(row().id)
+                                  else next.add(row().id)
                                   return next
                                 })
                               }
@@ -183,22 +181,22 @@ export function HealthcheckScreen(props: {
                               border: 'none',
                               padding: 0,
                               'text-align': 'left',
-                              cursor: isFailedCheck(row) ? 'pointer' : 'default'
+                              cursor: isFailedCheck(row()) ? 'pointer' : 'default'
                             }}
                           >
                             <span
                               style={{
                                 display: 'flex',
-                                color: statusColor(row),
+                                color: statusColor(row()),
                                 'flex-shrink': 0
                               }}
                             >
-                              <Show when={row.status === 'checking'} fallback={<Icon name={statusIcon(row.status)} size={16} />}>
+                              <Show when={row().status === 'checking'} fallback={<Icon name={statusIcon(row().status)} size={16} />}>
                                 <Spinner size="sm" />
                               </Show>
                             </span>
                             <div style={{ flex: 1, 'min-width': 0 }}>
-                              <div style={{ 'font-weight': 600 }}>{row.name}</div>
+                              <div style={{ 'font-weight': 600 }}>{row().name}</div>
                               <div
                                 style={{
                                   color: 'var(--fg-secondary)',
@@ -206,17 +204,17 @@ export function HealthcheckScreen(props: {
                                   'margin-top': '2px'
                                 }}
                               >
-                                {row.detail ?? row.status}
+                                {row().detail ?? row().status}
                               </div>
                             </div>
-                            <Badge tone={statusTone(row)}>{row.status}</Badge>
+                            <Badge tone={statusTone(row())}>{row().status}</Badge>
                           </button>
-                          <Show when={expanded().has(row.id)}>
+                          <Show when={expanded().has(row().id)}>
                             <Callout tone="info" class="health-install">
                               <Icon name="info" size={16} />
                               <div>
-                                <div>{row.installInstructions ?? row.detail ?? row.status}</div>
-                                <Show when={row.installURL}>
+                                <div>{row().installInstructions ?? row().detail ?? row().status}</div>
+                                <Show when={row().installURL}>
                                   {(url) => (
                                     <button
                                       type="button"

@@ -1,14 +1,10 @@
-import { createEffect, createRoot, createSignal } from 'solid-js'
+import { createEffect, createRoot, createSignal, flush } from 'solid-js'
 import { describe, expect, it, vi } from 'vitest'
 import type { UploadSnapshot } from '@shared/types'
 import { createSelectedGroupId } from '../groupSelection'
 
-async function flushEffects(): Promise<void> {
-  await Promise.resolve()
-}
-
 describe('selected group ID', () => {
-  it('does not wake its dependants when unrelated upload state changes', async () => {
+  it('does not wake its dependants when unrelated upload state changes', () => {
     const request = vi.fn()
     let setUpload!: (upload: Pick<UploadSnapshot, 'groupIds'>) => void
     let dispose!: () => void
@@ -21,21 +17,23 @@ describe('selected group ID', () => {
       setUpload = updateUpload
       const groupId = createSelectedGroupId(upload, () => 'redacted')
 
-      createEffect(() => {
-        const id = groupId()
-        if (id != null) request(id)
-      })
+      createEffect(
+        () => groupId(),
+        (id) => {
+          if (id != null) request(id)
+        }
+      )
     })
 
-    await flushEffects()
+    flush()
     expect(request).toHaveBeenCalledOnce()
 
     setUpload({ groupIds: { redacted: 123, orpheus: 456 } })
-    await flushEffects()
+    flush()
     expect(request).toHaveBeenCalledOnce()
 
     setUpload({ groupIds: { redacted: 789, orpheus: 456 } })
-    await flushEffects()
+    flush()
     expect(request).toHaveBeenCalledTimes(2)
     expect(request).toHaveBeenLastCalledWith(789)
 

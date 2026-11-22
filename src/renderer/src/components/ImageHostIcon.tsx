@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import type { CoverImageHostId } from '@shared/types/config'
 import { isCoverImageHostId } from '@shared/config/imageHosts'
 import ptscreensIcon from '../assets/imagehosts/ptscreens.png'

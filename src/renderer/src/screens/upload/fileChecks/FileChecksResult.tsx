@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import type { CheckTone } from '@shared/upload/fileChecks'
 import { Card, Icon, type IconName } from '../../../ui'
 

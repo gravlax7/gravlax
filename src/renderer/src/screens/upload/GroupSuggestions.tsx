@@ -1,4 +1,4 @@
-import { For, Index, Show, createEffect, createMemo, createSignal } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, snapshot } from 'solid-js'
 import type {
   Config,
   TrackerGroupDetail,
@@ -12,7 +12,7 @@ import { parseTorrentPageRef } from '@shared/upload/dupeSearch'
 import { withGroupIdForTracker } from '@shared/upload/groupIds'
 import { stepIndexOf } from '@shared/upload/stepGating'
 import { formatByteSize } from '@shared/format'
-import { Badge, Button, Callout, Card, Icon, IconButton } from '../../ui'
+import { Badge, Button, Callout, Card, Icon, IconButton, ariaBool } from '../../ui'
 import { TrackerIcon, trackerLabel } from '../../components/TrackerIcon'
 import { createSelectedGroupId } from './groupSelection'
 
@@ -67,40 +67,42 @@ function TrackerGroupPanel(props: {
   )
   const hiddenCount = createMemo(() => Math.max(0, props.results.length - 5))
 
-  createEffect(() => {
-    const id = groupId()
-    if (id == null) {
-      setDetail(null)
-      setDetailError('')
-      setDetailLoading(false)
-      return
-    }
-
-    let cancelled = false
-    setDetailLoading(true)
-    setDetailError('')
-    void window.gravlax.upload
-      .fetchTorrentGroup(props.trackerId, id)
-      .then((next) => {
-        if (cancelled) return
-        setDetail(next)
-        setDetailLoading(false)
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return
+  createEffect(
+    () => ({ id: groupId(), trackerId: props.trackerId }),
+    ({ id, trackerId }) => {
+      if (id == null) {
         setDetail(null)
-        setDetailError(String((err as Error).message ?? err))
+        setDetailError('')
         setDetailLoading(false)
-      })
+        return
+      }
 
-    return () => {
-      cancelled = true
+      let cancelled = false
+      setDetailLoading(true)
+      setDetailError('')
+      void window.gravlax.upload
+        .fetchTorrentGroup(trackerId, id)
+        .then((next) => {
+          if (cancelled) return
+          setDetail(next)
+          setDetailLoading(false)
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return
+          setDetail(null)
+          setDetailError(String((err as Error).message ?? err))
+          setDetailLoading(false)
+        })
+
+      return () => {
+        cancelled = true
+      }
     }
-  })
+  )
 
   const patchGroupId = (nextGroupId: number | null): void => {
     void window.gravlax.upload.updateUploadReport({
-      groupIds: withGroupIdForTracker(upload().groupIds, props.trackerId, nextGroupId)
+      groupIds: snapshot(withGroupIdForTracker(upload().groupIds, props.trackerId, nextGroupId))
     })
   }
 
@@ -169,9 +171,8 @@ function TrackerGroupPanel(props: {
 
       <button
         type="button"
-        class="ui-card ui-card-interactive group-choice-card"
-        classList={{ 'ui-card-selected': groupId() == null }}
-        aria-pressed={groupId() == null}
+        class={['ui-card ui-card-interactive group-choice-card', { 'ui-card-selected': groupId() == null }]}
+        aria-pressed={ariaBool(groupId() == null)}
         onClick={selectNewGroup}
       >
         <div class="metadata-card-row">
@@ -195,16 +196,15 @@ function TrackerGroupPanel(props: {
           </Show>
         }
       >
-        <Index each={visibleResults()}>
+        <For each={visibleResults()} keyed={false}>
           {(result) => {
             const selected = () => groupId() === result().groupId
             return (
               <div class="metadata-result-row">
                 <button
                   type="button"
-                  class="ui-card ui-card-interactive group-choice-card metadata-result-card"
-                  classList={{ 'ui-card-selected': selected() }}
-                  aria-pressed={selected()}
+                  class={['ui-card ui-card-interactive group-choice-card metadata-result-card', { 'ui-card-selected': selected() }]}
+                  aria-pressed={ariaBool(selected())}
                   onClick={() => selectSuggestion(result())}
                 >
                   <div class="metadata-card-row">
@@ -234,7 +234,7 @@ function TrackerGroupPanel(props: {
               </div>
             )
           }}
-        </Index>
+        </For>
 
         <Show when={hiddenCount() > 0 && !showAll()}>
           <button type="button" class="metadata-show-all" onClick={() => setShowAll(true)}>
@@ -345,16 +345,19 @@ export function GroupSuggestions(props: {
     void window.gravlax.upload.searchTrackerGroups({ force: true })
   }
 
-  createEffect(() => {
-    if (props.state.currentStep !== stepIndexOf('upload')) return
-    const title = (upload().title ?? '').trim()
-    void upload().selectedTrackerIds
-    void enabledTrackers()
-    if (!title) return
-    if (destinationTrackers().length === 0) return
-    if (searched()) return
-    void window.gravlax.upload.searchTrackerGroups()
-  })
+  createEffect(
+    // A new key per title or destination change, so each one searches again
+    // until a search starts.
+    () => {
+      if (props.state.currentStep !== stepIndexOf('upload')) return null
+      const title = (upload().title ?? '').trim()
+      if (!title || destinationTrackers().length === 0 || searched()) return null
+      return `${title}\n${destinationTrackers().join(',')}`
+    },
+    (key) => {
+      if (key !== null) void window.gravlax.upload.searchTrackerGroups()
+    }
+  )
 
   return (
     <Card class="upload-report-card group-suggestions-card">

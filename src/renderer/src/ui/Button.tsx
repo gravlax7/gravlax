@@ -1,5 +1,5 @@
-import type { JSX } from 'solid-js'
-import { Show, splitProps } from 'solid-js'
+import type { JSX } from '@solidjs/web'
+import { Show, omit } from 'solid-js'
 import { Spinner } from './Spinner'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
@@ -13,27 +13,20 @@ export function Button(
     children?: JSX.Element
   } & JSX.ButtonHTMLAttributes<HTMLButtonElement>
 ) {
-  const [local, rest] = splitProps(props, [
-    'variant',
-    'size',
-    'loading',
-    'children',
-    'class',
-    'disabled'
-  ])
-  const variant = () => local.variant ?? 'secondary'
-  const size = () => local.size ?? 'md'
+  const rest = omit(props, 'variant', 'size', 'loading', 'children', 'class', 'disabled')
+  const variant = () => props.variant ?? 'secondary'
+  const size = () => props.size ?? 'md'
   return (
     <button
       {...rest}
       type={rest.type ?? 'button'}
-      disabled={local.disabled || local.loading}
-      class={`ui-btn ui-btn-${variant()} ui-btn-${size()} ${local.class ?? ''}`}
+      disabled={props.disabled || props.loading}
+      class={[`ui-btn ui-btn-${variant()} ui-btn-${size()}`, props.class]}
     >
-      <Show when={local.loading}>
+      <Show when={props.loading}>
         <Spinner size="sm" />
       </Show>
-      {local.children}
+      {props.children}
     </button>
   )
 }

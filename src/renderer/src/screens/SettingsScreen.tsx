@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, onSettled, untrack } from 'solid-js'
 import type { Config, FieldMetadata, NotifyPayload, SectionID, ValidationIssue } from '@shared/types/config'
 import type { WorkspaceChange, WorkspaceInfo } from '@shared/ipc'
 import { totalUploads, type UpdateCheckResult, type UploadStats } from '@shared/types'
@@ -87,8 +87,11 @@ export function SettingsScreen(props: {
   initialPane?: SectionID
   initialTrackerId?: UploadTrackerId
 }) {
-  const [paneId, setPaneId] = createSignal<PaneID>(props.initialPane ?? sections()[0]!.id)
-  const [draft, setDraft] = createSignal(structuredClone(props.config))
+  // The pane and the draft start from the props once; later prop changes must not reset them.
+  const [paneId, setPaneId] = createSignal<PaneID>(
+    untrack(() => props.initialPane ?? sections()[0]!.id)
+  )
+  const [draft, setDraft] = createSignal(untrack(() => structuredClone(props.config)))
   const [dirty, setDirty] = createSignal(false)
   const [issues, setIssues] = createSignal<ValidationIssue[]>([])
   const [leavePrompt, setLeavePrompt] = createSignal(false)
@@ -97,20 +100,22 @@ export function SettingsScreen(props: {
   const [revealed, setRevealed] = createSignal<Record<string, boolean>>({})
   const [query, setQuery] = createSignal('')
 
-  onMount(() => {
+  onSettled(() => {
     if (!props.initialTrackerId) return
     requestAnimationFrame(() => {
       document.getElementById(`settings-tracker-${props.initialTrackerId}`)?.scrollIntoView({ block: 'start' })
     })
   })
 
-  createEffect(() => {
-    const theme = props.config.appearance.theme
-    setDraft((d) => {
-      if (d.appearance.theme === theme) return d
-      return { ...d, appearance: { ...d.appearance, theme } }
-    })
-  })
+  createEffect(
+    () => props.config.appearance.theme,
+    (theme) => {
+      setDraft((d) => {
+        if (d.appearance.theme === theme) return d
+        return { ...d, appearance: { ...d.appearance, theme } }
+      })
+    }
+  )
 
   /** Undefined on the import pane, which has no fields to render. */
   const section = createMemo(() => sections().find((s) => s.id === paneId()))
@@ -230,7 +235,7 @@ export function SettingsScreen(props: {
     setLeavePrompt(true)
   }
 
-  onMount(() => {
+  onSettled(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (leavePrompt() || resetPrompt() || workspaceChangePrompt()) return
       if (hasPrimaryModifier(event) && event.key.toLowerCase() === 's') {
@@ -246,7 +251,7 @@ export function SettingsScreen(props: {
       }
     }
     window.addEventListener('keydown', onKey)
-    onCleanup(() => window.removeEventListener('keydown', onKey))
+    return () => window.removeEventListener('keydown', onKey)
   })
 
   return (
@@ -678,10 +683,12 @@ function WorkspacePanel(props: {
     }
   }
 
-  createEffect(() => {
-    props.savedWorkspace
-    void refreshWorkspaceInfo()
-  })
+  createEffect(
+    () => props.savedWorkspace,
+    () => {
+      void refreshWorkspaceInfo()
+    }
+  )
 
   const sizeLabel = (): string =>
     info() === undefined ? 'calculating…' : formatByteSize(info()!.size)

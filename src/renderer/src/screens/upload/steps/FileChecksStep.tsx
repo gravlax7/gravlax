@@ -6,7 +6,7 @@ import type {
   UploadFlowStateJSON
 } from '@shared/types'
 import { SOURCE_MEDIA_OPTIONS } from '@shared/upload/sourceMedia'
-import { Card, Icon, ProgressBar, Section, SegmentedControl, Spinner } from '../../../ui'
+import { Card, Icon, ProgressBar, Section, SegmentedControl, Spinner, ariaBool } from '../../../ui'
 import {
   AudioLimitsResult,
   AudioSettingsResult,
@@ -191,7 +191,7 @@ export function FileChecksStep(props: { state: UploadFlowStateJSON }) {
           <button
             type="button"
             class={`file-checks-log-toggle ${expanded() ? 'is-open' : ''}`}
-            aria-expanded={expanded()}
+            aria-expanded={ariaBool(expanded())}
             onClick={() => setExpanded((v) => !v)}
           >
             <Icon name="chevron-down" size={14} />

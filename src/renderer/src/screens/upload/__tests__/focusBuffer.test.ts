@@ -1,4 +1,4 @@
-import { createEffect, createRoot, createSignal } from 'solid-js'
+import { createEffect, createRoot, createSignal, flush } from 'solid-js'
 import { describe, expect, it } from 'vitest'
 import { createFocusBuffer } from '../focusBuffer'
 
@@ -22,48 +22,60 @@ function fakeInput(initial: string) {
 
 describe('createFocusBuffer', () => {
   it('keeps the edited text and cursor when stale state arrives during rapid input', () => {
-    createRoot((dispose) => {
+    const sent: string[] = []
+    const el = fakeInput('Hello world')
+    const { setState, buffer, dispose } = createRoot((dispose) => {
       const [state, setState] = createSignal('Hello world')
-      const sent: string[] = []
       const buffer = createFocusBuffer(state, (value) => sent.push(value))
-      const el = fakeInput(state())
-      createEffect(() => {
-        el.value = buffer.value()
-      })
-
-      buffer.focus(el.value)
-
-      // Backspace twice after "Hello"; the user's edit keeps the cursor where it was.
-      let cursor = 5
-      for (const next of ['Hell world', 'Hel world']) {
-        cursor -= 1
-        el.value = next
-        el.selectionStart = el.selectionEnd = cursor
-        buffer.input(el.value)
-      }
-      // State echoes arrive late and out of order.
-      setState('Hell world')
-      setState('Hello world')
-
-      expect(el.value).toBe('Hel world')
-      expect([el.selectionStart, el.selectionEnd]).toEqual([3, 3])
-      expect(sent).toEqual(['Hell world', 'Hel world'])
-
-      buffer.blur()
-      expect(sent).toEqual(['Hell world', 'Hel world', 'Hel world'])
-      setState('Hel world')
-      expect(el.value).toBe('Hel world')
-      dispose()
+      createEffect(
+        () => buffer.value(),
+        (value) => {
+          el.value = value
+        }
+      )
+      return { setState, buffer, dispose }
     })
+    flush()
+
+    buffer.focus(el.value)
+    flush()
+
+    // Backspace twice after "Hello"; the user's edit keeps the cursor where it was.
+    let cursor = 5
+    for (const next of ['Hell world', 'Hel world']) {
+      cursor -= 1
+      el.value = next
+      el.selectionStart = el.selectionEnd = cursor
+      buffer.input(el.value)
+      flush()
+    }
+    // State echoes arrive late and out of order.
+    setState('Hell world')
+    flush()
+    setState('Hello world')
+    flush()
+
+    expect(el.value).toBe('Hel world')
+    expect([el.selectionStart, el.selectionEnd]).toEqual([3, 3])
+    expect(sent).toEqual(['Hell world', 'Hel world'])
+
+    buffer.blur()
+    flush()
+    expect(sent).toEqual(['Hell world', 'Hel world', 'Hel world'])
+    setState('Hel world')
+    flush()
+    expect(el.value).toBe('Hel world')
+    dispose()
   })
 
   it('follows state when not focused', () => {
-    createRoot((dispose) => {
+    const { setState, buffer, dispose } = createRoot((dispose) => {
       const [state, setState] = createSignal('a')
-      const buffer = createFocusBuffer(state, () => {})
-      setState('b')
-      expect(buffer.value()).toBe('b')
-      dispose()
+      return { setState, buffer: createFocusBuffer(state, () => {}), dispose }
     })
+    setState('b')
+    flush()
+    expect(buffer.value()).toBe('b')
+    dispose()
   })
 })

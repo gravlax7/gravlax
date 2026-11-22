@@ -1,4 +1,4 @@
-import { For, Index, Show, createMemo } from 'solid-js'
+import { For, Show, createMemo, deep, snapshot } from 'solid-js'
 import type { Artist, Track, UploadFlowStateJSON } from '@shared/types'
 import type { Config } from '@shared/types/config'
 import { buildFilesRenamePlan, trackFileTemplateFor } from '@shared/upload/naming'
@@ -26,7 +26,7 @@ import {
   textValueLinesEqual,
   trackHeading
 } from '@shared/tags/editor'
-import { Button, Callout, IconButton, Spinner, StatusDot } from '../../../ui'
+import { Button, Callout, IconButton, Spinner, StatusDot, ariaBool } from '../../../ui'
 import { Toggle } from '../../../components/Toggle'
 import { Select } from '../../../components/Select'
 import { ArtistsEditor, type ArtistEditAction } from '../ArtistsEditor'
@@ -63,9 +63,10 @@ export function TagsStep(props: {
   )
   const multiDisc = (): boolean =>
     isMultiDiscTracks([...currentTracks(), ...proposedTracks()])
+  // `deep` tracks one node per record instead of one per field read.
   const plan = createMemo(() => buildFilesRenamePlan({
-    release: props.state.tags.proposed ?? {},
-    files: props.state.files,
+    release: props.state.tags.proposed ? deep(props.state.tags.proposed) : {},
+    files: deep(props.state.files),
     naming: props.config.naming,
     sourceMedia: props.state.draft.sourceMedia,
     encoding: props.state.transcode.inspection?.encoding,
@@ -94,7 +95,7 @@ export function TagsStep(props: {
   const revertField = (field: string): void => {
     const currentValue = editorValue(props.state.tags.current ?? {}, field)
     const next = setFieldEditorValue(props.state.tags.proposed ?? {}, field, currentValue)
-    void window.gravlax.upload.updateTagsProposed(next)
+    void window.gravlax.upload.updateTagsProposed(snapshot(next))
   }
 
   const revertTrackField = (trackIndex: number, field: string): void => {
@@ -105,7 +106,7 @@ export function TagsStep(props: {
       field,
       currentValue
     )
-    void window.gravlax.upload.updateTagsProposed(next)
+    void window.gravlax.upload.updateTagsProposed(snapshot(next))
   }
 
   return (
@@ -204,7 +205,7 @@ export function TagsStep(props: {
           release={props.state.tags.proposed}
           onResolve={(next) => {
             props.onCancelEdit()
-            void window.gravlax.upload.updateTagsProposed(next)
+            void window.gravlax.upload.updateTagsProposed(snapshot(next))
           }}
         />
         <Show when={invalidDates().length > 0}>
@@ -226,8 +227,7 @@ export function TagsStep(props: {
         </Show>
         <div class="tags-table-wrap">
           <table
-            class="tags-table"
-            classList={{ 'tags-table-readonly': keepExistingTags() }}
+            class={['tags-table', { 'tags-table-readonly': keepExistingTags() }]}
           >
             <thead>
               <tr>
@@ -255,14 +255,14 @@ export function TagsStep(props: {
                     (props.state.tags.proposed?.artists ?? []).some(artistCreditIsPending)
                   return (
                     <tr
-                      classList={{
+                      class={{
                         'tags-row-changed': changed(),
                         'tags-row-separator-pending': separatorPending()
                       }}
                     >
                       <td class="tags-field-name">
                         <div class="tags-field-label">
-                          <span class="tags-change-slot" aria-hidden={!changed()}>
+                          <span class="tags-change-slot" aria-hidden={ariaBool(!changed())}>
                             <Show when={changed()}>
                               <StatusDot color="var(--accent)" title="Changed" />
                             </Show>
@@ -281,10 +281,9 @@ export function TagsStep(props: {
                                 when={editing()}
                                 fallback={
                                   <span
-                                    class="mono tags-proposed-value"
-                                    classList={{ 'tags-proposed-changed': changed() }}
+                                    class={['mono tags-proposed-value', { 'tags-proposed-changed': changed() }]}
                                     role={fieldEditable(field) ? 'button' : undefined}
-                                    tabIndex={fieldEditable(field) ? 0 : undefined}
+                                    tabindex={fieldEditable(field) ? 0 : undefined}
                                     onClick={() => props.onStartEdit(field)}
                                     onKeyDown={(event) => {
                                       if (!fieldEditable(field)) return
@@ -376,8 +375,7 @@ export function TagsStep(props: {
                       )}
                     </h4>
                     <table
-                      class="tags-table"
-                      classList={{ 'tags-table-readonly': keepExistingTags() }}
+                      class={['tags-table', { 'tags-table-readonly': keepExistingTags() }]}
                     >
                       <thead>
                         <tr>
@@ -406,14 +404,14 @@ export function TagsStep(props: {
                               (proposedTrack()?.artists ?? []).some(artistCreditIsPending)
                             return (
                               <tr
-                                classList={{
+                                class={{
                                   'tags-row-changed': changed(),
                                   'tags-row-separator-pending': separatorPending()
                                 }}
                               >
                                 <td class="tags-field-name">
                                   <div class="tags-field-label">
-                                    <span class="tags-change-slot" aria-hidden={!changed()}>
+                                    <span class="tags-change-slot" aria-hidden={ariaBool(!changed())}>
                                       <Show when={changed()}>
                                         <StatusDot color="var(--accent)" title="Changed" />
                                       </Show>
@@ -432,10 +430,9 @@ export function TagsStep(props: {
                                           when={editing()}
                                           fallback={
                                             <span
-                                              class="mono tags-proposed-value"
-                                              classList={{ 'tags-proposed-changed': changed() }}
+                                              class={['mono tags-proposed-value', { 'tags-proposed-changed': changed() }]}
                                               role="button"
-                                              tabIndex={0}
+                                              tabindex={0}
                                               onClick={() => props.onStartEdit(field, trackIndex)}
                                               onKeyDown={(event) => {
                                                 if (event.key === 'Enter' || event.key === ' ') {
@@ -505,8 +502,7 @@ export function TagsStep(props: {
         </label>
 
         <div
-          class="filename-edit-row"
-          classList={{ 'filename-edit-row-readonly': !props.state.files.apply.renameReleaseFolder }}
+          class={['filename-edit-row', { 'filename-edit-row-readonly': !props.state.files.apply.renameReleaseFolder }]}
         >
           <span class="mono filename-current">{props.state.files.apply.currentFolderName}</span>
           <Show when={props.state.files.apply.renameReleaseFolder}>
@@ -601,22 +597,20 @@ export function TagsStep(props: {
         <Show when={plan().files.length > 0}>
           <div class="filename-group-label">FLAC tracks</div>
           <div class="filename-list">
-            <Index each={plan().files}>
+            <For each={plan().files} keyed={false}>
               {(file) => {
                 const stateFile = () =>
                   props.state.files.apply.files.find((item) => item.id === file().id)
                 return (
                   <div
-                    class="filename-entry"
-                    classList={{
+                    class={['filename-entry', {
                       'filename-entry-readonly': !props.state.files.apply.renameTrackFiles
-                    }}
+                    }]}
                   >
                     <div
-                      class="filename-edit-row"
-                      classList={{
+                      class={['filename-edit-row', {
                         'filename-edit-row-readonly': !props.state.files.apply.renameTrackFiles
-                      }}
+                      }]}
                     >
                       <span class="mono filename-current">{file().currentPath}</span>
                       <Show when={props.state.files.apply.renameTrackFiles}>
@@ -655,7 +649,7 @@ export function TagsStep(props: {
                   </div>
                 )
               }}
-            </Index>
+            </For>
           </div>
         </Show>
 
@@ -665,16 +659,14 @@ export function TagsStep(props: {
             <For each={(plan().payloadFiles ?? []).filter((file) => !file.track)}>
               {(file) => (
                 <div
-                  class="filename-entry"
-                  classList={{
+                  class={['filename-entry', {
                     'filename-entry-readonly': !props.state.files.apply.renameTrackFiles
-                  }}
+                  }]}
                 >
                   <div
-                    class="filename-edit-row"
-                    classList={{
+                    class={['filename-edit-row', {
                       'filename-edit-row-readonly': !props.state.files.apply.renameTrackFiles
-                    }}
+                    }]}
                   >
                     <span class="mono filename-current">{file.currentPath}</span>
                     <Show when={props.state.files.apply.renameTrackFiles}>

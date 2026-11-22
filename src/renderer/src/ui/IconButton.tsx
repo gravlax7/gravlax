@@ -1,5 +1,5 @@
-import type { JSX } from 'solid-js'
-import { splitProps } from 'solid-js'
+import type { JSX } from '@solidjs/web'
+import { omit } from 'solid-js'
 import { Icon, type IconName } from './Icon'
 
 export function IconButton(
@@ -9,17 +9,17 @@ export function IconButton(
     size?: 'sm' | 'md'
   } & Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, 'children'>
 ) {
-  const [local, rest] = splitProps(props, ['icon', 'label', 'size', 'class'])
-  const size = () => local.size ?? 'md'
+  const rest = omit(props, 'icon', 'label', 'size', 'class')
+  const size = () => props.size ?? 'md'
   return (
     <button
       {...rest}
       type={rest.type ?? 'button'}
-      aria-label={local.label}
-      title={rest.title ?? local.label}
-      class={`ui-icon-btn ${size() === 'sm' ? 'ui-icon-btn-sm' : ''} ${local.class ?? ''}`}
+      aria-label={props.label}
+      title={rest.title ?? props.label}
+      class={['ui-icon-btn', { 'ui-icon-btn-sm': size() === 'sm' }, props.class]}
     >
-      <Icon name={local.icon} size={size() === 'sm' ? 14 : 16} />
+      <Icon name={props.icon} size={size() === 'sm' ? 14 : 16} />
     </button>
   )
 }

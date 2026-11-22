@@ -1,15 +1,15 @@
 import {
   For,
-  Index,
   Show,
   createEffect,
   createMemo,
   createSignal,
+  omit,
   onCleanup,
-  onMount,
-  splitProps,
-  type JSX
+  onSettled,
+  snapshot
 } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import type { Config } from '@shared/types/config'
 import type {
   HealthResult,
@@ -142,8 +142,8 @@ function BufferedInput(
     onBlur?: (value: string) => void
   }
 ) {
-  const [own, rest] = splitProps(props, ['value', 'onChange', 'onBlur'])
-  const buffer = createFocusBuffer(() => own.value, (value) => own.onChange(value))
+  const rest = omit(props, 'value', 'onChange', 'onBlur')
+  const buffer = createFocusBuffer(() => props.value, (value) => props.onChange(value))
   return (
     <input
       {...rest}
@@ -152,7 +152,7 @@ function BufferedInput(
       onInput={(e) => buffer.input(e.currentTarget.value)}
       onBlur={(e) => {
         buffer.blur()
-        own.onBlur?.(e.currentTarget.value)
+        props.onBlur?.(e.currentTarget.value)
       }}
     />
   )
@@ -216,24 +216,31 @@ function BbcodeDescriptionField(props: {
   let preview = createBbcodePreview(() => Promise.resolve(''), onPreviewChange)
   let activeKey = ''
 
-  createEffect(() => {
-    const trackerId = props.previewTrackerId
-    const key = props.previewKey
-    if (key !== activeKey) {
-      preview.dispose()
-      activeKey = key
-      setHtml('')
-      setPreviewError(null)
-      setLoading(false)
-      preview = createBbcodePreview(
-        (source) => trackerId
-          ? requestBbcodePreview(trackerId, key, source)
-          : Promise.reject(new Error('Select a destination to preview.')),
-        onPreviewChange
-      )
+  createEffect(
+    () => ({
+      trackerId: props.previewTrackerId,
+      key: props.previewKey,
+      source: previewSource(),
+      isEditing: editing(),
+      ready: props.previewReady
+    }),
+    ({ trackerId, key, source, isEditing, ready }) => {
+      if (key !== activeKey) {
+        preview.dispose()
+        activeKey = key
+        setHtml('')
+        setPreviewError(null)
+        setLoading(false)
+        preview = createBbcodePreview(
+          (text) => trackerId
+            ? requestBbcodePreview(trackerId, key, text)
+            : Promise.reject(new Error('Select a destination to preview.')),
+          onPreviewChange
+        )
+      }
+      if (trackerId) preview.update(source, isEditing, ready)
     }
-    if (trackerId) preview.update(previewSource(), editing(), props.previewReady)
-  })
+  )
 
   onCleanup(() => preview.dispose())
 
@@ -343,42 +350,50 @@ function CoverImageField(props: {
   const [byteSize, setByteSize] = createSignal<number | null>(null)
   const [loadFailed, setLoadFailed] = createSignal(false)
 
-  createEffect((hadCover: boolean | undefined) => {
-    const src = previewSrc()
-    setDimensions(null)
-    setByteSize(null)
-    setLoadFailed(false)
-    if (!src) {
-      setEditing(false)
-      return false
-    }
-    if (!hadCover) setEditing(false)
-
-    const img = new Image()
-    img.onload = () => {
-      if (previewSrc() !== src) return
-      setDimensions({ w: img.naturalWidth, h: img.naturalHeight })
-      setLoadFailed(false)
-    }
-    img.onerror = () => {
-      if (previewSrc() !== src) return
+  let hadCover = false
+  createEffect(
+    () => previewSrc(),
+    (src) => {
       setDimensions(null)
-      setLoadFailed(true)
+      setByteSize(null)
+      setLoadFailed(false)
+      if (!src) {
+        setEditing(false)
+        hadCover = false
+        return
+      }
+      if (!hadCover) setEditing(false)
+      hadCover = true
+
+      let stale = false
+      const img = new Image()
+      img.onload = () => {
+        if (stale) return
+        setDimensions({ w: img.naturalWidth, h: img.naturalHeight })
+        setLoadFailed(false)
+      }
+      img.onerror = () => {
+        if (stale) return
+        setDimensions(null)
+        setLoadFailed(true)
+      }
+      img.src = src
+
+      void fetch(src)
+        .then((res) => (res.ok ? res.blob() : null))
+        .then((blob) => {
+          if (stale || !blob) return
+          setByteSize(blob.size)
+        })
+        .catch(() => {
+          /* size is optional */
+        })
+
+      return () => {
+        stale = true
+      }
     }
-    img.src = src
-
-    void fetch(src)
-      .then((res) => (res.ok ? res.blob() : null))
-      .then((blob) => {
-        if (previewSrc() !== src || !blob) return
-        setByteSize(blob.size)
-      })
-      .catch(() => {
-        /* size is optional */
-      })
-
-    return true
-  })
+  )
 
   const showPreview = createMemo(() => hasCoverReady() && !editing() && !loadFailed())
   const meta = createMemo(() => {
@@ -532,12 +547,12 @@ export function UploadStep(props: {
     return artists.length > 0 ? artists : [{ name: '', role: DEFAULT_ARTIST_ROLE }]
   })
 
-  onMount(() => {
+  onSettled(() => {
     void window.gravlax.upload.ensureUploadReport()
   })
 
   const patch = (next: Parameters<typeof window.gravlax.upload.updateUploadReport>[0]): void => {
-    void window.gravlax.upload.updateUploadReport(next)
+    void window.gravlax.upload.updateUploadReport(snapshot(next))
   }
 
   const toggleTracker = (id: UploadTrackerId): void => {
@@ -664,7 +679,7 @@ export function UploadStep(props: {
                     </div>
                     <Show when={healthProblem(id)}>
                       {(problem) => (
-                        <div class="upload-report-tracker-status" classList={{ 'upload-report-tracker-status-warning': problem().kind === 'failed' }}>
+                        <div class={['upload-report-tracker-status', { 'upload-report-tracker-status-warning': problem().kind === 'failed' }]}>
                           <span class="upload-report-tracker-status-message">
                             <Show when={problem().kind === 'failed'}>
                               <Icon name="alert-triangle" size={16} />
@@ -737,7 +752,7 @@ export function UploadStep(props: {
             <span>Year</span>
             <BufferedInput
               class="mono"
-              inputMode="numeric"
+              inputmode="numeric"
               value={String(upload().year ?? '')}
               onChange={(value) => patch({ year: parseYear(value) })}
               onKeyDown={blurOnEnter}
@@ -812,7 +827,7 @@ export function UploadStep(props: {
             <span>Edition year</span>
             <BufferedInput
               class="mono"
-              inputMode="numeric"
+              inputmode="numeric"
               value={String(upload().remasterYear ?? '')}
               onChange={(value) => patch({ remasterYear: parseYear(value) })}
               onKeyDown={blurOnEnter}
@@ -966,7 +981,7 @@ export function UploadStep(props: {
         when={(upload().formats ?? []).length > 0}
         fallback={<Callout tone="warning">No format payloads prepared yet.</Callout>}
       >
-        <Index each={upload().formats ?? []}>
+        <For each={upload().formats ?? []} keyed={false}>
           {(format, index) => (
             <Card class="upload-report-format-card">
               <div class="upload-report-format-title">
@@ -1013,7 +1028,7 @@ export function UploadStep(props: {
               </div>
             </Card>
           )}
-        </Index>
+        </For>
       </Show>
 
       <Show when={!upload().error && upload().phase !== 'done' && blockedReason()}>

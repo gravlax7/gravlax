@@ -1,3 +1,5 @@
+import { ariaBool } from '../ui/aria'
+
 export function Toggle(props: {
   on: boolean
   onChange: (on: boolean) => void
@@ -9,7 +11,7 @@ export function Toggle(props: {
       type="button"
       role="switch"
       class={`toggle${props.on ? ' toggle-on' : ''}`}
-      aria-checked={props.on}
+      aria-checked={ariaBool(props.on)}
       aria-label={props.label}
       disabled={props.disabled}
       onClick={() => {

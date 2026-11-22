@@ -1,4 +1,4 @@
-import { For, Show, createSignal, onCleanup, onMount } from 'solid-js'
+import { For, Show, createSignal, onSettled, untrack } from 'solid-js'
 
 export function Modal(props: {
   title: string
@@ -8,7 +8,7 @@ export function Modal(props: {
   destructiveIndex?: number
   onChoose: (index: number) => void
 }) {
-  const [index, setIndex] = createSignal(props.defaultIndex ?? 0)
+  const [index, setIndex] = createSignal(untrack(() => props.defaultIndex ?? 0))
 
   const onKey = (event: KeyboardEvent): void => {
     if (event.key === 'ArrowDown') {
@@ -30,9 +30,9 @@ export function Modal(props: {
     }
   }
 
-  onMount(() => {
+  onSettled(() => {
     window.addEventListener('keydown', onKey, true)
-    onCleanup(() => window.removeEventListener('keydown', onKey, true))
+    return () => window.removeEventListener('keydown', onKey, true)
   })
 
   return (

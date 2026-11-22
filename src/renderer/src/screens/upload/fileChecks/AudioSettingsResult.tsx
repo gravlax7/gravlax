@@ -45,23 +45,20 @@ export function AudioSettingsResult(props: { audio: ReleaseAudioProfile }) {
                 bitDepthDiffers(track.bitDepth) || sampleRateDiffers(track.sampleRate)
               return (
                 <div
-                  class="file-checks-audio-row"
-                  classList={{ 'file-checks-audio-row-different': differs() }}
+                  class={['file-checks-audio-row', { 'file-checks-audio-row-different': differs() }]}
                 >
                   <span class="mono file-checks-audio-path">{track.relativePath}</span>
                   <span
-                    class="mono file-checks-audio-value"
-                    classList={{
+                    class={['mono file-checks-audio-value', {
                       'file-checks-audio-value-different': bitDepthDiffers(track.bitDepth)
-                    }}
+                    }]}
                   >
                     {track.bitDepth} bit
                   </span>
                   <span
-                    class="mono file-checks-audio-value"
-                    classList={{
+                    class={['mono file-checks-audio-value', {
                       'file-checks-audio-value-different': sampleRateDiffers(track.sampleRate)
-                    }}
+                    }]}
                   >
                     {(track.sampleRate / 1000).toFixed(1)} kHz
                   </span>
